@@ -1164,6 +1164,8 @@ export class VehicleManager {
         const absSpeed = Math.abs(vehicle.speed);
         const absSteerInput = Math.abs(steerInput);
 
+        let steerAmount = 0;
+
         if (handbrake && absSpeed > 8 && absSteerInput > 0.3 && vehicle.type !== 'boat') {
             // Initiate or continue drifting
             if (!this.isDrifting) {
@@ -1175,7 +1177,7 @@ export class VehicleManager {
             tractionMod *= 0.4; // Massively reduce traction
             // Extra oversteer during drift
             const driftBoost = 1.8;
-            const steerAmount = -vType.handling * steerInput * driftBoost * (1 + 10 / (absSpeed + 5)) * tractionMod;
+            steerAmount = -vType.handling * steerInput * driftBoost * (1 + 10 / (absSpeed + 5)) * tractionMod;
             vehicle.mesh.rotation.y += steerAmount * vehicle.speed * dt;
             vehicle.steerAngle = steerInput;
 
@@ -1201,7 +1203,7 @@ export class VehicleManager {
             this._spawnTireSmoke(vehicle);
         } else {
             // Normal steering
-            const steerAmount = -vType.handling * steerInput * (1 + 10 / (absSpeed + 5)) * tractionMod;
+            steerAmount = -vType.handling * steerInput * (1 + 10 / (absSpeed + 5)) * tractionMod;
             vehicle.mesh.rotation.y += steerAmount * vehicle.speed * dt;
             vehicle.steerAngle = steerInput;
 
