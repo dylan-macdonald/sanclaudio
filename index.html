@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>San Claudio</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Title Screen -->
+    <div id="title-screen">
+        <div id="title-skyline"></div>
+        <h1 id="title-text">SAN CLAUDIO</h1>
+        <p id="title-subtitle">A Claude Production</p>
+        <div id="title-buttons">
+            <button id="btn-continue" style="display:none;">Continue</button>
+            <button id="btn-newgame">New Game</button>
+        </div>
+        <p id="title-prompt">Press any key / Tap to start</p>
+    </div>
+
+    <!-- Game Canvas Container -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none;">
+        <!-- Top Left: Health + Armor -->
+        <div id="hud-health-container">
+            <div id="hud-health-bar"><div id="hud-health-fill"></div></div>
+            <div id="hud-armor-bar"><div id="hud-armor-fill"></div></div>
+        </div>
+
+        <!-- Top Center: Cash -->
+        <div id="hud-cash">$1,000</div>
+
+        <!-- Top Right: Wanted Stars -->
+        <div id="hud-wanted">
+            <span class="star">☆</span><span class="star">☆</span><span class="star">☆</span><span class="star">☆</span><span class="star">☆</span>
+        </div>
+
+        <!-- Top Right: Weather -->
+        <div id="hud-weather">CLEAR</div>
+
+        <!-- Bottom Left: Minimap -->
+        <div id="hud-minimap-container">
+            <canvas id="minimap-canvas" width="200" height="200"></canvas>
+        </div>
+
+        <!-- Bottom Right: Weapon -->
+        <div id="hud-weapon">
+            <div id="weapon-icon">FISTS</div>
+            <div id="weapon-ammo"></div>
+        </div>
+
+        <!-- Center: Mission Text -->
+        <div id="hud-mission-text"></div>
+
+        <!-- Center: Interaction Prompt -->
+        <div id="hud-interact-prompt"></div>
+
+        <!-- Bottom Center: Dialogue Box -->
+        <div id="hud-dialogue" style="display:none;">
+            <span id="dialogue-name"></span>
+            <span id="dialogue-text"></span>
+        </div>
+
+        <!-- Speed (driving) -->
+        <div id="hud-speed" style="display:none;">0 km/h</div>
+
+        <!-- FPS Counter -->
+        <div id="hud-fps" style="display:none;">60 FPS</div>
+
+        <!-- Wanted Escape Timer -->
+        <div id="hud-escape-timer" style="display:none;"></div>
+
+        <!-- Crosshair -->
+        <div id="crosshair" style="display:none;"></div>
+
+        <!-- District Name -->
+        <div id="hud-district"></div>
+
+        <!-- Radio Station (shown while driving) -->
+        <div id="hud-radio" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);text-align:center;font-family:'Courier New',monospace;pointer-events:none;z-index:100;text-shadow:1px 1px 3px black;"></div>
+
+        <!-- Lightning flash overlay -->
+        <div id="hud-flash" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:white;pointer-events:none;z-index:50;transition:opacity 0.1s;"></div>
+
+        <!-- Breath Meter (shown while swimming) -->
+        <div id="hud-breath" style="display:none;">
+            <div id="hud-breath-fill"></div>
+        </div>
+    </div>
+
+    <!-- Death Screen -->
+    <div id="death-screen" style="display:none;">
+        <h1 id="wasted-text">WASTED</h1>
+    </div>
+
+    <!-- Mission Complete -->
+    <div id="mission-complete" style="display:none;">
+        <h1 id="mission-complete-text">MISSION COMPLETE</h1>
+        <p id="mission-reward"></p>
+    </div>
+
+    <!-- Cutscene Letterbox -->
+    <div id="letterbox-top" class="letterbox"></div>
+    <div id="letterbox-bottom" class="letterbox"></div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" style="display:none;">
+        <h2>PAUSED</h2>
+        <button class="menu-btn" data-action="resume">Resume</button>
+        <button class="menu-btn" data-action="save">Save Game</button>
+        <button class="menu-btn" data-action="load">Load Game</button>
+        <button class="menu-btn" data-action="controls">Controls</button>
+        <button class="menu-btn" data-action="stats">Stats</button>
+        <button class="menu-btn" data-action="credits">Credits</button>
+        <button class="menu-btn" data-action="newgame">New Game</button>
+    </div>
+
+    <!-- Full Map Overlay -->
+    <div id="full-map" style="display:none;">
+        <canvas id="fullmap-canvas" width="800" height="800"></canvas>
+        <p id="map-hint">Click: waypoint | Scroll: zoom | Right-drag: pan | M: close</p>
+    </div>
+
+    <!-- Weapon Wheel -->
+    <div id="weapon-wheel" style="display:none;">
+        <canvas id="weapon-wheel-canvas" width="400" height="400"></canvas>
+    </div>
+
+    <!-- Dev Console -->
+    <div id="dev-console" style="display:none;">
+        <div id="console-output"></div>
+        <input id="console-input" type="text" placeholder="Enter command..." autocomplete="off">
+    </div>
+
+    <!-- Touch Controls -->
+    <div id="touch-controls" style="display:none;">
+        <div id="touch-joystick-zone">
+            <div id="touch-joystick-base">
+                <div id="touch-joystick-thumb"></div>
+            </div>
+        </div>
+        <div id="touch-buttons">
+            <button class="touch-btn" id="touch-jump">JUMP</button>
+            <button class="touch-btn" id="touch-attack">HIT</button>
+            <button class="touch-btn" id="touch-interact">ACT</button>
+            <button class="touch-btn" id="touch-vehicle">CAR</button>
+            <button class="touch-btn" id="touch-grenade">GREN</button>
+            <button class="touch-btn" id="touch-weapon">WEAP</button>
+            <button class="touch-btn" id="touch-map">MAP</button>
+        </div>
+    </div>
+
+    <!-- Controls Help -->
+    <div id="controls-help" style="display:none;">
+        <h2>CONTROLS</h2>
+        <div class="controls-section">
+            <h3>On Foot</h3>
+            <p>WASD - Move | Mouse - Look | Shift - Sprint | Space - Jump</p>
+            <p>E - Interact | Left Click - Attack | Right Click - Aim</p>
+            <p>Q - Cycle Weapon | G - Grenade | C - Crouch</p>
+        </div>
+        <div class="controls-section">
+            <h3>Driving</h3>
+            <p>W/S - Accelerate/Brake | A/D - Steer | E - Exit Vehicle | R - Radio | Space - Handbrake/Drift</p>
+        </div>
+        <div class="controls-section">
+            <h3>General</h3>
+            <p>M - Map | Tab - Minimap Zoom | Esc - Pause | ` - Console</p>
+        </div>
+        <button class="menu-btn" id="close-controls">Close</button>
+    </div>
+
+    <!-- Stats Screen -->
+    <div id="stats-screen" style="display:none;">
+        <h2>STATISTICS</h2>
+        <div id="stats-content"></div>
+        <button class="menu-btn" id="close-stats">Close</button>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div id="confirm-dialog" style="display:none;">
+        <p id="confirm-text"></p>
+        <button class="menu-btn" id="confirm-yes">Yes</button>
+        <button class="menu-btn" id="confirm-no">No</button>
+    </div>
+
+    <!-- Credits -->
+    <div id="credits-screen" style="display:none;">
+        <div id="credits-content"></div>
+    </div>
+
+    <!-- Loading screen -->
+    <div id="loading-screen">
+        <h2>Loading San Claudio...</h2>
+        <div id="loading-bar"><div id="loading-fill"></div></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

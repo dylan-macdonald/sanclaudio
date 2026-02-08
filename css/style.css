@@ -1,0 +1,816 @@
+/* Fonts */
+@font-face {
+    font-family: 'Pricedown';
+    src: url('../fonts/pricedown.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    overflow: hidden;
+    background: #000;
+    font-family: 'Rajdhani', sans-serif;
+    color: #fff;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+canvas { display: block; }
+
+/* ================================================================
+   GAME CONTAINER
+   ================================================================ */
+#game-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+}
+#game-canvas { width: 100%; height: 100%; }
+
+/* ================================================================
+   LOADING SCREEN
+   ================================================================ */
+#loading-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+#loading-screen h2 {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 2rem;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.7);
+}
+#loading-bar {
+    width: 300px; height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+#loading-fill {
+    width: 0%; height: 100%;
+    background: #fff;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* ================================================================
+   TITLE SCREEN
+   ================================================================ */
+#title-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 900;
+    background: linear-gradient(170deg, #0c111d 0%, #111827 40%, #0f1629 100%);
+}
+#title-text {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: clamp(3rem, 8vw, 7rem);
+    color: #fff;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 0 60px rgba(255,255,255,0.05);
+    letter-spacing: 6px;
+    margin-bottom: 0.1em;
+}
+#title-subtitle {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 3em;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+#title-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 3em;
+}
+#title-buttons button {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 10px 48px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 2px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+}
+#title-buttons button:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border-color: rgba(255,255,255,0.15);
+}
+#title-prompt {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    animation: pulse 3s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.6; }
+}
+
+/* ================================================================
+   HUD — GTA-style, top-right stack
+   ================================================================ */
+#hud {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 10;
+}
+#hud > * { pointer-events: auto; }
+
+/* -- Top-Right Stack: Health, Armor, Cash, Wanted -- */
+#hud-health-container {
+    position: absolute;
+    top: 16px; right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-end;
+}
+#hud-health-bar, #hud-armor-bar {
+    width: 160px; height: 6px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 1px;
+    overflow: hidden;
+}
+#hud-health-fill {
+    width: 100%; height: 100%;
+    background: #d94040;
+    transition: width 0.3s ease;
+}
+#hud-armor-fill {
+    width: 0%; height: 100%;
+    background: #4488cc;
+    transition: width 0.3s ease;
+}
+
+#hud-cash {
+    position: absolute;
+    top: 38px; right: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #7ec87e;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    text-align: right;
+}
+
+#hud-wanted {
+    position: absolute;
+    top: 58px; right: 16px;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+#hud-wanted .star {
+    color: rgba(255, 255, 255, 0.15);
+    transition: color 0.3s;
+}
+#hud-wanted .star.active {
+    color: #ebc944;
+    text-shadow: 0 0 6px rgba(235, 201, 68, 0.5);
+}
+#hud-wanted.flashing .star.active {
+    animation: starFlash 0.5s ease-in-out infinite alternate;
+}
+@keyframes starFlash {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
+}
+
+/* -- Weather indicator -- */
+#hud-weather {
+    position: absolute;
+    top: 80px; right: 16px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* -- Minimap -- */
+#hud-minimap-container {
+    position: absolute;
+    bottom: 16px; left: 16px;
+    width: 180px; height: 180px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.65);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+#minimap-canvas { width: 100%; height: 100%; }
+
+/* -- Weapon Display -- */
+#hud-weapon {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+}
+#weapon-icon {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+#weapon-ammo {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+}
+
+/* -- Mission Text -- */
+#hud-mission-text {
+    position: absolute;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 2rem;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+#hud-mission-text.visible { opacity: 1; }
+
+/* -- Interact Prompt -- */
+#hud-interact-prompt {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    padding: 6px 18px;
+    letter-spacing: 1px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+#hud-interact-prompt.visible { opacity: 1; }
+
+/* -- Dialogue Box -- */
+#hud-dialogue {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 650px;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+#dialogue-name {
+    font-weight: 700;
+    margin-right: 8px;
+}
+#dialogue-text {
+    color: rgba(255,255,255,0.85);
+}
+
+/* -- Speed -- */
+#hud-speed {
+    position: absolute;
+    bottom: 60px;
+    left: 210px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* -- FPS -- */
+#hud-fps {
+    position: absolute;
+    top: 100px; right: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.25);
+}
+
+/* -- Escape Timer -- */
+#hud-escape-timer {
+    position: absolute;
+    top: 80px; right: 180px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #5599dd;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* -- Crosshair -- */
+#crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+#crosshair.dot::after {
+    content: '';
+    display: block;
+    width: 3px; height: 3px;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+}
+#crosshair.circle::after {
+    content: '';
+    display: block;
+    width: 22px; height: 22px;
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+}
+#crosshair.cross::before, #crosshair.cross::after {
+    content: '';
+    display: block;
+    position: absolute;
+    background: rgba(255,255,255,0.5);
+}
+#crosshair.cross::before {
+    width: 14px; height: 1.5px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+}
+#crosshair.cross::after {
+    width: 1.5px; height: 14px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* -- District Name -- */
+#hud-district {
+    position: absolute;
+    bottom: 200px; left: 16px;
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.5);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+#hud-district.visible { opacity: 1; }
+
+/* -- Radio Station -- */
+#hud-radio {
+    position: absolute;
+    bottom: 60px; left: 210px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255,200,100,0.6);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+}
+
+/* -- Breath Meter (swimming) -- */
+#hud-breath {
+    position: absolute;
+    top: 32px; right: 16px;
+    width: 120px; height: 5px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 1px;
+    overflow: hidden;
+}
+#hud-breath-fill {
+    width: 100%; height: 100%;
+    background: #44aadd;
+    transition: width 0.3s ease;
+}
+
+/* ================================================================
+   DEATH SCREEN
+   ================================================================ */
+#death-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(80, 0, 0, 0.25);
+    z-index: 50;
+}
+#wasted-text {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    color: #b82020;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.5), 0 0 40px rgba(180,30,30,0.3);
+    opacity: 0;
+    transform: scale(1.2);
+    animation: wastedIn 0.4s ease-out 0.1s forwards;
+}
+@keyframes wastedIn {
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ================================================================
+   MISSION COMPLETE
+   ================================================================ */
+#mission-complete {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    pointer-events: none;
+}
+#mission-complete-text {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: #e8c840;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 30px rgba(232,200,64,0.15);
+}
+#mission-reward {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.2rem;
+    color: #7ec87e;
+    margin-top: 8px;
+}
+
+/* ================================================================
+   LETTERBOX
+   ================================================================ */
+.letterbox {
+    position: fixed;
+    left: 0; width: 100vw;
+    height: 0;
+    background: #000;
+    z-index: 40;
+    transition: height 0.4s ease;
+}
+#letterbox-top { top: 0; }
+#letterbox-bottom { bottom: 0; }
+.letterbox.active { height: 12vh; }
+
+/* ================================================================
+   PAUSE MENU
+   ================================================================ */
+#pause-menu {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(0,0,0,0.7);
+    z-index: 60;
+}
+#pause-menu h2 {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 3rem;
+    margin-bottom: 24px;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.8);
+}
+.menu-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 10px 40px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 2px;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 200px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.menu-btn:hover, .menu-btn:focus {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    outline: none;
+}
+
+/* ================================================================
+   FULL MAP
+   ================================================================ */
+#full-map {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.85);
+    z-index: 55;
+}
+#fullmap-canvas {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    max-width: 90vw; max-height: 80vh;
+}
+#map-hint {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.25);
+    margin-top: 10px;
+    letter-spacing: 1px;
+}
+
+/* ================================================================
+   WEAPON WHEEL
+   ================================================================ */
+#weapon-wheel {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.35);
+    z-index: 55;
+}
+
+/* ================================================================
+   DEV CONSOLE
+   ================================================================ */
+#dev-console {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 180px;
+    background: rgba(8,10,16,0.92);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+}
+#console-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    color: rgba(255,255,255,0.5);
+}
+#console-output .console-line {
+    margin-bottom: 2px;
+    opacity: 1;
+    transition: opacity 3s ease;
+}
+#console-output .console-line.fading { opacity: 0; }
+#console-input {
+    background: rgba(255,255,255,0.03);
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: #5a8;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    outline: none;
+}
+
+/* ================================================================
+   TOUCH CONTROLS
+   ================================================================ */
+#touch-controls {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 15;
+}
+#touch-joystick-zone {
+    position: absolute;
+    bottom: 30px; left: 30px;
+    width: 150px; height: 150px;
+    pointer-events: auto;
+}
+#touch-joystick-base {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+}
+#touch-joystick-thumb {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+}
+#touch-buttons {
+    position: absolute;
+    bottom: 30px; right: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 180px;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+.touch-btn {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.touch-btn:active {
+    background: rgba(255,255,255,0.15);
+}
+
+/* ================================================================
+   OVERLAY SCREENS (Controls, Stats)
+   ================================================================ */
+#controls-help, #stats-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(0,0,0,0.8);
+    z-index: 65;
+}
+#controls-help h2, #stats-screen h2 {
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.7);
+}
+.controls-section { text-align: center; margin-bottom: 10px; }
+.controls-section h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #e8c840;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.controls-section p {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 4px;
+}
+#stats-content {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 2;
+    text-align: left;
+    max-width: 400px;
+    color: rgba(255,255,255,0.6);
+}
+
+/* ================================================================
+   CONFIRM DIALOG
+   ================================================================ */
+#confirm-dialog {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10,10,18,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 70;
+}
+#confirm-text {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 20px;
+}
+#confirm-dialog .menu-btn {
+    margin: 0 8px;
+    min-width: 80px;
+    padding: 8px 24px;
+}
+
+/* ================================================================
+   CREDITS
+   ================================================================ */
+#credits-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.95);
+    z-index: 80;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+}
+#credits-content {
+    text-align: center;
+    font-family: 'Pricedown', 'Rajdhani', sans-serif;
+    font-size: 1.4rem;
+    line-height: 2.5;
+    color: rgba(255,255,255,0.6);
+    animation: creditsScroll 30s linear forwards;
+    padding-bottom: 100vh;
+}
+@keyframes creditsScroll {
+    from { transform: translateY(100vh); }
+    to { transform: translateY(-100%); }
+}
+
+/* ================================================================
+   NPC SUBTITLE
+   ================================================================ */
+.npc-subtitle {
+    position: absolute;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    background: rgba(0,0,0,0.55);
+    padding: 2px 10px;
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 11;
+}
+.npc-subtitle.visible { opacity: 1; }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 768px) {
+    #title-text { font-size: 3.5rem; }
+    #hud-minimap-container { width: 130px; height: 130px; }
+    #wasted-text { font-size: 3rem; }
+    #mission-complete-text { font-size: 2.5rem; }
+    #hud-health-bar, #hud-armor-bar { width: 120px; }
+}
