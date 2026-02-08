@@ -729,9 +729,11 @@ export class VehicleManager {
 
                     // Store vehicle data
                     let vehicleColor = 0xcccccc;
+                    let foundColor = false;
                     vehicle.mesh.traverse(child => {
-                        if (child.isMesh && child.material && child.material.color && !vehicleColor) {
+                        if (!foundColor && child.isMesh && child.material && child.material.color) {
                             vehicleColor = child.material.color.getHex();
+                            foundColor = true;
                         }
                     });
                     // Only store if not already at max (5)

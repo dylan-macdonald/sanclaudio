@@ -58,15 +58,13 @@ export class CameraController {
         // Cutscene camera override
         if (this.overridePosition && this.overrideLookAt) {
             this.camera.position.lerp(this.overridePosition, dt * 3);
-            const lookTarget = new THREE.Vector3();
-            lookTarget.lerpVectors(
-                this.camera.getWorldDirection(new THREE.Vector3()).add(this.camera.position),
-                this.overrideLookAt,
-                dt * 3
-            );
-            this.camera.lookAt(this.overrideLookAt);
+            // Smoothly interpolate look target for cinematic transitions
+            if (!this._cutsceneLookTarget) this._cutsceneLookTarget = this.overrideLookAt.clone();
+            this._cutsceneLookTarget.lerp(this.overrideLookAt, dt * 3);
+            this.camera.lookAt(this._cutsceneLookTarget);
             return;
         }
+        this._cutsceneLookTarget = null;
 
         // Camera rotation from input
         this.yaw -= input.lookX * dt * 2;

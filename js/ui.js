@@ -171,6 +171,13 @@ export class UIManager {
         const speedEl = document.getElementById('hud-speed');
         if (!player.inVehicle) {
             speedEl.style.display = 'none';
+        } else {
+            // Show speed for normal (non-drift) driving
+            if (!veh.isDrifting) {
+                const speed = player.currentVehicle ? Math.abs(Math.round(player.currentVehicle.speed * 3.6)) : 0;
+                speedEl.textContent = speed + ' km/h';
+                speedEl.style.display = 'block';
+            }
         }
 
         // FPS
@@ -493,13 +500,11 @@ export class UIManager {
     }
 
     _getDistrictName(x, z) {
-        // District boundaries based on world.js
-        if (x > 100 && z < -100) return 'The Strip';
-        if (x > 100 && z > 100) return 'The Docks';
-        if (x < -100 && z < -100) return 'Hillside';
-        if (x < -100 && z > 100) return 'Industrial';
-        if (Math.abs(x) < 120 && Math.abs(z) < 120) return 'Downtown';
-        if (x > 200 && Math.abs(z) < 100) return 'Northshore';
+        // Use world.js getDistrictName if available
+        const world = this.game.systems.world;
+        if (world && world.getDistrictName) {
+            return world.getDistrictName(x, z);
+        }
         return '';
     }
 
@@ -1078,7 +1083,7 @@ export class UIManager {
 
             <h2 style="color:#e8c840;margin-bottom:0.5em;">WORLD DESIGN</h2>
             <p>Procedural City Generation</p>
-            <p>5 Unique Districts</p>
+            <p>9 Unique Districts</p>
             <p>Dynamic Weather & Day/Night</p>
             <br>
 
@@ -1157,6 +1162,11 @@ export class UIManager {
             this._clothingShopEl.style.display = 'none';
         }
         this.game.systems.input._clothingShopBlock = false;
+        // Clean up escape key listener
+        if (this._csEscHandler) {
+            document.removeEventListener('keydown', this._csEscHandler);
+            this._csEscHandler = null;
+        }
     }
 
     _drawClothingShopUI(storeName) {
@@ -1289,14 +1299,14 @@ export class UIManager {
             this.game.systems.audio.playPickup();
         });
 
-        // Close on Escape key
-        const escHandler = (e) => {
+        // Close on Escape key (store handler so closeClothingShop can clean it up)
+        if (this._csEscHandler) document.removeEventListener('keydown', this._csEscHandler);
+        this._csEscHandler = (e) => {
             if (e.code === 'Escape' && this._clothingShopOpen) {
                 this.closeClothingShop();
-                document.removeEventListener('keydown', escHandler);
             }
         };
-        document.addEventListener('keydown', escHandler);
+        document.addEventListener('keydown', this._csEscHandler);
     }
 
     showMissionComplete(title, reward) {

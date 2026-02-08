@@ -291,6 +291,12 @@ export class Player {
             return;
         }
 
+        // Reset swim tilt if we just left water
+        if (wasSwimming) {
+            this.model.rotation.x = 0;
+            this.model.scale.y = 1;
+        }
+
         // Movement
         const camera = this.game.systems.camera;
         const forward = camera.getForwardDirection();
@@ -543,6 +549,12 @@ export class Player {
         if (this.currentVehicle) {
             this.position.copy(this.currentVehicle.mesh.position);
             this.model.visible = this.currentVehicle.type === 'motorcycle';
+
+            // E key to exit vehicle
+            const input = this.game.systems.input;
+            if (input.justPressed('interact')) {
+                this.exitVehicle();
+            }
         }
     }
 
@@ -718,10 +730,13 @@ export class Player {
     _playFallbackPunch() {
         this._punchPhase = 'windup';
         this._punchTimer = 0;
+        this._punchLastTime = performance.now();
 
         const animate = () => {
-            const dt = 1 / 60;
-            this._punchTimer += dt * 1000;
+            const now = performance.now();
+            const dt = now - this._punchLastTime;
+            this._punchLastTime = now;
+            this._punchTimer += dt;
 
             if (this._punchPhase === 'windup' && this._punchTimer < 100) {
                 if (this.parts.rightUpperArm) {
@@ -875,6 +890,9 @@ export class Player {
                 vehicle._carjackInProgress = false;
                 this._carjacking = false;
 
+                // Don't enter vehicle if player died/respawned during carjack
+                if (this.isDead) return;
+
                 this.inVehicle = true;
                 this.currentVehicle = vehicle;
                 vehicle.occupied = true;
@@ -909,8 +927,8 @@ export class Player {
         const angle = this.currentVehicle.mesh.rotation.y;
         this.position.set(
             vPos.x + Math.cos(angle) * 2.5,
-            0,
-            vPos.z + Math.sin(angle) * 2.5
+            Math.max(0, vPos.y),
+            vPos.z - Math.sin(angle) * 2.5
         );
 
         this.currentVehicle.occupied = false;
@@ -1269,13 +1287,16 @@ export class Player {
     }
 
     die() {
+        if (this.isDead) return; // Prevent double-death
         this.isDead = true;
 
         this.game.systems.ragdoll.triggerPlayerRagdoll(this);
 
         setTimeout(() => {
+            if (!this.isDead) return; // Already respawned
             this.game.setState('dead');
-            document.getElementById('death-screen').style.display = 'flex';
+            const deathScreen = document.getElementById('death-screen');
+            if (deathScreen) deathScreen.style.display = 'flex';
 
             setTimeout(() => {
                 this.respawn();
@@ -1288,13 +1309,33 @@ export class Player {
         this.health = this.maxHealth;
         this.cash = Math.max(0, this.cash - 100);
 
+        // Reset vehicle state (prevents soft-lock if died in vehicle)
+        if (this.inVehicle && this.currentVehicle) {
+            this.currentVehicle.occupied = false;
+            this.currentVehicle.driver = null;
+        }
+        this.inVehicle = false;
+        this.currentVehicle = null;
+        this._carjacking = false;
+
+        // Reset swimming/drowning state
+        this.isSwimming = false;
+        this._drownTimer = 0;
+
+        // Reset phone/wardrobe
+        this.phoneOpen = false;
+        this.wardrobeOpen = false;
+
         this.position.set(0, 0, 0);
         this.velocity.set(0, 0, 0);
         this.model.visible = true;
         this.model.position.copy(this.position);
+        this.model.scale.y = 1;
+        this.model.rotation.x = 0;
 
         this.game.setState('playing');
-        document.getElementById('death-screen').style.display = 'none';
+        const deathScreen = document.getElementById('death-screen');
+        if (deathScreen) deathScreen.style.display = 'none';
 
         this.game.systems.wanted.setLevel(0);
     }

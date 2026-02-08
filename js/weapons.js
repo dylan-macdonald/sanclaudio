@@ -130,6 +130,7 @@ export class WeaponManager {
             const dist = player.position.distanceTo(shop.position);
             if (dist < 4) {
                 const promptEl = document.getElementById('hud-interact-prompt');
+                if (!promptEl) return;
                 promptEl.textContent = `Press E to browse ${shop.name}`;
                 promptEl.classList.add('visible');
 
@@ -443,6 +444,10 @@ export class WeaponManager {
         } else if (def.type === 'special') {
             if (weapon.ammo <= 0 && weapon.ammo !== Infinity) return;
             this.atomizerAttack(def, weapon);
+        } else if (def.type === 'thrown') {
+            // Thrown weapons use the dedicated grenade key, not attack button
+            this.attackCooldown = 0; // Don't lock out the player
+            return;
         }
     }
 
@@ -497,9 +502,15 @@ export class WeaponManager {
                 const dot = forward.dot(toNPC);
                 if (dot > 0.3) {
                     npc.takeDamage(damage);
-                    // Knife from behind = 1-hit kill
-                    if (def === this.weaponDefs.knife && dot < 0.5) {
-                        npc.takeDamage(999);
+                    // Knife backstab = 1-hit kill (player behind the NPC)
+                    if (def === this.weaponDefs.knife) {
+                        const npcForward = new THREE.Vector3(
+                            Math.sin(npc.mesh.rotation.y), 0, Math.cos(npc.mesh.rotation.y)
+                        );
+                        // If player's attack direction aligns with NPC's facing (both looking same way), it's from behind
+                        if (forward.dot(npcForward) > 0.5) {
+                            npc.takeDamage(999);
+                        }
                     }
                     // Final combo hit knockback
                     if (combo && this.comboCount === combo.maxHits - 1) {
@@ -941,7 +952,7 @@ export class WeaponManager {
                         }
 
                         this.removeProjectile(i);
-                        return;
+                        break; // Break inner NPC loop, continue processing other projectiles
                     }
                 }
             }
@@ -1121,6 +1132,7 @@ export class WeaponManager {
         const weapon = player.getCurrentWeapon();
         const def = this.weaponDefs[weapon.id];
         const crosshair = document.getElementById('crosshair');
+        if (!crosshair) return;
 
         if (def && def.crosshair && !player.inVehicle) {
             crosshair.style.display = 'block';

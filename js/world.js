@@ -1151,7 +1151,7 @@ export class World {
             const rampShape = new THREE.Shape();
             rampShape.moveTo(0, 0);
             rampShape.lineTo(6, 0);
-            rampShape.lineTo(6, 0);
+            rampShape.lineTo(6, 3);
             rampShape.lineTo(0, 3);
             rampShape.lineTo(0, 0);
 
@@ -1686,7 +1686,7 @@ export class World {
                     intersectionX: pos.x,
                     intersectionZ: pos.z,
                     lights: lightMeshes, // [red, yellow, green]
-                    axis: 'ns' // This light faces NS traffic
+                    axis: (corner.x > pos.x) ? 'ns' : 'ew' // Opposite corners face different traffic
                 });
             }
         }
@@ -1706,14 +1706,16 @@ export class World {
             for (const tl of this.trafficLights) {
                 const [red, yellow, green] = tl.lights;
                 // Phase 0: NS green, Phase 1: NS yellow, Phase 2: EW green, Phase 3: EW yellow
-                // These lights are all facing NS traffic
-                switch (this._trafficLightPhase) {
-                    case 0: // NS green
+                // Invert phase for EW-facing lights
+                const isNS = tl.axis === 'ns';
+                const effectivePhase = isNS ? this._trafficLightPhase : (this._trafficLightPhase + 2) % 4;
+                switch (effectivePhase) {
+                    case 0: // green
                         red.material.opacity = 0.2;
                         yellow.material.opacity = 0.2;
                         green.material.opacity = 1.0;
                         break;
-                    case 1: // NS yellow
+                    case 1: // yellow
                         red.material.opacity = 0.2;
                         yellow.material.opacity = 1.0;
                         green.material.opacity = 0.2;
@@ -1786,9 +1788,11 @@ export class World {
     }
 
     isInWater(x, z) {
-        // Water plane centered at (300, 300) with size 600x600
-        // So covers x: 0 to 600, z: 0 to 600
-        return x >= 0 && x <= 600 && z >= 0 && z <= 600;
+        // Water surrounds the island — only count as water if outside the landmass
+        // The island extends from -halfMap to +halfMap (400)
+        const margin = this.halfMap - 20; // 380 — slight inset for shore
+        return (x > margin || x < -margin || z > margin || z < -margin) &&
+               (x >= 0 && x <= 600 && z >= 0 && z <= 600);
     }
 
     getWaterLevel() {

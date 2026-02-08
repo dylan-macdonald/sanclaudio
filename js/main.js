@@ -642,10 +642,12 @@ class Game {
         if (weather === 'storm') {
             if (!this._lastLightningTime) this._lastLightningTime = 0;
             if (!this._lightningBoltMesh) this._lightningBoltMesh = null;
+            if (!this._nextLightningInterval) this._nextLightningInterval = 6 + Math.random() * 12;
             const now = this.elapsedTime;
 
-            if (now - this._lastLightningTime > 6 + Math.random() * 12) {
+            if (now - this._lastLightningTime > this._nextLightningInterval) {
                 this._lastLightningTime = now;
+                this._nextLightningInterval = 6 + Math.random() * 12; // Set next interval once
                 this._triggerLightningStrike();
             }
 
@@ -681,8 +683,8 @@ class Game {
         const dist = Math.sqrt((boltX - playerPos.x) ** 2 + (boltZ - playerPos.z) ** 2);
 
         // Multi-flash sequence (2-3 quick flashes)
-        const origAmbient = this.ambientLight.intensity;
-        const origSun = this.sunLight.intensity;
+        // Use a flag instead of capturing stale light values — updateDayNight will restore correct values
+        this._lightningFlashing = true;
         const flashCount = 2 + Math.floor(Math.random() * 2);
 
         for (let f = 0; f < flashCount; f++) {
@@ -704,9 +706,8 @@ class Game {
                 }
 
                 setTimeout(() => {
-                    this.ambientLight.intensity = origAmbient;
-                    this.sunLight.intensity = origSun;
-                    this.sunLight.color.setHex(0xfff5e6);
+                    // Let updateDayNight restore correct values on next frame
+                    this._lightningFlashing = false;
                 }, 60);
             }, delay);
         }
@@ -824,21 +825,29 @@ class Game {
         gain.connect(audio.masterGain || ctx.destination);
         src.start(now);
         src.stop(now + duration);
+
+        // Disconnect nodes after playback to prevent audio graph leak
+        src.onended = () => {
+            src.disconnect();
+            filter.disconnect();
+            gain.disconnect();
+        };
     }
 
     loop() {
         requestAnimationFrame(() => this.loop());
 
-        this.deltaTime = Math.min(this.clock.getDelta(), 0.05) * this.timeScale; // Cap delta, apply time scale
+        const rawDelta = Math.min(this.clock.getDelta(), 0.05);
+        this.deltaTime = rawDelta * this.timeScale; // Cap delta, apply time scale
         this.elapsedTime += this.deltaTime;
         this.frameCount++;
 
-        // FPS counter
-        this.fpsTimer += this.deltaTime;
-        if (this.fpsTimer >= 0.5) {
-            this.fps = Math.round(this.frameCount / this.fpsTimer);
+        // FPS counter (use raw unscaled delta so it's accurate regardless of timeScale)
+        this._fpsTimerRaw = (this._fpsTimerRaw || 0) + rawDelta;
+        if (this._fpsTimerRaw >= 0.5) {
+            this.fps = Math.round(this.frameCount / this._fpsTimerRaw);
             this.frameCount = 0;
-            this.fpsTimer = 0;
+            this._fpsTimerRaw = 0;
         }
 
         // Always poll input
@@ -938,4 +947,8 @@ export { GameState };
 // Initialize
 const game = new Game();
 window.game = game; // For dev console access
-game.init();
+game.init().catch(err => {
+    console.error('Game initialization failed:', err);
+    const loadingEl = document.getElementById('loading-screen');
+    if (loadingEl) loadingEl.innerHTML = '<div style="color:red;padding:20px;">Failed to load game. Check console for details.</div>';
+});

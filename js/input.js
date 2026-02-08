@@ -310,6 +310,7 @@ export class InputManager {
         this.actions.horn = this.keys['KeyH'] || false;
         this.actions.radio = this.keys['KeyR'] || false;
         this.actions.pause = this.keys['Escape'] || false;
+        this.actions.cancel = this.keys['Escape'] || this.keys['Backspace'] || false;
         this.actions.map = this.keys['KeyM'] || this.touchButtons.map || false;
         this.actions.console = this.keys['Backquote'] || false;
         this.actions.minimapZoom = this.keys['Tab'] || false;
