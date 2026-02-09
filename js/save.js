@@ -82,7 +82,11 @@ export class SaveManager {
                 player.health = data.player.health;
                 player.armor = data.player.armor;
                 player.cash = data.player.cash;
-                player.weapons = data.player.weapons;
+                player.weapons = data.player.weapons.map(w => ({
+                    ...w,
+                    ammo: w.ammo === null ? Infinity : w.ammo,
+                    clipSize: w.clipSize === null ? Infinity : w.clipSize
+                }));
                 player.currentWeaponIndex = data.player.currentWeaponIndex;
 
                 // Restore appearance
@@ -123,10 +127,10 @@ export class SaveManager {
             }
 
             // Restore S&F progress
-            if (data.sfCompleted && missions.sfCompleted !== undefined) {
+            if (data.sfCompleted) {
                 missions.sfCompleted = data.sfCompleted;
             }
-            if (data.rampageCompleted && missions.rampageCompleted !== undefined) {
+            if (data.rampageCompleted) {
                 missions.rampageCompleted = new Set(data.rampageCompleted);
             }
 

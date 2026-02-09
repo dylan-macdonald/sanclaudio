@@ -442,6 +442,7 @@ export class MissionManager {
 
         this.missionActive = false;
         this.completedMissions.add(mission.id);
+        this.game.systems.ui.waypoint = null;
         this.game.stats.missionsComplete++;
 
         // Play outro dialogue
@@ -485,6 +486,7 @@ export class MissionManager {
 
     failMission() {
         this.missionActive = false;
+        this.game.systems.ui.waypoint = null;
         this.game.systems.ui.showMissionText('MISSION FAILED', 3);
 
         // Re-show marker
@@ -863,8 +865,8 @@ export class MissionManager {
 
         if (!sm.targetNPC.alive) {
             // Target killed
-            if (sm.targetMarker) {
-                this.game.scene.remove(sm.targetMarker);
+            if (sm.targetMarker && sm.targetMarker.parent) {
+                sm.targetMarker.parent.remove(sm.targetMarker);
             }
             this._completeSideMission();
         }
@@ -1965,6 +1967,24 @@ export class MissionManager {
     }
 
     _cleanupRampage() {
+        // Restore original weapons
+        const player = this.game.systems.player;
+        if (this._rampageOrigWeapons) {
+            player.weapons = this._rampageOrigWeapons;
+            player.currentWeaponIndex = this._rampageOrigIndex;
+            this._rampageOrigWeapons = null;
+        }
+
+        // Despawn rampage enemies
+        if (this.activeRampage && this.activeRampage.enemies) {
+            for (const enemy of this.activeRampage.enemies) {
+                if (enemy.alive && enemy.mesh) {
+                    enemy.health = 0;
+                    enemy.alive = false;
+                }
+            }
+        }
+
         const timerEl = document.getElementById('hud-escape-timer');
         if (timerEl) timerEl.style.display = 'none';
         this.activeRampage = null;
@@ -1993,6 +2013,11 @@ export class MissionManager {
             this.game.scene.remove(sm.dropoffMesh);
             sm.dropoffMesh.geometry.dispose();
             sm.dropoffMesh.material.dispose();
+        }
+
+        // Cleanup assassination target marker
+        if (sm.targetMarker && sm.targetMarker.parent) {
+            sm.targetMarker.parent.remove(sm.targetMarker);
         }
     }
 }
