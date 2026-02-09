@@ -34,9 +34,9 @@ export class InteriorManager {
 
         // Clothing stores
         this.clothingStores = [
-            { name: 'Binco Downtown', worldPos: { x: 50, z: -50 } },
-            { name: 'SubUrban Strip', worldPos: { x: 230, z: -230 } },
-            { name: 'Victim Docks', worldPos: { x: -200, z: 230 } }
+            { name: 'Binco Downtown', worldPos: { x: 35, z: -35 } },
+            { name: 'SubUrban Strip', worldPos: { x: 215, z: -215 } },
+            { name: 'Victim Docks', worldPos: { x: -215, z: 215 } }
         ];
         this.clothingStoreMarkers = [];
     }

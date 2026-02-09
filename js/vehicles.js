@@ -74,14 +74,14 @@ export class VehicleManager {
                 colors: [0xff2200, 0xffcc00, 0xffffff]
             },
             truck: {
-                maxSpeed: 20, accel: 8, handling: 0.015, durability: 200,
+                maxSpeed: 20, accel: 8, handling: 0.022, durability: 200,
                 width: 2.4, height: 2.2, length: 6,
-                colors: [0x335533, 0x553322]
+                colors: [0x335533, 0x553322, 0xdddddd, 0x222288, 0x882222]
             },
             motorcycle: {
                 maxSpeed: 55, accel: 30, handling: 0.05, durability: 30,
                 width: 0.6, height: 1.2, length: 2,
-                colors: [0x111111]
+                colors: [0x111111, 0xcc0000, 0x0044aa, 0x444444]
             },
             boat: {
                 maxSpeed: 25, accel: 12, handling: 0.025, durability: 80,
@@ -259,12 +259,12 @@ export class VehicleManager {
         const group = new THREE.Group();
         const mat = new THREE.MeshStandardMaterial({
             color: color,
-            roughness: 0.4,
-            metalness: 0.6
+            roughness: 0.2,
+            metalness: 0.75
         });
         const glassMat = new THREE.MeshStandardMaterial({
-            color: 0x88aacc, roughness: 0.1, metalness: 0.3,
-            transparent: true, opacity: 0.7
+            color: 0x88aacc, roughness: 0.05, metalness: 0.5,
+            transparent: true, opacity: 0.5
         });
         const chromeMat = new THREE.MeshStandardMaterial({
             color: 0xcccccc, roughness: 0.1, metalness: 0.9
@@ -1282,6 +1282,38 @@ export class VehicleManager {
 
             // Update player position to vehicle position (fallback only)
             this.game.systems.player.position.copy(vehicle.mesh.position);
+        }
+
+        // Building collision check (AABB against world colliders)
+        const vm = vehicle.mesh.position;
+        const vHalfW = (vType.width || 2) / 2;
+        const vHalfD = (vType.length || 4) / 2;
+        const vMinX = vm.x - vHalfW, vMaxX = vm.x + vHalfW;
+        const vMinZ = vm.z - vHalfD, vMaxZ = vm.z + vHalfD;
+        const colliders = this.game.systems.world?.colliders || [];
+        for (const c of colliders) {
+            if (vMaxX > c.minX && vMinX < c.maxX && vMaxZ > c.minZ && vMinZ < c.maxZ) {
+                // Push out along shortest penetration axis
+                const overlapX1 = vMaxX - c.minX;
+                const overlapX2 = c.maxX - vMinX;
+                const overlapZ1 = vMaxZ - c.minZ;
+                const overlapZ2 = c.maxZ - vMinZ;
+                const minOverlap = Math.min(overlapX1, overlapX2, overlapZ1, overlapZ2);
+                if (minOverlap === overlapX1) vm.x -= overlapX1;
+                else if (minOverlap === overlapX2) vm.x += overlapX2;
+                else if (minOverlap === overlapZ1) vm.z -= overlapZ1;
+                else vm.z += overlapZ2;
+                vehicle.speed *= -0.3;
+                break;
+            }
+        }
+
+        // Water boundary - slow vehicles in water
+        if (vehicle.mesh.position.y < -0.3) {
+            vehicle.speed *= 0.95; // drag
+            if (vehicle.type !== 'boat') {
+                vehicle.speed *= 0.9;
+            }
         }
 
         // Engine sound

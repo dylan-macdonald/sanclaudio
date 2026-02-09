@@ -439,24 +439,32 @@ canvas { display: block; }
 #death-screen {
     position: fixed;
     top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    display: flex;
-    align-items: center;
+    width: 100%;
+    height: 100%;
+    display: none;
     justify-content: center;
-    background: rgba(80, 0, 0, 0.25);
-    z-index: 50;
+    align-items: center;
+    z-index: 1000;
+    animation: deathFadeIn 1.5s ease-in forwards;
+    pointer-events: none;
+}
+@keyframes deathFadeIn {
+    0%   { background: rgba(139, 0, 0, 0); }
+    30%  { background: rgba(139, 0, 0, 0.4); }
+    100% { background: rgba(139, 0, 0, 0.7); }
 }
 #wasted-text {
-    font-family: 'Pricedown', 'Rajdhani', sans-serif;
-    font-size: clamp(3rem, 8vw, 5.5rem);
-    color: #b82020;
-    text-shadow: 0 3px 0 rgba(0,0,0,0.5), 0 0 40px rgba(180,30,30,0.3);
-    opacity: 0;
-    transform: scale(1.2);
-    animation: wastedIn 0.4s ease-out 0.1s forwards;
+    font-family: 'Pricedown', 'Impact', sans-serif;
+    font-size: 96px;
+    color: #cc0000;
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
+    letter-spacing: 8px;
+    animation: wastedTextIn 0.8s ease-out 0.3s both;
 }
-@keyframes wastedIn {
-    to { opacity: 1; transform: scale(1); }
+@keyframes wastedTextIn {
+    0%   { transform: scale(2); opacity: 0; }
+    50%  { transform: scale(0.9); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* ================================================================
@@ -810,7 +818,7 @@ canvas { display: block; }
 @media (max-width: 768px) {
     #title-text { font-size: 3.5rem; }
     #hud-minimap-container { width: 130px; height: 130px; }
-    #wasted-text { font-size: 3rem; }
+    #wasted-text { font-size: 48px; }
     #mission-complete-text { font-size: 2.5rem; }
     #hud-health-bar, #hud-armor-bar { width: 120px; }
 }

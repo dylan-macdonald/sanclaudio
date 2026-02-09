@@ -167,7 +167,7 @@ class Game {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x87CEEB);
         // Always-on distance fog hides flat horizon and map edges
-        this.scene.fog = new THREE.FogExp2(0xb0c8e0, 0.0012);
+        this.scene.fog = new THREE.FogExp2(0xb0c8e0, 0.002);
 
         // Sky dome, sun, clouds, stars will be created after scene setup
         this.skyDome = null;
@@ -178,15 +178,15 @@ class Game {
 
     setupLighting() {
         // Hemisphere light: warm sky, cool ground
-        this.hemiLight = new THREE.HemisphereLight(0xb1e1ff, 0x444444, 0.6);
+        this.hemiLight = new THREE.HemisphereLight(0xb1e1ff, 0x332211, 0.6);
         this.scene.add(this.hemiLight);
 
         // Directional sun light
         this.sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
         this.sunLight.position.set(100, 150, 100);
         this.sunLight.castShadow = true;
-        this.sunLight.shadow.mapSize.width = 2048;
-        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.mapSize.width = 4096;
+        this.sunLight.shadow.mapSize.height = 4096;
         this.sunLight.shadow.camera.near = 0.5;
         this.sunLight.shadow.camera.far = 500;
         this.sunLight.shadow.camera.left = -100;
@@ -194,6 +194,12 @@ class Game {
         this.sunLight.shadow.camera.top = 100;
         this.sunLight.shadow.camera.bottom = -100;
         this.sunLight.shadow.bias = -0.001;
+        this.sunLight.shadow.normalBias = 0.02;
+        // Reduce shadow quality on mobile for performance
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            this.sunLight.shadow.mapSize.width = 2048;
+            this.sunLight.shadow.mapSize.height = 2048;
+        }
         this.scene.add(this.sunLight);
         this.scene.add(this.sunLight.target);
 
@@ -431,8 +437,8 @@ class Game {
 
         this.sunLight.intensity = dayFactor * 1.0;
         this.hemiLight.intensity = 0.2 + dayFactor * 0.4;
-        this.ambientLight.intensity = 0.15 + dayFactor * 0.1;
-        this.fillLight.intensity = dayFactor * 0.3;
+        this.ambientLight.intensity = 0.05 + dayFactor * 0.08;
+        this.fillLight.intensity = dayFactor * 0.15;
         this.rimLight.intensity = 0.15 + dayFactor * 0.15;
 
         // Sky color: blue during day, dark blue/purple at night
@@ -569,6 +575,17 @@ class Game {
         if (this.systems.world) {
             this.systems.world.setNightMode(dayFactor < 0.35);
         }
+
+        // Store dayFactor for world.js to access (window emissive ramp, etc.)
+        this._currentDayFactor = dayFactor;
+
+        // Ramp window emissive intensity at night
+        if (dayFactor < 0.35 && this.systems.world) {
+            const emissiveIntensity = 0.5 * (1 - dayFactor / 0.35);
+            this.systems.world.setWindowEmissiveIntensity(emissiveIntensity);
+        } else if (this.systems.world) {
+            this.systems.world.setWindowEmissiveIntensity(0);
+        }
     }
 
     updateWeather(dt) {
@@ -598,13 +615,13 @@ class Game {
 
         // Fog is ALWAYS on — density varies by weather
         const fogDensities = {
-            clear: 0.0012,
-            overcast: 0.002,
-            rain: 0.003,
-            storm: 0.004,
-            fog: 0.008
+            clear: 0.002,
+            overcast: 0.003,
+            rain: 0.004,
+            storm: 0.006,
+            fog: 0.01
         };
-        const targetDensity = fogDensities[weather] || 0.0012;
+        const targetDensity = fogDensities[weather] || 0.002;
         if (!this.scene.fog || !(this.scene.fog instanceof THREE.FogExp2)) {
             this.scene.fog = new THREE.FogExp2(0xb0c8e0, targetDensity);
         }
@@ -617,6 +634,21 @@ class Game {
             const grayMix = weather === 'fog' ? 0.7 : weather === 'rain' || weather === 'storm' ? 0.5 : 0.15;
             const fogColor = new THREE.Color().lerpColors(bg, new THREE.Color(0x888899), grayMix);
             this.scene.fog.color.lerp(fogColor, 0.05);
+        }
+
+        // Weather-based fog color tinting
+        if (weather === 'rain') {
+            this.scene.fog.color.lerp(new THREE.Color(0x667788), 0.03);
+        } else if (weather === 'storm') {
+            this.scene.fog.color.lerp(new THREE.Color(0x444455), 0.03);
+        } else if (weather === 'fog') {
+            this.scene.fog.color.lerp(new THREE.Color(0xaaaaaa), 0.03);
+        }
+
+        // Overcast weather: tint hemiLight cooler and reduce sun intensity
+        if (weather === 'overcast') {
+            this.hemiLight.color.lerp(new THREE.Color(0x99aabb), 0.05);
+            this.sunLight.intensity *= 0.6;
         }
 
         // Weather affects clouds
@@ -636,6 +668,13 @@ class Game {
                     cloud.material.color.setHex(0xffffff);
                 }
             }
+        }
+
+        // Weather affects lighting
+        if (weather === 'overcast' || weather === 'rain' || weather === 'storm') {
+            const reduction = weather === 'storm' ? 0.4 : weather === 'rain' ? 0.5 : 0.65;
+            this.sunLight.intensity *= reduction;
+            this.hemiLight.intensity *= reduction;
         }
 
         // Storm lightning flashes (enhanced)

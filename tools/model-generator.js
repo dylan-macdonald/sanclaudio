@@ -224,32 +224,43 @@ function buildCharacter() {
         parts.push({ geo: backHairGeo, boneIdx: 3, color: HAIR });
     }
 
-    // Torso - tapered from wider shoulders to narrower waist
-    addBox(0.58, 0.35, 0.3, 0, 1.35, 0, 2, SHIRT);   // Chest (widest)
-    addBox(0.46, 0.25, 0.28, 0, 1.08, 0, 1, SHIRT);   // Waist (tapered)
-    addBox(0.42, 0.15, 0.26, 0, 0.95, 0, 0, SHIRT);   // Hips (narrower)
+    // Neck - connects chest to head
+    addCylinder(0.08, 0.1, 0.12, 0, 1.56, 0, 2, SKIN, 6);  // Neck
+
+    // Torso - tapered cylinders for chest/waist, box for hips
+    addCylinder(0.28, 0.22, 0.35, 0, 1.35, 0, 2, SHIRT, 8); // Chest (broad shoulders tapering to waist)
+    addCylinder(0.22, 0.2, 0.20, 0, 1.08, 0, 1, SHIRT, 8);  // Waist/abdomen (slight taper)
+    addBox(0.42, 0.15, 0.26, 0, 0.95, 0, 0, SHIRT);          // Hips (keep as box)
 
     // Arms
-    // Left arm
-    addBox(0.12, 0.3, 0.12, -0.36, 1.25, 0, 4, SHIRT);    // L upper arm
-    addBox(0.1, 0.28, 0.1, -0.36, 0.95, 0, 5, SKIN);      // L forearm
-    addBox(0.08, 0.1, 0.1, -0.36, 0.78, 0, 6, SKIN);      // L hand (mitten)
+    // Left arm - tapered cylinders
+    addCylinder(0.07, 0.055, 0.3, -0.36, 1.25, 0, 4, SHIRT, 6);  // L upper arm (wider at shoulder)
+    addCylinder(0.055, 0.04, 0.28, -0.36, 0.95, 0, 5, SKIN, 6);  // L forearm (wider at elbow)
+    // L hand (mitten + thumb nub)
+    addBox(0.08, 0.1, 0.1, -0.36, 0.78, 0, 6, SKIN);
+    addBox(0.04, 0.04, 0.04, -0.30, 0.80, 0, 6, SKIN);           // L thumb nub
 
-    // Right arm
-    addBox(0.12, 0.3, 0.12, 0.36, 1.25, 0, 7, SHIRT);     // R upper arm
-    addBox(0.1, 0.28, 0.1, 0.36, 0.95, 0, 8, SKIN);       // R forearm
-    addBox(0.08, 0.1, 0.1, 0.36, 0.78, 0, 9, SKIN);       // R hand (mitten)
+    // Right arm - tapered cylinders
+    addCylinder(0.07, 0.055, 0.3, 0.36, 1.25, 0, 7, SHIRT, 6);   // R upper arm (wider at shoulder)
+    addCylinder(0.055, 0.04, 0.28, 0.36, 0.95, 0, 8, SKIN, 6);   // R forearm (wider at elbow)
+    // R hand (mitten + thumb nub)
+    addBox(0.08, 0.1, 0.1, 0.36, 0.78, 0, 9, SKIN);
+    addBox(0.04, 0.04, 0.04, 0.42, 0.80, 0, 9, SKIN);            // R thumb nub
 
     // Legs
-    // Left leg
-    addBox(0.14, 0.38, 0.14, -0.12, 0.58, 0, 10, PANTS);  // L thigh
-    addBox(0.12, 0.36, 0.12, -0.12, 0.23, 0, 11, PANTS);  // L shin
-    addBox(0.14, 0.08, 0.22, -0.12, 0.04, 0.04, 12, SHOE); // L foot
+    // Left leg - tapered cylinders
+    addCylinder(0.08, 0.065, 0.38, -0.12, 0.58, 0, 10, PANTS, 6);  // L thigh (wider at hip)
+    addCylinder(0.065, 0.05, 0.36, -0.12, 0.23, 0, 11, PANTS, 6);  // L shin (wider at knee)
+    // L foot (shoe base + toe cap)
+    addBox(0.14, 0.1, 0.24, -0.12, 0.04, 0.04, 12, SHOE);
+    addBox(0.12, 0.06, 0.06, -0.12, 0.04, 0.19, 12, SHOE);        // L toe cap
 
-    // Right leg
-    addBox(0.14, 0.38, 0.14, 0.12, 0.58, 0, 13, PANTS);   // R thigh
-    addBox(0.12, 0.36, 0.12, 0.12, 0.23, 0, 14, PANTS);   // R shin
-    addBox(0.14, 0.08, 0.22, 0.12, 0.04, 0.04, 15, SHOE); // R foot
+    // Right leg - tapered cylinders
+    addCylinder(0.08, 0.065, 0.38, 0.12, 0.58, 0, 13, PANTS, 6);   // R thigh (wider at hip)
+    addCylinder(0.065, 0.05, 0.36, 0.12, 0.23, 0, 14, PANTS, 6);   // R shin (wider at knee)
+    // R foot (shoe base + toe cap)
+    addBox(0.14, 0.1, 0.24, 0.12, 0.04, 0.04, 15, SHOE);
+    addBox(0.12, 0.06, 0.06, 0.12, 0.04, 0.19, 15, SHOE);          // R toe cap
 
     // --- Merge all parts into one BufferGeometry with skin indices/weights ---
     const mergedGeometries = [];
@@ -342,8 +353,8 @@ function buildCharacter() {
     // Create material with vertex colors
     const material = new THREE.MeshStandardMaterial({
         vertexColors: true,
-        roughness: 0.8,
-        metalness: 0.0
+        roughness: 0.6,
+        metalness: 0.02
     });
 
     // Create SkinnedMesh
@@ -533,6 +544,99 @@ function buildCharacter() {
         // Slight forward lean during jump
         quatTrack('Spine', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.1, 0, 0), ...eq(0.05, 0, 0), ...eq(0.08, 0, 0), ...qi
+        ]),
+    ]));
+
+    // 7. Carjack (1.2s, no loop) — pull NPC from vehicle
+    animations.push(new THREE.AnimationClip('carjack', 1.2, [
+        // Both arms reach forward, then grab and pull, then shove aside
+        quatTrack('L_Shoulder', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(-1.2, 0, 0), ...eq(-0.4, 0, 0), ...eq(-0.2, 0, 0.3), ...qi
+        ]),
+        quatTrack('R_Shoulder', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(-1.2, 0, 0), ...eq(-0.4, 0, 0), ...eq(-1.0, 0, -0.3), ...qi
+        ]),
+        // Elbows bend during grab
+        quatTrack('L_Elbow', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.2, 0, 0), ...qi
+        ]),
+        quatTrack('R_Elbow', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.1, 0, 0), ...qi
+        ]),
+        // Torso twists during pull and shove
+        quatTrack('Chest', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(0.1, 0, 0), ...eq(0, 0.4, 0), ...eq(0, -0.3, 0), ...qi
+        ]),
+        // Slight forward lean
+        quatTrack('Spine', [0, 0.3, 0.7, 1.0, 1.2], [
+            ...qi, ...eq(0.15, 0, 0), ...eq(0.1, 0, 0), ...eq(0.05, 0, 0), ...qi
+        ]),
+    ]));
+
+    // 8. Enter vehicle (0.8s, no loop) — duck and swing into seat
+    animations.push(new THREE.AnimationClip('enter_vehicle', 0.8, [
+        // Root drops as player ducks into vehicle
+        posTrack('Root', [0, 0.2, 0.5, 0.7, 0.8], [
+            0, 0.95, 0,  0, 0.8, 0,  0, 0.7, 0,  0, 0.7, 0,  0, 0.7, 0
+        ]),
+        // Left leg swings over threshold
+        quatTrack('L_Hip', [0, 0.2, 0.5, 0.7, 0.8], [
+            ...qi, ...eq(0.2, 0, 0), ...eq(-0.3, 0, 0.8), ...eq(-0.5, 0, 0.2), ...eq(-0.5, 0, 0)
+        ]),
+        quatTrack('L_Knee', [0, 0.2, 0.5, 0.7, 0.8], [
+            ...qi, ...eq(0.3, 0, 0), ...eq(0.6, 0, 0), ...eq(0.8, 0, 0), ...eq(0.8, 0, 0)
+        ]),
+        // Right leg stays planted then tucks in
+        quatTrack('R_Hip', [0, 0.2, 0.5, 0.7, 0.8], [
+            ...qi, ...qi, ...eq(-0.2, 0, 0), ...eq(-0.5, 0, 0), ...eq(-0.5, 0, 0)
+        ]),
+        quatTrack('R_Knee', [0, 0.2, 0.5, 0.7, 0.8], [
+            ...qi, ...qi, ...eq(0.3, 0, 0), ...eq(0.8, 0, 0), ...eq(0.8, 0, 0)
+        ]),
+        // Spine leans forward slightly as settling in
+        quatTrack('Spine', [0, 0.2, 0.5, 0.7, 0.8], [
+            ...qi, ...eq(0.1, 0, 0), ...eq(0.15, 0, 0), ...eq(0.1, 0, 0), ...eq(0.05, 0, 0)
+        ]),
+        // Left arm reaches for door frame
+        quatTrack('L_Shoulder', [0, 0.2, 0.5, 0.8], [
+            ...qi, ...eq(-0.5, 0, 0.4), ...eq(-0.3, 0, 0.2), ...qi
+        ]),
+        // Right arm reaches for steering wheel
+        quatTrack('R_Shoulder', [0, 0.2, 0.5, 0.8], [
+            ...qi, ...eq(-0.3, 0, -0.2), ...eq(-0.6, 0, 0), ...eq(-0.5, 0, 0)
+        ]),
+    ]));
+
+    // 9. Exit vehicle (0.6s, no loop) — lean forward, stand up, step out
+    animations.push(new THREE.AnimationClip('exit_vehicle', 0.6, [
+        // Root rises as player stands up from seat
+        posTrack('Root', [0, 0.15, 0.35, 0.5, 0.6], [
+            0, 0.7, 0,  0, 0.8, 0,  0, 0.95, 0,  0, 0.95, 0,  0, 0.95, 0
+        ]),
+        // Lean forward first, then straighten
+        quatTrack('Spine', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(0.05, 0, 0), ...eq(0.15, 0, 0), ...eq(0.08, 0, 0), ...eq(0.03, 0, 0), ...qi
+        ]),
+        // Left leg swings out
+        quatTrack('L_Hip', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(-0.5, 0, 0), ...eq(-0.3, 0, -0.6), ...eq(0.1, 0, -0.3), ...eq(0.05, 0, 0), ...qi
+        ]),
+        quatTrack('L_Knee', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(0.8, 0, 0), ...eq(0.5, 0, 0), ...eq(0.2, 0, 0), ...eq(0.1, 0, 0), ...qi
+        ]),
+        // Right leg follows
+        quatTrack('R_Hip', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(-0.5, 0, 0), ...eq(-0.5, 0, 0), ...eq(-0.2, 0, 0), ...eq(0, 0, 0), ...qi
+        ]),
+        quatTrack('R_Knee', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(0.8, 0, 0), ...eq(0.8, 0, 0), ...eq(0.4, 0, 0), ...eq(0.1, 0, 0), ...qi
+        ]),
+        // Arms push off seat / door frame
+        quatTrack('L_Shoulder', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...qi, ...eq(-0.4, 0, 0.3), ...eq(-0.2, 0, 0.2), ...eq(-0.1, 0, 0), ...qi
+        ]),
+        quatTrack('R_Shoulder', [0, 0.15, 0.35, 0.5, 0.6], [
+            ...eq(-0.5, 0, 0), ...eq(-0.3, 0, -0.2), ...eq(-0.1, 0, 0), ...qi, ...qi
         ]),
     ]));
 

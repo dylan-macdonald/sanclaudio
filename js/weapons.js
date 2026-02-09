@@ -474,7 +474,7 @@ export class WeaponManager {
         this.game.systems.audio.playPunch();
 
         // Camera shake scales with combo
-        const shakeIntensity = 0.1 + this.comboCount * 0.15;
+        const shakeIntensity = 0.03 + this.comboCount * 0.05;
         this.game.systems.camera.addShake(shakeIntensity);
 
         // Show combo text for hits beyond the first
@@ -491,6 +491,7 @@ export class WeaponManager {
                 Math.cos(player.rotation)
             );
 
+            let meleeHit = false;
             for (const npc of npcs.pedestrians) {
                 if (!npc.alive || !npc.mesh) continue;
                 const toNPC = new THREE.Vector3().subVectors(npc.mesh.position, player.position);
@@ -501,6 +502,7 @@ export class WeaponManager {
                 toNPC.normalize();
                 const dot = forward.dot(toNPC);
                 if (dot > 0.3) {
+                    meleeHit = true;
                     npc.takeDamage(damage);
                     // Knife backstab = 1-hit kill (player behind the NPC)
                     if (def === this.weaponDefs.knife) {
@@ -519,6 +521,11 @@ export class WeaponManager {
                         npc.mesh.position.z += knockDir.z;
                     }
                 }
+            }
+
+            // Trigger nearby NPC reactions when a melee hit connects
+            if (meleeHit) {
+                npcs.reactToMelee(player.position);
             }
         }
     }

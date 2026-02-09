@@ -230,11 +230,31 @@ export class UIManager {
 
         ctx.clearRect(0, 0, size, size);
 
-        // Background
-        ctx.fillStyle = 'rgba(20, 25, 30, 0.9)';
+        // Background — ocean blue to represent water
+        ctx.fillStyle = '#1a5588';
         ctx.beginPath();
         ctx.arc(100, 100, 100, 0, Math.PI * 2);
         ctx.fill();
+
+        // Clip to circular minimap
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(100, 100, 100, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Draw land mass (the map area) as dark ground over water
+        const mapHalf = this.game.systems.world.mapSize / 2;
+        ctx.fillStyle = 'rgba(20, 25, 30, 0.95)';
+        const landSize = this.game.systems.world.mapSize * scale;
+        // Apply camera rotation for land mass
+        ctx.save();
+        ctx.translate(100, 100);
+        const camForLand = this.game.systems.camera;
+        ctx.rotate(-camForLand.yaw);
+        ctx.fillRect((-mapHalf - player.position.x) * scale, (-mapHalf - player.position.z) * scale, landSize, landSize);
+        ctx.restore();
+
+        ctx.restore();
 
         ctx.save();
         ctx.translate(100, 100);
@@ -245,7 +265,7 @@ export class UIManager {
 
         // Draw roads
         ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         const blockSize = this.game.systems.world.blockSize;
         for (let g = -400; g < 400; g += blockSize) {
             const rx = (g - player.position.x) * scale;
@@ -262,9 +282,9 @@ export class UIManager {
             ctx.stroke();
         }
 
-        // Draw buildings (simplified rects)
+        // Draw buildings (simplified rects) — colored by district
         const buildings = this.game.systems.world.colliders;
-        ctx.fillStyle = 'rgba(100, 100, 120, 0.4)';
+        const worldDistricts = this.game.systems.world.districts;
         for (const b of buildings) {
             if (b.type !== 'building') continue;
             const bx = (b.minX + b.maxX) / 2;
@@ -275,6 +295,16 @@ export class UIManager {
             const h = (b.maxZ - b.minZ) * scale;
 
             if (Math.abs(rx) < 110 && Math.abs(rz) < 110) {
+                // Use district color (lightened) if available
+                if (b.district && worldDistricts[b.district]) {
+                    const dColor = worldDistricts[b.district].colors[0];
+                    const dr = Math.min(255, ((dColor >> 16) & 255) + 60);
+                    const dg = Math.min(255, ((dColor >> 8) & 255) + 60);
+                    const db = Math.min(255, (dColor & 255) + 60);
+                    ctx.fillStyle = `rgba(${dr}, ${dg}, ${db}, 0.55)`;
+                } else {
+                    ctx.fillStyle = 'rgba(160, 160, 180, 0.4)';
+                }
                 ctx.fillRect(rx - w / 2, rz - h / 2, w, h);
             }
         }
@@ -372,7 +402,7 @@ export class UIManager {
     }
 
     _drawMinimapPOIs(ctx, player, scale) {
-        const iconSize = 4;
+        const iconSize = 6;
 
         // Weapon shops (gun icon = small crosshair)
         const weapons = this.game.systems.weapons;
@@ -382,9 +412,9 @@ export class UIManager {
                 const sx = (shop.position.x - player.position.x) * scale;
                 const sz = (shop.position.z - player.position.z) * scale;
                 if (Math.abs(sx) > 95 || Math.abs(sz) > 95) continue;
-                // Gun icon — small orange crosshair
+                // Gun icon — orange crosshair
                 ctx.strokeStyle = '#ff8800';
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(sx - iconSize, sz);
                 ctx.lineTo(sx + iconSize, sz);
@@ -406,12 +436,12 @@ export class UIManager {
                 if (Math.abs(px) > 95 || Math.abs(pz) > 95) continue;
                 ctx.fillStyle = '#00ff88';
                 ctx.strokeStyle = '#00ff88';
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(px, pz, iconSize, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.arc(px, pz, 1.5, 0, Math.PI * 2);
+                ctx.arc(px, pz, 2, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
@@ -423,7 +453,7 @@ export class UIManager {
             const gz = (vehicles.garagePos.z - player.position.z) * scale;
             if (Math.abs(gx) < 95 && Math.abs(gz) < 95) {
                 ctx.fillStyle = '#44aaff';
-                ctx.font = 'bold 10px Arial';
+                ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('G', gx, gz);
@@ -441,11 +471,11 @@ export class UIManager {
                 const mz = (m.mesh.position.z - player.position.z) * scale;
                 if (Math.abs(mx) > 95 || Math.abs(mz) > 95) continue;
                 ctx.beginPath();
-                ctx.arc(mx, mz, 3.5, 0, Math.PI * 2);
+                ctx.arc(mx, mz, 5, 0, Math.PI * 2);
                 ctx.fill();
                 // 'M' letter
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 6px Arial';
+                ctx.font = 'bold 7px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('M', mx, mz);
@@ -510,10 +540,9 @@ export class UIManager {
 
     showFullMap() {
         document.getElementById('full-map').style.display = 'flex';
-        // Center on player
-        const player = this.game.systems.player;
-        this.mapPanX = player.position.x;
-        this.mapPanZ = player.position.z;
+        // Center on map origin (0, 0)
+        this.mapPanX = 0;
+        this.mapPanZ = 0;
         this.drawFullMap();
     }
 
@@ -530,8 +559,8 @@ export class UIManager {
 
         ctx.clearRect(0, 0, size, size);
 
-        // Background
-        ctx.fillStyle = '#1a1a2a';
+        // Background — ocean water
+        ctx.fillStyle = '#1a5588';
         ctx.fillRect(0, 0, size, size);
 
         // Apply zoom/pan transform: world coords -> screen coords
@@ -541,29 +570,20 @@ export class UIManager {
         ctx.translate(-panX, -panZ);
 
         // World-space scale: 1 world unit = 1 canvas pixel (before zoom)
+
+        // Land mass background (the map area over the ocean)
+        const mapSize = this.game.systems.world.mapSize;
+        const halfMap = mapSize / 2;
+        ctx.fillStyle = 'rgba(30, 35, 40, 0.95)';
+        ctx.fillRect(-halfMap, -halfMap, mapSize, mapSize);
+
         // District colors
         const districts = this.game.systems.world.districts;
         for (const [key, d] of Object.entries(districts)) {
             ctx.fillStyle = 'rgba(' + this.hexToRGB(d.colors[0]) + ', 0.3)';
             ctx.fillRect(d.bounds.minX, d.bounds.minZ,
                 d.bounds.maxX - d.bounds.minX, d.bounds.maxZ - d.bounds.minZ);
-
-            // District label - scale inversely so text stays readable
-            ctx.save();
-            const cx = (d.bounds.minX + d.bounds.maxX) / 2;
-            const cz = (d.bounds.minZ + d.bounds.maxZ) / 2;
-            ctx.translate(cx, cz);
-            ctx.scale(1 / zoom, 1 / zoom);
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.font = 'bold 18px Rajdhani';
-            ctx.textAlign = 'center';
-            ctx.fillText(d.name, 0, 6);
-            ctx.restore();
         }
-
-        // Water area
-        ctx.fillStyle = 'rgba(34, 102, 170, 0.4)';
-        ctx.fillRect(100, 100, 300, 300);
 
         // Road grid lines
         ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
@@ -624,11 +644,49 @@ export class UIManager {
         // POI Icons on full map
         this._drawFullMapPOIs(ctx, zoom);
 
-        // Player indicator
+        // District labels (drawn on top of buildings/roads for visibility)
+        for (const [key, d] of Object.entries(districts)) {
+            ctx.save();
+            const dlcx = (d.bounds.minX + d.bounds.maxX) / 2;
+            const dlcz = (d.bounds.minZ + d.bounds.maxZ) / 2;
+            ctx.translate(dlcx, dlcz);
+            ctx.scale(1 / zoom, 1 / zoom);
+            // District name — prominent with shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.font = 'bold 24px Rajdhani';
+            ctx.textAlign = 'center';
+            ctx.fillText(d.name, 1, 7);
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.fillText(d.name, 0, 6);
+            ctx.restore();
+        }
+
+        // Player indicator with pulsing circle
         const player = this.game.systems.player;
         const cam = this.game.systems.camera;
         const playerYaw = cam ? -cam.yaw : 0;
 
+        // Pulsing ring around player
+        const pulse = (Math.sin(Date.now() / 300) + 1) / 2; // 0 to 1
+        const pulseRadius = (10 + pulse * 6) / zoom;
+        const pulseAlpha = 0.6 - pulse * 0.4;
+        ctx.save();
+        ctx.translate(player.position.x, player.position.z);
+        ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha})`;
+        ctx.lineWidth = 2 / zoom;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulseRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        // Second outer pulse ring
+        const pulseRadius2 = (14 + pulse * 8) / zoom;
+        ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha * 0.4})`;
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulseRadius2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // Player arrow
         ctx.save();
         ctx.translate(player.position.x, player.position.z);
         ctx.rotate(playerYaw);

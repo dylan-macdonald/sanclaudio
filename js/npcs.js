@@ -124,6 +124,17 @@ export class NPCManager {
             "I didn't see anything!"
         ];
 
+        this.flinchDialogue = [
+            "HEY! What the hell?!",
+            "Back off, man!",
+            "Are you CRAZY?!",
+            "Don't touch me!",
+            "What's your problem?!",
+            "Somebody stop this lunatic!",
+            "OW! That HURT!",
+            "You're gonna regret that!",
+        ];
+
         // District-specific NPC color palettes
         this.districtPalettes = {
             'Downtown': {
@@ -496,10 +507,34 @@ export class NPCManager {
         // Dynamically adjust population density based on district + time
         this._updatePopulationDensity();
 
-        // Update pedestrians
-        for (const npc of this.pedestrians) {
+        // Update pedestrians with distance-based LOD
+        const playerPos = player.position;
+        for (let i = 0; i < this.pedestrians.length; i++) {
+            const npc = this.pedestrians[i];
             if (!npc.alive) continue;
-            this.updatePedestrian(npc, dt);
+            if (!npc.mesh) continue;
+
+            const dx = npc.mesh.position.x - playerPos.x;
+            const dz = npc.mesh.position.z - playerPos.z;
+            const distSq = dx * dx + dz * dz;
+
+            if (distSq > 80 * 80) {
+                // >80m: skip animation updates entirely, only update position every 4th frame
+                if (npc.mesh.userData.mixer) npc.mesh.userData.mixer.timeScale = 0;
+                if ((this.game.frameCount + i) % 4 === 0) {
+                    this.updatePedestrian(npc, dt * 4);
+                }
+            } else if (distSq > 50 * 50) {
+                // >50m: half-rate updates, slow animation
+                if (npc.mesh.userData.mixer) npc.mesh.userData.mixer.timeScale = 0.5;
+                if ((this.game.frameCount + i) % 2 === 0) {
+                    this.updatePedestrian(npc, dt * 2);
+                }
+            } else {
+                // Close: full update
+                if (npc.mesh.userData.mixer) npc.mesh.userData.mixer.timeScale = 1;
+                this.updatePedestrian(npc, dt);
+            }
         }
 
         // Respawn/recycle pedestrians
@@ -537,6 +572,12 @@ export class NPCManager {
         if (npc.isFleeing) {
             // Run away from danger
             const speed = npc.speed * 2.5;
+            // Water avoidance
+            const nextX = npc.mesh.position.x + Math.sin(npc.walkDir) * speed * dt;
+            const nextZ = npc.mesh.position.z + Math.cos(npc.walkDir) * speed * dt;
+            if (this.game.systems.world.isInWater(nextX, nextZ)) {
+                npc.walkDir = npc.walkDir + Math.PI;
+            }
             npc.mesh.position.x += Math.sin(npc.walkDir) * speed * dt;
             npc.mesh.position.z += Math.cos(npc.walkDir) * speed * dt;
             npc.mesh.rotation.y = npc.walkDir;
@@ -650,6 +691,40 @@ export class NPCManager {
                             npc.mesh.rotation.y = Math.atan2(dx, dz);
                         }
                         break;
+
+                    case 'flinch':
+                        // Stumble back, arms up defensively
+                        npc.mesh.position.y = 0;
+                        if (parts) {
+                            if (parts.torso) parts.torso.rotation.x = -0.3;
+                            if (parts.leftArm) parts.leftArm.rotation.x = -1.2;
+                            if (parts.rightArm) parts.rightArm.rotation.x = -1.2;
+                            if (parts.leftForearm) parts.leftForearm.rotation.x = -0.8;
+                            if (parts.rightForearm) parts.rightForearm.rotation.x = -0.8;
+                            if (parts.head) parts.head.rotation.y = 0.4;
+                        }
+                        // Step back slightly away from threat
+                        if (npc._recordingTarget) {
+                            const fdx = npc.mesh.position.x - npc._recordingTarget.x;
+                            const fdz = npc.mesh.position.z - npc._recordingTarget.z;
+                            const fLen = Math.sqrt(fdx * fdx + fdz * fdz) || 1;
+                            npc.mesh.position.x += (fdx / fLen) * 0.5 * dt;
+                            npc.mesh.position.z += (fdz / fLen) * 0.5 * dt;
+                        }
+                        break;
+
+                    case 'look':
+                        // Turn and look toward the point
+                        npc.mesh.position.y = 0;
+                        if (npc._recordingTarget) {
+                            const ldx = npc._recordingTarget.x - npc.mesh.position.x;
+                            const ldz = npc._recordingTarget.z - npc.mesh.position.z;
+                            npc.mesh.rotation.y = Math.atan2(ldx, ldz);
+                        }
+                        if (parts) {
+                            if (parts.head) parts.head.rotation.z = 0.1;
+                        }
+                        break;
                 }
                 // Skip normal walking while reacting
                 npc.animTime += dt * 2;
@@ -660,6 +735,30 @@ export class NPCManager {
 
             // Reaction cooldown tick
             if (npc._reactionCooldown > 0) npc._reactionCooldown -= dt;
+
+            // Sidewalk vehicle panic — flee from fast nearby vehicles (check every 10th frame)
+            if (this.game.frameCount % 10 === 0) {
+                const panicVehicles = this.game.systems.vehicles?.vehicles || [];
+                for (const veh of panicVehicles) {
+                    if (!veh.mesh || veh._destroyed) continue;
+                    const vSpeed = Math.abs(veh.speed || 0);
+                    if (vSpeed < 5) continue;
+                    const vdx = npc.mesh.position.x - veh.mesh.position.x;
+                    const vdz = npc.mesh.position.z - veh.mesh.position.z;
+                    const vDistSq = vdx * vdx + vdz * vdz;
+                    if (vDistSq < 8 * 8) {
+                        npc.isFleeing = true;
+                        npc.fleeTarget = veh.mesh.position.clone();
+                        npc.walkDir = Math.atan2(vdx, vdz);
+                        if (Math.random() < 0.4) {
+                            const lines = this.fleeDialogue;
+                            const line = lines[Math.floor(Math.random() * lines.length)];
+                            this.showNPCSubtitle(npc, line);
+                        }
+                        break;
+                    }
+                }
+            }
 
             // Idle behaviors: phone checking, standing around
             if (npc.idleBehavior === 'phone' || npc.idleBehavior === 'standing') {
@@ -797,12 +896,18 @@ export class NPCManager {
                 }
             }
 
+            // Water avoidance
+            if (this.game.systems.world.isInWater(corrX, corrZ)) {
+                npc.roadFollowDir *= -1;
+                npc.turnCooldown = 2;
+            }
+
             // Building collision
             const collision = world.checkCollision(corrX, corrZ, 0.4);
             if (collision) {
                 npc.roadFollowDir *= -1;
                 npc.turnCooldown = 2;
-            } else {
+            } else if (!this.game.systems.world.isInWater(corrX, corrZ)) {
                 npc.mesh.position.x = corrX;
                 npc.mesh.position.z = corrZ;
             }
@@ -1141,6 +1246,46 @@ export class NPCManager {
                         const line = this.recordDialogue[Math.floor(Math.random() * this.recordDialogue.length)];
                         this.showNPCSubtitle(npc, line);
                     }
+                }
+            }
+        }
+    }
+
+    // Melee reaction: nearby NPCs flinch, flee, or look
+    reactToMelee(point) {
+        for (const npc of this.pedestrians) {
+            if (!npc.alive || !npc.mesh || npc.isFleeing) continue;
+            if (npc._reactionCooldown > 0) continue;
+            const dist = npc.mesh.position.distanceTo(point);
+
+            if (dist < 5) {
+                // Very close — flinch defensively
+                npc._reaction = 'flinch';
+                npc._reactionTimer = 1.5 + Math.random() * 0.5;
+                npc._recordingTarget = point.clone();
+                if (Math.random() < 0.6) {
+                    const line = this.flinchDialogue[Math.floor(Math.random() * this.flinchDialogue.length)];
+                    this.showNPCSubtitle(npc, line);
+                }
+            } else if (dist < 15) {
+                // Medium range — 50% chance to flee
+                if (Math.random() < 0.5) {
+                    npc.isFleeing = true;
+                    npc.fleeTarget = point.clone();
+                    const dx = npc.mesh.position.x - point.x;
+                    const dz = npc.mesh.position.z - point.z;
+                    npc.walkDir = Math.atan2(dx, dz);
+                    if (Math.random() < 0.3) {
+                        const line = this.fleeDialogue[Math.floor(Math.random() * this.fleeDialogue.length)];
+                        this.showNPCSubtitle(npc, line);
+                    }
+                }
+            } else if (dist < 25) {
+                // Far range — 20% chance to turn and look
+                if (Math.random() < 0.2) {
+                    npc._reaction = 'look';
+                    npc._reactionTimer = 2 + Math.random();
+                    npc._recordingTarget = point.clone();
                 }
             }
         }

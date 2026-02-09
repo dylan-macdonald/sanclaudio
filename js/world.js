@@ -19,7 +19,7 @@ export class World {
         this.streetLamps = [];
         this.lampPositions = []; // World positions of all lamp fixtures
         this.lightPool = [];     // Small pool of reusable PointLights
-        this.maxActiveLights = 6;
+        this.maxActiveLights = 12;
         this.isNight = false;
         this.rainParticles = null;
         this.waterPlane = null;
@@ -116,8 +116,11 @@ export class World {
     init() {
         this.createGround();
         this.createWater();
+        this.createCoastline();
         this.createRoads();
+        this.createDiagonalRoads();
         this.createBuildings();
+        this.createLandmarks();
         this.createProps();
         this.createStuntRamps();
         this.createNeonSigns();
@@ -134,7 +137,7 @@ export class World {
         const geo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
         const mat = new THREE.MeshStandardMaterial({
             color: 0x555555,
-            roughness: 0.95,
+            roughness: 0.85,
             metalness: 0.0
         });
         const ground = new THREE.Mesh(geo, mat);
@@ -157,18 +160,115 @@ export class World {
     }
 
     createWater() {
-        const waterGeo = new THREE.PlaneGeometry(600, 600);
+        // Large ocean plane surrounding the entire map
+        const waterGeo = new THREE.PlaneGeometry(2000, 2000, 32, 32);
         const waterMat = new THREE.MeshStandardMaterial({
-            color: 0x2266aa,
+            color: 0x1a5588,
             transparent: true,
-            opacity: 0.7,
-            roughness: 0.2,
-            metalness: 0.6
+            opacity: 0.85,
+            roughness: 0.15,
+            metalness: 0.5
         });
         this.waterPlane = new THREE.Mesh(waterGeo, waterMat);
         this.waterPlane.rotation.x = -Math.PI / 2;
-        this.waterPlane.position.set(300, -0.3, 300);
+        this.waterPlane.position.set(0, -0.5, 0);
         this.game.scene.add(this.waterPlane);
+
+        // Store wave data for animation
+        this._wavePositions = waterGeo.attributes.position.clone();
+        this._waveTime = 0;
+    }
+
+    createCoastline() {
+        // Sand/beach strip ring around map edges
+        const sandMat = new THREE.MeshStandardMaterial({
+            color: 0xccbb88, roughness: 0.9, metalness: 0.0
+        });
+        const beachWidth = 15;
+        const h = this.halfMap;
+        const sandGeoms = [];
+        const rotMatrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+
+        // North beach
+        const northGeo = new THREE.PlaneGeometry(this.mapSize + beachWidth * 2, beachWidth);
+        northGeo.applyMatrix4(rotMatrix);
+        northGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.01, -h - beachWidth / 2));
+        sandGeoms.push(northGeo);
+
+        // South beach
+        const southGeo = new THREE.PlaneGeometry(this.mapSize + beachWidth * 2, beachWidth);
+        southGeo.applyMatrix4(rotMatrix);
+        southGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.01, h + beachWidth / 2));
+        sandGeoms.push(southGeo);
+
+        // West beach
+        const westGeo = new THREE.PlaneGeometry(beachWidth, this.mapSize);
+        westGeo.applyMatrix4(rotMatrix);
+        westGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-h - beachWidth / 2, 0.01, 0));
+        sandGeoms.push(westGeo);
+
+        // East beach
+        const eastGeo = new THREE.PlaneGeometry(beachWidth, this.mapSize);
+        eastGeo.applyMatrix4(rotMatrix);
+        eastGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(h + beachWidth / 2, 0.01, 0));
+        sandGeoms.push(eastGeo);
+
+        const mergedSand = safeMerge(sandGeoms);
+        if (mergedSand) {
+            const sandMesh = new THREE.Mesh(mergedSand, sandMat);
+            sandMesh.receiveShadow = true;
+            this.game.scene.add(sandMesh);
+            for (const g of sandGeoms) g.dispose();
+        }
+
+        // Wooden piers at The Docks and Portside
+        const pierMat = new THREE.MeshStandardMaterial({
+            color: 0x8B7355, roughness: 0.8, metalness: 0.1
+        });
+        const pierPositions = [
+            { x: -250, z: 395, length: 30, width: 4, rot: 0 },
+            { x: -300, z: 395, length: 25, width: 3, rot: 0 },
+            { x: -200, z: 395, length: 20, width: 3.5, rot: 0 },
+            { x: 0, z: 395, length: 25, width: 4, rot: 0 },
+            { x: 50, z: 395, length: 20, width: 3, rot: 0 },
+        ];
+
+        for (const pier of pierPositions) {
+            const group = new THREE.Group();
+            // Deck
+            const deckGeo = new THREE.BoxGeometry(pier.width, 0.2, pier.length);
+            const deck = new THREE.Mesh(deckGeo, pierMat);
+            deck.position.set(0, 0.8, pier.length / 2);
+            deck.castShadow = true;
+            deck.receiveShadow = true;
+            group.add(deck);
+
+            // Pilings
+            const pilingMat = new THREE.MeshStandardMaterial({ color: 0x6B5B3D, roughness: 0.9 });
+            for (let p = 0; p < pier.length; p += 5) {
+                for (const side of [-pier.width / 2 + 0.2, pier.width / 2 - 0.2]) {
+                    const pilingGeo = new THREE.CylinderGeometry(0.12, 0.15, 2, 6);
+                    const piling = new THREE.Mesh(pilingGeo, pilingMat);
+                    piling.position.set(side, -0.1, p);
+                    group.add(piling);
+                }
+            }
+
+            // Railing posts
+            const railMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.6, metalness: 0.3 });
+            for (let r = 0; r <= pier.length; r += 3) {
+                for (const side of [-pier.width / 2, pier.width / 2]) {
+                    const postGeo = new THREE.CylinderGeometry(0.04, 0.04, 1, 4);
+                    const post = new THREE.Mesh(postGeo, railMat);
+                    post.position.set(side, 1.4, r);
+                    group.add(post);
+                }
+            }
+
+            group.position.set(pier.x, 0, pier.z);
+            group.rotation.y = pier.rot;
+            this.game.scene.add(group);
+        }
     }
 
     // --- MERGED ROADS (Step 9) ---
@@ -192,7 +292,7 @@ export class World {
         if (roadGeoms.length > 0) {
             const mergedRoad = safeMerge(roadGeoms);
             const roadMesh = new THREE.Mesh(mergedRoad, new THREE.MeshStandardMaterial({
-                color: 0x2a2a2a, roughness: 0.95, metalness: 0.0
+                color: 0x2a2a2a, roughness: 0.82, metalness: 0.05
             }));
             roadMesh.receiveShadow = true;
             this.game.scene.add(roadMesh);
@@ -273,6 +373,96 @@ export class World {
         }
     }
 
+    createDiagonalRoads() {
+        const roadGeoms = [];
+        const dashGeoms = [];
+        const rotMatrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+
+        // Define diagonal boulevards
+        const diagonals = [
+            // Downtown to Strip (NE diagonal)
+            { x1: 0, z1: 0, x2: 200, z2: -200 },
+            // Downtown to Docks (SW diagonal)
+            { x1: 0, z1: 0, x2: -200, z2: 200 },
+            // Hillside to West End
+            { x1: -200, z1: -200, x2: -200, z2: 0 },
+        ];
+
+        for (const diag of diagonals) {
+            const dx = diag.x2 - diag.x1;
+            const dz = diag.z2 - diag.z1;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            const angle = Math.atan2(dx, dz);
+            const midX = (diag.x1 + diag.x2) / 2;
+            const midZ = (diag.z1 + diag.z2) / 2;
+
+            // Road surface
+            const roadGeo = new THREE.PlaneGeometry(this.roadWidth, length);
+            roadGeo.applyMatrix4(rotMatrix);
+            const t = new THREE.Matrix4().makeRotationY(angle);
+            roadGeo.applyMatrix4(t);
+            const pos = new THREE.Matrix4().makeTranslation(midX, 0.015, midZ);
+            roadGeo.applyMatrix4(pos);
+            roadGeoms.push(roadGeo);
+
+            // Center dashes
+            const dashCount = Math.floor(length / 12);
+            for (let d = 0; d < dashCount; d++) {
+                const frac = (d + 0.5) / dashCount;
+                const cx = diag.x1 + dx * frac;
+                const cz = diag.z1 + dz * frac;
+                const dashGeo = new THREE.PlaneGeometry(0.15, 3);
+                dashGeo.applyMatrix4(rotMatrix);
+                dashGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(angle));
+                dashGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(cx, 0.025, cz));
+                dashGeoms.push(dashGeo);
+            }
+        }
+
+        // Curved ring road (approximated with straight segments)
+        const ringRadius = 180;
+        const ringSegments = 24;
+        for (let i = 0; i < ringSegments; i++) {
+            const a1 = (i / ringSegments) * Math.PI * 2;
+            const a2 = ((i + 1) / ringSegments) * Math.PI * 2;
+            const x1 = Math.cos(a1) * ringRadius;
+            const z1 = Math.sin(a1) * ringRadius;
+            const x2 = Math.cos(a2) * ringRadius;
+            const z2 = Math.sin(a2) * ringRadius;
+            const segDx = x2 - x1;
+            const segDz = z2 - z1;
+            const segLen = Math.sqrt(segDx * segDx + segDz * segDz);
+            const segAngle = Math.atan2(segDx, segDz);
+            const segMx = (x1 + x2) / 2;
+            const segMz = (z1 + z2) / 2;
+
+            const segGeo = new THREE.PlaneGeometry(this.roadWidth * 1.2, segLen + 2);
+            segGeo.applyMatrix4(rotMatrix);
+            segGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(segAngle));
+            segGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(segMx, 0.018, segMz));
+            roadGeoms.push(segGeo);
+        }
+
+        // Merge and render
+        if (roadGeoms.length > 0) {
+            const merged = safeMerge(roadGeoms);
+            const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a, roughness: 0.82, metalness: 0.05
+            }));
+            mesh.receiveShadow = true;
+            this.game.scene.add(mesh);
+            for (const g of roadGeoms) g.dispose();
+        }
+        if (dashGeoms.length > 0) {
+            const merged = safeMerge(dashGeoms);
+            const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({
+                color: 0xcccc00, roughness: 0.5
+            }));
+            this.game.scene.add(mesh);
+            for (const g of dashGeoms) g.dispose();
+        }
+    }
+
     // --- MERGED BUILDINGS (Step 8) ---
     createBuildings() {
         // Collect geometry per district per material category
@@ -294,9 +484,9 @@ export class World {
         // Create shared materials
         this.windowMat = new THREE.MeshStandardMaterial({
             color: 0x88aacc,
-            emissive: 0x000000,
-            roughness: 0.3,
-            metalness: 0.5
+            emissive: 0x112244,
+            roughness: 0.1,
+            metalness: 0.7
         });
 
         const doorMat = new THREE.MeshStandardMaterial({ color: 0x332211, roughness: 0.6 });
@@ -313,7 +503,7 @@ export class World {
             if (geoms.body.length > 0) {
                 const merged = safeMerge(geoms.body);
                 const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({
-                    color: avgColor, roughness: 0.8, metalness: 0.1
+                    color: avgColor, roughness: 0.55, metalness: 0.15
                 }));
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
@@ -379,8 +569,8 @@ export class World {
             for (let bz = bounds.minZ + this.blockSize / 2; bz < bounds.maxZ; bz += this.blockSize) {
                 if (Math.random() > density) continue;
 
-                // 10% chance to be an open area (plaza, parking lot, park)
-                if (Math.random() < 0.1) continue;
+                // 3% chance to be an open area (plaza, parking lot, park)
+                if (Math.random() < 0.03) continue;
 
                 // Vary building setback from road (2-6 units)
                 const setback = 2 + Math.random() * 4;
@@ -402,18 +592,12 @@ export class World {
                         bHeight = 3 + Math.random() * 3;
                     }
 
-                    // Hillside district: add elevation
-                    let yOffset = 0;
-                    if (key === 'hillside') {
-                        const distFromCenter = Math.sqrt(
-                            (bx - district.center.x) ** 2 + (bz - district.center.z) ** 2
-                        );
-                        yOffset = Math.max(0, 8 - distFromCenter * 0.03);
-                    }
-
                     const maxOffset = (maxBuildWidth - Math.max(bWidth, bDepth)) / 2;
                     const ox = (Math.random() - 0.5) * Math.max(0, maxOffset);
                     const oz = (Math.random() - 0.5) * Math.max(0, maxOffset);
+
+                    // Apply terrain elevation to building placement
+                    let yOffset = this.getTerrainHeight(bx + ox, bz + oz);
 
                     const roofType = Math.random() < 0.3 ? 'peaked' : (Math.random() < 0.3 ? 'stepped' : 'flat');
                     const hasWindows = !(key === 'industrial' || key === 'docks') || Math.random() > 0.4;
@@ -522,7 +706,7 @@ export class World {
 
         // Door
         const doorGeo = new THREE.PlaneGeometry(2, 3);
-        translate.makeTranslation(x, 1.5 + yOffset, z + depth / 2 + 0.02);
+        translate.makeTranslation(x, 1.5 + yOffset, z + depth / 2 + 0.05);
         doorGeo.applyMatrix4(translate);
         geoms.doors.push(doorGeo);
 
@@ -553,6 +737,169 @@ export class World {
             yOffset: yOffset,
             district: district
         });
+    }
+
+    createLandmarks() {
+        // City Hall at Downtown center
+        {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.5, metalness: 0.1 });
+            // Main building
+            const bodyGeo = new THREE.BoxGeometry(20, 12, 15);
+            const body = new THREE.Mesh(bodyGeo, mat);
+            body.position.y = 6;
+            body.castShadow = true;
+            group.add(body);
+            // Columns (6 across front)
+            const colMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.1 });
+            for (let i = 0; i < 6; i++) {
+                const colGeo = new THREE.CylinderGeometry(0.4, 0.5, 10, 8);
+                const col = new THREE.Mesh(colGeo, colMat);
+                col.position.set(-7.5 + i * 3, 5, 8);
+                col.castShadow = true;
+                group.add(col);
+            }
+            // Pediment (triangular roof)
+            const pedShape = new THREE.Shape();
+            pedShape.moveTo(-10.5, 0);
+            pedShape.lineTo(0, 4);
+            pedShape.lineTo(10.5, 0);
+            pedShape.lineTo(-10.5, 0);
+            const pedGeo = new THREE.ExtrudeGeometry(pedShape, { steps: 1, depth: 1, bevelEnabled: false });
+            const ped = new THREE.Mesh(pedGeo, mat);
+            ped.position.set(0, 12, 7.5);
+            group.add(ped);
+            // Steps
+            for (let s = 0; s < 4; s++) {
+                const stepGeo = new THREE.BoxGeometry(22 - s * 0.5, 0.3, 1);
+                const step = new THREE.Mesh(stepGeo, colMat);
+                step.position.set(0, s * 0.3, 8.5 + s * 0.5);
+                group.add(step);
+            }
+            group.position.set(0, 0, -30);
+            this.game.scene.add(group);
+            this.colliders.push({ type: 'building', minX: -10, maxX: 10, minZ: -45, maxZ: -22.5, height: 16 });
+        }
+
+        // Clock Tower at Downtown center
+        {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.6, metalness: 0.15 });
+            // Base
+            const baseGeo = new THREE.BoxGeometry(5, 20, 5);
+            const base = new THREE.Mesh(baseGeo, mat);
+            base.position.y = 10;
+            base.castShadow = true;
+            group.add(base);
+            // Clock face (4 sides)
+            const clockMat = new THREE.MeshStandardMaterial({ color: 0xfffff0, roughness: 0.3 });
+            for (let i = 0; i < 4; i++) {
+                const clockGeo = new THREE.CircleGeometry(1.5, 16);
+                const clock = new THREE.Mesh(clockGeo, clockMat);
+                clock.position.y = 18;
+                const angle = (i / 4) * Math.PI * 2;
+                clock.position.x = Math.sin(angle) * 2.55;
+                clock.position.z = Math.cos(angle) * 2.55;
+                clock.rotation.y = angle;
+                group.add(clock);
+            }
+            // Pointed top
+            const topGeo = new THREE.ConeGeometry(3, 6, 4);
+            const top = new THREE.Mesh(topGeo, mat);
+            top.position.y = 24;
+            top.rotation.y = Math.PI / 4;
+            top.castShadow = true;
+            group.add(top);
+
+            group.position.set(20, 0, 20);
+            this.game.scene.add(group);
+            this.colliders.push({ type: 'building', minX: 17.5, maxX: 22.5, minZ: 17.5, maxZ: 22.5, height: 27 });
+        }
+
+        // Stadium at Eastgate
+        {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.5, metalness: 0.2 });
+            // Octagonal outer wall using 8 segments
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const nextAngle = ((i + 1) / 8) * Math.PI * 2;
+                const r = 25;
+                const x1 = Math.cos(angle) * r;
+                const z1 = Math.sin(angle) * r;
+                const x2 = Math.cos(nextAngle) * r;
+                const z2 = Math.sin(nextAngle) * r;
+                const mx = (x1 + x2) / 2;
+                const mz = (z1 + z2) / 2;
+                const segLen = Math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2);
+                const segAngle = Math.atan2(x2 - x1, z2 - z1);
+
+                const wallGeo = new THREE.BoxGeometry(1.5, 15, segLen);
+                const wall = new THREE.Mesh(wallGeo, mat);
+                wall.position.set(mx, 7.5, mz);
+                wall.rotation.y = segAngle;
+                wall.castShadow = true;
+                group.add(wall);
+            }
+            // Field (green center)
+            const fieldGeo = new THREE.CircleGeometry(20, 8);
+            fieldGeo.rotateX(-Math.PI / 2);
+            const fieldMat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.9 });
+            const field = new THREE.Mesh(fieldGeo, fieldMat);
+            field.position.y = 0.1;
+            group.add(field);
+
+            group.position.set(280, 0, 0);
+            this.game.scene.add(group);
+            this.colliders.push({ type: 'building', minX: 255, maxX: 305, minZ: -25, maxZ: 25, height: 15 });
+        }
+
+        // Bridge from Portside to Docks
+        {
+            const group = new THREE.Group();
+            const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.6, metalness: 0.3 });
+            // Road deck
+            const deckGeo = new THREE.BoxGeometry(10, 0.5, 80);
+            const deck = new THREE.Mesh(deckGeo, bridgeMat);
+            deck.position.y = 4;
+            deck.castShadow = true;
+            deck.receiveShadow = true;
+            group.add(deck);
+            // Support pillars
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.7, metalness: 0.2 });
+            for (let p = -30; p <= 30; p += 20) {
+                for (const side of [-4, 4]) {
+                    const pillarGeo = new THREE.BoxGeometry(1, 5, 1);
+                    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                    pillar.position.set(side, 2, p);
+                    pillar.castShadow = true;
+                    group.add(pillar);
+                }
+            }
+            // Cable stays (simplified as thin cylinders)
+            const cableMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.5 });
+            for (let c = -30; c <= 30; c += 15) {
+                for (const side of [-5.5, 5.5]) {
+                    const cableGeo = new THREE.CylinderGeometry(0.05, 0.05, 10, 4);
+                    const cable = new THREE.Mesh(cableGeo, cableMat);
+                    cable.position.set(side, 7, c);
+                    cable.rotation.z = side > 0 ? 0.4 : -0.4;
+                    group.add(cable);
+                }
+            }
+            // Railing
+            for (let r = -40; r <= 40; r += 3) {
+                for (const side of [-5, 5]) {
+                    const postGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.2, 4);
+                    const post = new THREE.Mesh(postGeo, bridgeMat);
+                    post.position.set(side, 5, r);
+                    group.add(post);
+                }
+            }
+            group.position.set(-120, 0, 260);
+            group.rotation.y = Math.PI * 0.3;
+            this.game.scene.add(group);
+        }
     }
 
     // --- INSTANCED PROPS (Step 10) ---
@@ -667,7 +1014,7 @@ export class World {
             const hz = -350 + Math.random() * 700;
             if (this.isOnRoad(hx) || this.isOnRoad(hz)) {
                 const nearest = Math.round(hx / this.blockSize) * this.blockSize;
-                hydrantPositions.push({ x: nearest + this.roadWidth / 2 + 0.5, z: hz });
+                hydrantPositions.push({ x: nearest + this.roadWidth / 2 + 3.0, z: hz });
             }
         }
 
@@ -709,8 +1056,8 @@ export class World {
                 const pz = dist.bounds.minZ + Math.random() * (dist.bounds.maxZ - dist.bounds.minZ);
                 if (this.isOnRoad(px) || this.isOnRoad(pz)) {
                     const nearest = Math.round(px / this.blockSize) * this.blockSize;
-                    phoneBoothPositions.push({ x: nearest + this.roadWidth / 2 + 1.2, z: pz });
-                    this.colliders.push({ type: 'prop', minX: nearest + this.roadWidth / 2 + 0.7, maxX: nearest + this.roadWidth / 2 + 1.7, minZ: pz - 0.5, maxZ: pz + 0.5, height: 2.5 });
+                    phoneBoothPositions.push({ x: nearest + this.roadWidth / 2 + 3.0, z: pz });
+                    this.colliders.push({ type: 'prop', minX: nearest + this.roadWidth / 2 + 2.5, maxX: nearest + this.roadWidth / 2 + 3.5, minZ: pz - 0.5, maxZ: pz + 0.5, height: 2.5 });
                 }
             }
         }
@@ -722,7 +1069,7 @@ export class World {
             const mz = dist.bounds.minZ + Math.random() * (dist.bounds.maxZ - dist.bounds.minZ);
             if (this.isOnRoad(mx) || this.isOnRoad(mz)) {
                 const nearest = Math.round(mx / this.blockSize) * this.blockSize;
-                mailboxPositions.push({ x: nearest + this.roadWidth / 2 + 0.8, z: mz });
+                mailboxPositions.push({ x: nearest + this.roadWidth / 2 + 3.0, z: mz });
             }
         }
 
@@ -733,7 +1080,7 @@ export class World {
             const bz = strip.bounds.minZ + Math.random() * (strip.bounds.maxZ - strip.bounds.minZ);
             if (this.isOnRoad(bx) || this.isOnRoad(bz)) {
                 const nearest = Math.round(bx / this.blockSize) * this.blockSize;
-                bollardPositions.push({ x: nearest + this.roadWidth / 2 + 0.5, z: bz });
+                bollardPositions.push({ x: nearest + this.roadWidth / 2 + 3.0, z: bz });
             }
         }
 
@@ -813,7 +1160,7 @@ export class World {
             canopyGeo.translate(0, 4, 0);
             // Merge trunk and canopy -- use single color (trunk is small, canopy dominates)
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x226622, roughness: 0.8 });
+            mat = new THREE.MeshStandardMaterial({ color: 0x1a5522, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         } else if (type === 'deciduous') {
@@ -822,7 +1169,7 @@ export class World {
             const canopyGeo = new THREE.SphereGeometry(2.2, 8, 6);
             canopyGeo.translate(0, 4.2, 0);
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.8 });
+            mat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         } else {
@@ -833,7 +1180,7 @@ export class World {
             canopyGeo.scale(1, 0.3, 1);
             canopyGeo.translate(0, 4.3, 0);
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x228822, roughness: 0.8 });
+            mat = new THREE.MeshStandardMaterial({ color: 0x2a7a2a, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         }
@@ -859,7 +1206,22 @@ export class World {
             const h = hsl.h + (Math.random() - 0.5) * 0.08;
             const s = Math.max(0, Math.min(1, hsl.s + (Math.random() - 0.5) * 0.15));
             const l = Math.max(0, Math.min(1, hsl.l + (Math.random() - 0.5) * 0.12));
-            const instanceColor = new THREE.Color().setHSL(h, s, l);
+            let instanceColor = new THREE.Color().setHSL(h, s, l);
+
+            // 30% chance of autumn colors for deciduous trees
+            if (type === 'deciduous' && Math.random() < 0.3) {
+                const autumnColors = [0xcc6622, 0xaa3322, 0xddaa33, 0xbb5511, 0xcc8833];
+                instanceColor = new THREE.Color(autumnColors[Math.floor(Math.random() * autumnColors.length)]);
+                // Apply slight HSL variation to autumn too
+                const aHSL = {};
+                instanceColor.getHSL(aHSL);
+                instanceColor.setHSL(
+                    aHSL.h + (Math.random() - 0.5) * 0.05,
+                    Math.max(0.3, aHSL.s + (Math.random() - 0.5) * 0.1),
+                    Math.max(0.2, Math.min(0.6, aHSL.l + (Math.random() - 0.5) * 0.1))
+                );
+            }
+
             instancedMesh.setColorAt(i, instanceColor);
         }
         instancedMesh.instanceMatrix.needsUpdate = true;
@@ -1205,12 +1567,46 @@ export class World {
         for (const c of this.colliders) {
             physics.createStaticCuboid(c.minX, c.maxX, c.minZ, c.maxZ, c.height || 5, c.yOffset || 0);
         }
+
+        // Invisible boundary walls at map edges
+        const h = this.halfMap;
+        const wallHeight = 20;
+        const wallThick = 2;
+        // North wall
+        physics.createStaticCuboid(-h - wallThick, h + wallThick, -h - wallThick, -h, wallHeight, 0);
+        // South wall
+        physics.createStaticCuboid(-h - wallThick, h + wallThick, h, h + wallThick, wallHeight, 0);
+        // West wall
+        physics.createStaticCuboid(-h - wallThick, -h, -h, h, wallHeight, 0);
+        // East wall
+        physics.createStaticCuboid(h, h + wallThick, -h, h, wallHeight, 0);
+    }
+
+    getTerrainHeight(x, z) {
+        let height = 0;
+        // Hillside: gradual hill rising toward NW corner (max 12 units)
+        const hillDist = Math.sqrt((x + 275) * (x + 275) + (z + 275) * (z + 275));
+        if (hillDist < 300) {
+            height += Math.max(0, 12 * (1 - hillDist / 300));
+        }
+        // Downtown center: slight 3-unit rise
+        const dtDist = Math.sqrt(x * x + z * z);
+        if (dtDist < 150) {
+            height += 3 * (1 - dtDist / 150) * 0.5;
+        }
+        // North Shore: gentle coastal slope
+        if (z < -200) {
+            const factor = Math.min(1, (-200 - z) / 200);
+            height += factor * 4;
+        }
+        return height;
     }
 
     isOnRoad(pos) {
         const nearest = Math.round(pos / this.blockSize) * this.blockSize;
         return Math.abs(pos - nearest) < this.roadWidth / 2 + 1;
     }
+
 
     createEasterEggs() {
         this.createGraffiti(150, 5, 150, 'GROVE ST 4 LIFE', 0x33cc33);
@@ -1482,6 +1878,24 @@ export class World {
         this.updateTrafficLights(dt);
         this.updateHiddenPackages(dt);
         this.updateAmbientWildlife(dt);
+        this._updateWaves(dt);
+    }
+
+    _updateWaves(dt) {
+        if (!this.waterPlane || !this._wavePositions) return;
+        this._waveTime += dt;
+        const pos = this.waterPlane.geometry.attributes.position;
+        const orig = this._wavePositions;
+        for (let i = 0; i < pos.count; i++) {
+            const x = orig.getX(i);
+            const z = orig.getZ(i);
+            const y = orig.getY(i) + Math.sin(x * 0.05 + this._waveTime * 1.5) * 0.3
+                + Math.sin(z * 0.07 + this._waveTime * 1.2) * 0.2
+                + Math.sin((x + z) * 0.03 + this._waveTime * 0.8) * 0.15;
+            pos.setY(i, y);
+        }
+        pos.needsUpdate = true;
+        this.waterPlane.geometry.computeVertexNormals();
     }
 
     updateLightPool() {
@@ -1531,6 +1945,12 @@ export class World {
         }
 
         if (night) this.updateLightPool();
+    }
+
+    setWindowEmissiveIntensity(intensity) {
+        if (this.windowMat) {
+            this.windowMat.emissiveIntensity = intensity;
+        }
     }
 
     createNeonSigns() {
@@ -1952,7 +2372,7 @@ export class World {
     _createBirdFlocks() {
         this.birdFlocks = [];
         const flockCenters = [
-            { x: 0, z: 0, y: 30 },      // Downtown
+            { x: 30, z: 30, y: 50 },     // Downtown (offset from origin to avoid circling sun)
             { x: -250, z: -250, y: 40 }, // Hillside (higher)
             { x: 250, z: 250, y: 25 },   // Industrial
             { x: -250, z: 250, y: 28 },  // Docks

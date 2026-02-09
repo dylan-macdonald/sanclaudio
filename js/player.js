@@ -25,6 +25,11 @@ export class Player {
         this.isDead = false;
         this.isInInterior = false;
 
+        // Vehicle enter/exit transition
+        this._vehicleTransitionTimer = 0;
+        this._vehicleTransitionTarget = null;
+        this._vehicleTransitionStart = null;
+
         // Noclip mode
         this.noclip = false;
         this.noclipSpeed = 30;
@@ -374,16 +379,37 @@ export class Player {
         if (input.justPressed('jump') && this.isOnGround) {
             this.velocity.y = this.jumpForce;
             this.isOnGround = false;
+            this._isJumping = true;
 
             // Play jump animation
             if (this.mixer && this.actions.jump) {
-                this.actions.jump.reset().play();
+                // Crossfade into jump from current action
+                if (this.currentAction) {
+                    this.currentAction.fadeOut(0.1);
+                }
+                this.actions.jump.reset().fadeIn(0.1).play();
+                this.currentAction = this.actions.jump;
+
                 const onJumpFinished = () => {
                     this.mixer.removeEventListener('finished', onJumpFinished);
+                    this._isJumping = false;
                     this._crossfadeTo(this.animState === 'idle' ? 'idle' : this.animState, 0.15);
                 };
                 this.mixer.addEventListener('finished', onJumpFinished);
+            } else if (this.parts && !this.mixer) {
+                // Fallback jump pose for primitive model
+                this._fallbackJumpActive = true;
             }
+        }
+
+        // Clear fallback jump flag on landing
+        if (this._fallbackJumpActive && this.isOnGround) {
+            this._fallbackJumpActive = false;
+            this._isJumping = false;
+        }
+        // Clear GLTF jump flag on landing (safety net if 'finished' event missed)
+        if (this._isJumping && this.isOnGround && this.velocity.y <= 0) {
+            this._isJumping = false;
         }
 
         // Apply velocity with physics
@@ -582,6 +608,24 @@ export class Player {
 
     updateInVehicle(dt) {
         if (this.currentVehicle) {
+            // Smooth camera transition when first entering vehicle
+            if (this._vehicleTransitionTimer > 0) {
+                this._vehicleTransitionTimer -= dt;
+                const t = Math.max(0, 1 - (this._vehicleTransitionTimer / 0.5));
+                // Ease-out cubic for smooth deceleration
+                const eased = 1 - Math.pow(1 - t, 3);
+                // Lerp camera offset smoothly during transition
+                const camera = this.game.systems.camera;
+                if (camera && camera._transitionBlend !== undefined) {
+                    camera._transitionBlend = eased;
+                }
+                if (this._vehicleTransitionTimer <= 0) {
+                    this._vehicleTransitionTimer = 0;
+                    this._vehicleTransitionTarget = null;
+                    this._vehicleTransitionStart = null;
+                }
+            }
+
             this.position.copy(this.currentVehicle.mesh.position);
             this.model.visible = this.currentVehicle.type === 'motorcycle';
 
@@ -638,6 +682,20 @@ export class Player {
     }
 
     _updateFallbackAnimation(dt, speed) {
+        // Fallback jump pose — arms up, legs tucked
+        if (this._fallbackJumpActive) {
+            if (this.parts.rightUpperArm) this.parts.rightUpperArm.rotation.x = -Math.PI * 0.7;
+            if (this.parts.leftUpperArm) this.parts.leftUpperArm.rotation.x = -Math.PI * 0.7;
+            if (this.parts.rightForearm) this.parts.rightForearm.rotation.x = -Math.PI * 0.3;
+            if (this.parts.leftForearm) this.parts.leftForearm.rotation.x = -Math.PI * 0.3;
+            if (this.parts.rightThigh) this.parts.rightThigh.rotation.x = 0.3;
+            if (this.parts.leftThigh) this.parts.leftThigh.rotation.x = 0.3;
+            if (this.parts.rightShin) this.parts.rightShin.rotation.x = -0.4;
+            if (this.parts.leftShin) this.parts.leftShin.rotation.x = -0.4;
+            if (this.parts.torso) this.parts.torso.rotation.x = 0;
+            return;
+        }
+
         const animSpeed = this.animState === 'run' || this.animState === 'sprint' ? 10 : this.animState === 'walk' ? 6 : 1;
         this.animTime += dt * animSpeed;
 
@@ -748,10 +806,24 @@ export class Player {
     }
 
     playPunchAnimation() {
+        // Combat mode check: only advance combo when targeting an NPC within 3 meters
+        // If no NPC is nearby, reset the combo counter in the weapons system
+        if (!this.hasNPCInMeleeRange(3)) {
+            const weapons = this.game.systems.weapons;
+            if (weapons) {
+                weapons.comboCount = 0;
+                weapons.comboTimer = 0;
+            }
+        }
+
         if (this.mixer && this.actions.punch) {
-            // Use skeleton animation
+            // Use skeleton animation with crossfade
+            if (this.currentAction && this.currentAction !== this.actions.punch) {
+                this.currentAction.fadeOut(0.1);
+            }
             const punchAction = this.actions.punch;
-            punchAction.reset().play();
+            punchAction.reset().fadeIn(0.1).play();
+            this.currentAction = punchAction;
 
             // After punch completes, crossfade back
             const onFinished = () => {
@@ -763,6 +835,23 @@ export class Player {
             // Fallback punch
             this._playFallbackPunch();
         }
+    }
+
+    /**
+     * Check if any alive NPC is within the given melee range of the player.
+     * Used by the combo system to prevent combo advancement when swinging at air.
+     */
+    hasNPCInMeleeRange(range) {
+        const npcs = this.game.systems.npcs;
+        if (!npcs || !npcs.pedestrians) return false;
+
+        const nearbyNPC = npcs.pedestrians.find(npc => {
+            if (!npc.alive || !npc.mesh) return false;
+            const dx = npc.mesh.position.x - this.position.x;
+            const dz = npc.mesh.position.z - this.position.z;
+            return Math.sqrt(dx * dx + dz * dz) < range;
+        });
+        return !!nearbyNPC;
     }
 
     _playFallbackPunch() {
@@ -931,6 +1020,11 @@ export class Player {
                 // Don't enter vehicle if player died/respawned during carjack
                 if (this.isDead) return;
 
+                // Smooth camera transition after carjack
+                this._vehicleTransitionTimer = 0.5;
+                this._vehicleTransitionStart = this.position.clone();
+                this._vehicleTransitionTarget = vehicle.mesh.position.clone();
+
                 this.inVehicle = true;
                 this.currentVehicle = vehicle;
                 vehicle.occupied = true;
@@ -949,7 +1043,10 @@ export class Player {
                 this.game.stats.vehiclesStolen++;
             }, 600);
         } else if (!vehicle.isNPCOwned) {
-            // Normal vehicle entry (parked car)
+            // Normal vehicle entry (parked car) — smooth camera transition
+            this._vehicleTransitionTimer = 0.5;
+            this._vehicleTransitionStart = this.position.clone();
+            this._vehicleTransitionTarget = vehicle.mesh.position.clone();
             this.inVehicle = true;
             this.currentVehicle = vehicle;
             vehicle.occupied = true;
@@ -975,6 +1072,11 @@ export class Player {
         this.inVehicle = false;
         this.model.visible = true;
         this.model.position.copy(this.position);
+
+        // Reset vehicle transition state
+        this._vehicleTransitionTimer = 0;
+        this._vehicleTransitionStart = null;
+        this._vehicleTransitionTarget = null;
 
         // Stop radio and engine when exiting vehicle
         this.game.systems.audio.stopRadio();
@@ -1469,7 +1571,20 @@ export class Player {
             if (!this.isDead) return; // Already respawned
             this.game.setState('dead');
             const deathScreen = document.getElementById('death-screen');
-            if (deathScreen) deathScreen.style.display = 'flex';
+            if (deathScreen) {
+                deathScreen.style.display = 'flex';
+                // Force animation restart so the fade replays each death
+                deathScreen.style.animation = 'none';
+                deathScreen.offsetHeight; // Trigger reflow
+                deathScreen.style.animation = 'deathFadeIn 1.5s ease-in forwards';
+                // Also restart the WASTED text animation
+                const wastedText = document.getElementById('wasted-text');
+                if (wastedText) {
+                    wastedText.style.animation = 'none';
+                    wastedText.offsetHeight;
+                    wastedText.style.animation = 'wastedTextIn 0.8s ease-out 0.3s both';
+                }
+            }
 
             setTimeout(() => {
                 this.respawn();
@@ -1490,6 +1605,9 @@ export class Player {
         this.inVehicle = false;
         this.currentVehicle = null;
         this._carjacking = false;
+        this._vehicleTransitionTimer = 0;
+        this._vehicleTransitionStart = null;
+        this._vehicleTransitionTarget = null;
 
         // Reset swimming/drowning state
         this.isSwimming = false;
@@ -1508,7 +1626,10 @@ export class Player {
 
         this.game.setState('playing');
         const deathScreen = document.getElementById('death-screen');
-        if (deathScreen) deathScreen.style.display = 'none';
+        if (deathScreen) {
+            deathScreen.style.display = 'none';
+            deathScreen.style.animation = '';
+        }
 
         this.game.systems.wanted.setLevel(0);
     }

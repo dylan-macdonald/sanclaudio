@@ -36,17 +36,42 @@ export class WantedSystem {
         this._policeHeli = null;
         this._heliSpotlight = null;
 
+        // Police flasher state
+        this._policeFlashTimer = 0;
+        this._policeFlashState = false;
+
         // Cop dialogue
         this.copDialogue = [
             "Stop right there!", "Pull over NOW!", "You're under arrest!",
             "Suspect on foot!", "We need backup!", "Don't make this harder!",
-            "Taser! Taser!"
+            "Taser! Taser!",
+            "Get on the ground!", "You picked the wrong day, pal!",
+            "Dispatch, suspect heading east!", "I said FREEZE!",
+            "Hands where I can see 'em!"
         ];
         this.highStarDialogue = [
             "SWAT is en route!", "All units respond!",
             "Lethal force authorized!", "Bring in the heavy units!",
-            "This guy's insane!"
+            "This guy's insane!",
+            "We've got a 10-99, officer down!", "Air support, move in!",
+            "Suspect is heavily armed!", "We need the chopper NOW!",
+            "This is out of control!"
         ];
+        this.chaseDialogue = [
+            "Suspect is fleeing on foot!", "Don't let him get away!",
+            "Cut him off at the intersection!", "He's heading for the docks!",
+            "I've got eyes on the suspect!", "Stay on him!",
+            "He can't run forever!", "Requesting roadblock ahead!"
+        ];
+        this.spottedDialogue = [
+            "There he is!", "Suspect spotted!", "I see him!",
+            "Visual on the target!", "Got a visual, moving in!",
+            "He's right there!", "Contact! Contact!",
+            "Target acquired, closing in!"
+        ];
+
+        // Dialogue dedup tracking — last 3 spoken lines
+        this._recentDialogue = [];
 
         // Pay N Spray locations
         this.payNSprayLocations = [
@@ -258,6 +283,23 @@ export class WantedSystem {
         // Update police AI
         for (const unit of this.policeUnits) {
             this.updatePoliceUnit(unit, dt);
+        }
+
+        // Update police vehicle lightbar flashers (red/blue alternating)
+        this._updatePoliceLightbars(dt);
+
+        // Police carjack at 3+ stars — officers pull player from vehicle
+        if (this.level >= 3 && player.inVehicle && player.currentVehicle) {
+            for (const unit of this.policeUnits) {
+                if (!unit.alive || !unit.mesh) continue;
+                const policeNearDistance = unit.mesh.position.distanceTo(player.position);
+                if (policeNearDistance < 3) {
+                    // Force player exit from vehicle
+                    player.exitVehicle();
+                    this.game.systems.ui.showMissionText('BUSTED!', 2);
+                    break; // Only one officer needs to do this per frame
+                }
+            }
         }
 
         // Periodic siren sounds from nearby police
@@ -858,11 +900,119 @@ export class WantedSystem {
                         }
                     });
                 }
+                // Add split red/blue lightbar to police vehicle
+                this._addPoliceLightbar(car);
                 unit.vehicle = car;
             }
         }
 
         this.policeUnits.push(unit);
+    }
+
+    _addPoliceLightbar(car) {
+        const vType = this.game.systems.vehicles.vehicleTypes[car.type] ||
+                      this.game.systems.vehicles.vehicleTypes['sedan'];
+        const barY = vType ? vType.height + 0.1 : 1.6;
+
+        // Left half — red
+        const leftGeo = new THREE.BoxGeometry(0.4, 0.15, 0.3);
+        const leftMat = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            emissive: 0xff0000,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 0.9
+        });
+        const leftLight = new THREE.Mesh(leftGeo, leftMat);
+        leftLight.position.set(-0.22, barY, 0);
+        car.mesh.add(leftLight);
+
+        // Right half — blue
+        const rightGeo = new THREE.BoxGeometry(0.4, 0.15, 0.3);
+        const rightMat = new THREE.MeshStandardMaterial({
+            color: 0x0044ff,
+            emissive: 0x0044ff,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 0.9
+        });
+        const rightLight = new THREE.Mesh(rightGeo, rightMat);
+        rightLight.position.set(0.22, barY, 0);
+        car.mesh.add(rightLight);
+
+        // Store references for flash toggling
+        car._lightbarLeft = leftLight;
+        car._lightbarRight = rightLight;
+    }
+
+    _updatePoliceLightbars(dt) {
+        this._policeFlashTimer = (this._policeFlashTimer || 0) + dt;
+        if (this._policeFlashTimer > 0.25) {
+            this._policeFlashTimer = 0;
+            this._policeFlashState = !this._policeFlashState;
+        }
+
+        for (const unit of this.policeUnits) {
+            if (!unit.vehicle) continue;
+            const car = unit.vehicle;
+            if (!car._lightbarLeft || !car._lightbarRight) continue;
+
+            if (this._policeFlashState) {
+                // Left = red bright, right = blue dim
+                car._lightbarLeft.material.emissive.setHex(0xff0000);
+                car._lightbarLeft.material.emissiveIntensity = 1.0;
+                car._lightbarLeft.material.opacity = 0.9;
+                car._lightbarRight.material.emissive.setHex(0x0044ff);
+                car._lightbarRight.material.emissiveIntensity = 0.1;
+                car._lightbarRight.material.opacity = 0.3;
+            } else {
+                // Left = red dim, right = blue bright
+                car._lightbarLeft.material.emissive.setHex(0xff0000);
+                car._lightbarLeft.material.emissiveIntensity = 0.1;
+                car._lightbarLeft.material.opacity = 0.3;
+                car._lightbarRight.material.emissive.setHex(0x0044ff);
+                car._lightbarRight.material.emissiveIntensity = 1.0;
+                car._lightbarRight.material.opacity = 0.9;
+            }
+        }
+
+        // Also update roadblock car lightbars
+        for (const rb of this.roadblocks) {
+            for (const car of rb.cars) {
+                if (!car._lightbarLeft || !car._lightbarRight) continue;
+
+                if (this._policeFlashState) {
+                    car._lightbarLeft.material.emissive.setHex(0xff0000);
+                    car._lightbarLeft.material.emissiveIntensity = 1.0;
+                    car._lightbarLeft.material.opacity = 0.9;
+                    car._lightbarRight.material.emissive.setHex(0x0044ff);
+                    car._lightbarRight.material.emissiveIntensity = 0.1;
+                    car._lightbarRight.material.opacity = 0.3;
+                } else {
+                    car._lightbarLeft.material.emissive.setHex(0xff0000);
+                    car._lightbarLeft.material.emissiveIntensity = 0.1;
+                    car._lightbarLeft.material.opacity = 0.3;
+                    car._lightbarRight.material.emissive.setHex(0x0044ff);
+                    car._lightbarRight.material.emissiveIntensity = 1.0;
+                    car._lightbarRight.material.opacity = 0.9;
+                }
+            }
+        }
+    }
+
+    _pickDialogueLine(lines) {
+        // Filter out recently spoken lines to avoid repetition
+        const available = lines.filter(l => !this._recentDialogue.includes(l));
+        const pool = available.length > 0 ? available : lines;
+        const line = pool[Math.floor(Math.random() * pool.length)];
+
+        // Track the line and trim to last 3
+        this._recentDialogue.push(line);
+        if (this._recentDialogue.length > 3) {
+            this._recentDialogue.shift();
+        }
+
+        return line;
     }
 
     updatePoliceUnit(unit, dt) {
@@ -926,8 +1076,17 @@ export class WantedSystem {
         // Dialogue
         unit.dialogueTimer -= dt;
         if (unit.dialogueTimer <= 0 && dist < 30) {
-            const lines = this.level >= 4 ? this.highStarDialogue : this.copDialogue;
-            const line = lines[Math.floor(Math.random() * lines.length)];
+            // Pick dialogue pool based on context
+            let lines;
+            if (this.level >= 4) {
+                lines = this.highStarDialogue;
+            } else if (dist > 15) {
+                // Far away — use spotted/chase lines
+                lines = Math.random() > 0.5 ? this.chaseDialogue : this.spottedDialogue;
+            } else {
+                lines = this.copDialogue;
+            }
+            const line = this._pickDialogueLine(lines);
 
             // Show subtitle
             this.game.systems.npcs.showNPCSubtitle({ mesh: unit.mesh, alive: true }, line);
@@ -1158,16 +1317,8 @@ export class WantedSystem {
                 car.mesh.rotation.y = roadblockRotation + cp.rot;
                 car.isTraffic = false;
 
-                // Red/blue light bar on top
-                const lightGeo = new THREE.BoxGeometry(0.8, 0.15, 0.3);
-                const lightBar = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({
-                    color: 0xff0000, transparent: true, opacity: 0.8
-                }));
-                const vType = this.game.systems.vehicles.vehicleTypes['sedan'];
-                lightBar.position.set(0, vType.height + 0.1, 0);
-                car.mesh.add(lightBar);
-                car._roadblockLightBar = lightBar;
-                car._roadblockFlashTime = Math.random() * Math.PI;
+                // Add split red/blue lightbar to roadblock car
+                this._addPoliceLightbar(car);
 
                 group.userData.cars = group.userData.cars || [];
                 group.userData.cars.push(car);
@@ -1195,15 +1346,7 @@ export class WantedSystem {
         const player = this.game.systems.player;
 
         for (const rb of this.roadblocks) {
-            rb.flashTime += dt * 5;
-
-            // Flash police lights red/blue
-            for (const car of rb.cars) {
-                if (car._roadblockLightBar) {
-                    const flash = Math.sin(rb.flashTime + (car._roadblockFlashTime || 0));
-                    car._roadblockLightBar.material.color.setHex(flash > 0 ? 0xff0000 : 0x0000ff);
-                }
-            }
+            // Lightbar flashing is now handled by _updatePoliceLightbars()
 
             // Spike strip damage: pop tires if player drives over
             if (player.inVehicle && player.currentVehicle) {
