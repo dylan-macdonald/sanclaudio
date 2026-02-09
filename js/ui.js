@@ -608,12 +608,12 @@ export class UIManager {
 
         // Mission markers
         const missions = this.game.systems.missions;
-        if (missions && missions.missions) {
+        if (missions && missions.missionDefs) {
             ctx.fillStyle = '#ffaa00';
-            for (const m of missions.missions) {
-                if (m.completed || !m.location) continue;
+            for (const m of missions.missionDefs) {
+                if (missions.completedMissions.has(m.id) || !m.markerPos) continue;
                 ctx.save();
-                ctx.translate(m.location.x, m.location.z);
+                ctx.translate(m.markerPos.x, m.markerPos.z);
                 ctx.rotate(Math.PI / 4);
                 const ds = 4 / zoom;
                 ctx.fillRect(-ds, -ds, ds * 2, ds * 2);

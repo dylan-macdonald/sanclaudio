@@ -2067,9 +2067,9 @@ export class VehicleManager {
         // Track distance
         this.game.stats.distanceDriven += Math.abs(vehicle.speed) * dt;
 
-        // Exit vehicle
+        // Exit vehicle — only when low enough
         if (input.justPressed('interact') && vehicle._altitude < 3) {
-            // Only exit when low enough
+            this.game.systems.player.exitVehicle();
         }
     }
 

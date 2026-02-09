@@ -1,0 +1,12 @@
+# Test screenshots from Playwright visual testing
+*.png
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Node modules
+node_modules/
+tools/node_modules/
+
+# Font zone identifier (Windows metadata)
+*.otf:Zone.Identifier

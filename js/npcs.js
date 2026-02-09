@@ -12,13 +12,13 @@ export class NPCManager {
         this.districtPopulation = {
             'Downtown': 1.5,
             'The Strip': 1.3,
-            'Docks': 0.6,
+            'The Docks': 0.6,
             'Hillside': 0.4,
-            'Industrial': 0.5,
+            'Industrial Park': 0.5,
             'North Shore': 0.7,
             'Portside': 0.7,
             'West End': 0.8,
-            'East Side': 0.9
+            'Eastgate': 0.9
         };
 
         // Time-of-day population modifiers per district
@@ -26,9 +26,9 @@ export class NPCManager {
         this.districtTimeModifiers = {
             'Downtown': { day: 1.5, night: 0.4 },
             'The Strip': { day: 0.7, night: 1.8 },
-            'Docks': { day: 0.8, night: 0.3 },
+            'The Docks': { day: 0.8, night: 0.3 },
             'Hillside': { day: 0.6, night: 0.2 },
-            'Industrial': { day: 0.9, night: 0.2 },
+            'Industrial Park': { day: 0.9, night: 0.2 },
             'default': { day: 1.0, night: 0.5 }
         };
         this.trafficVehicles = [];
@@ -63,7 +63,7 @@ export class NPCManager {
                 "I heard the club's got a new DJ.",
                 "This town never sleeps."
             ],
-            'Docks': [
+            'The Docks': [
                 "Another shipment coming in.",
                 "Watch your step around here.",
                 "The union's meeting tomorrow.",
@@ -75,7 +75,7 @@ export class NPCManager {
                 "I should go for a hike.",
                 "It's quieter up here."
             ],
-            'Industrial': [
+            'Industrial Park': [
                 "Overtime again tonight.",
                 "This factory's been here forever.",
                 "The machinery needs replacing.",
@@ -134,7 +134,7 @@ export class NPCManager {
                 shirts: [0xff2299, 0xaa00ff, 0xff4400, 0x00ccff, 0xffcc00],
                 pants: [0x111122, 0x221122, 0x112222]
             },
-            'Docks': {
+            'The Docks': {
                 shirts: [0x666666, 0x997744, 0x445566, 0x778855, 0xcc8844],
                 pants: [0x333333, 0x444433, 0x334444]
             },
@@ -142,7 +142,7 @@ export class NPCManager {
                 shirts: [0x558855, 0x886644, 0x557788, 0xaa8866, 0x669966],
                 pants: [0x333322, 0x443322, 0x334433]
             },
-            'Industrial': {
+            'Industrial Park': {
                 shirts: [0xff8800, 0xcccc00, 0x886644, 0x555555, 0x888844],
                 pants: [0x333333, 0x444444, 0x222222]
             }
@@ -1113,7 +1113,7 @@ export class NPCManager {
                 npc._recordingTarget = point.clone();
                 if (Math.random() < 0.4) {
                     const line = this.duckDialogue[Math.floor(Math.random() * this.duckDialogue.length)];
-                    this.showNPCDialogue(npc, line);
+                    this.showNPCSubtitle(npc, line);
                 }
             } else if (dist < 25) {
                 // Medium range — some flee, some pull out phones to record
@@ -1126,7 +1126,7 @@ export class NPCManager {
                     npc.walkDir = Math.atan2(dx, dz);
                     if (Math.random() < 0.3) {
                         const line = this.fleeDialogue[Math.floor(Math.random() * this.fleeDialogue.length)];
-                        this.showNPCDialogue(npc, line);
+                        this.showNPCSubtitle(npc, line);
                     }
                 } else {
                     // Pull out phone to record
@@ -1135,7 +1135,7 @@ export class NPCManager {
                     npc._recordingTarget = point.clone();
                     if (Math.random() < 0.5) {
                         const line = this.recordDialogue[Math.floor(Math.random() * this.recordDialogue.length)];
-                        this.showNPCDialogue(npc, line);
+                        this.showNPCSubtitle(npc, line);
                     }
                 }
             }
@@ -1156,7 +1156,7 @@ export class NPCManager {
                 npc._recordingTarget = point.clone();
                 if (Math.random() < 0.5) {
                     const line = this.cowerDialogue[Math.floor(Math.random() * this.cowerDialogue.length)];
-                    this.showNPCDialogue(npc, line);
+                    this.showNPCSubtitle(npc, line);
                 }
             } else if (dist < 35) {
                 // Farther — flee
@@ -1184,7 +1184,7 @@ export class NPCManager {
                     npc._recordingTarget = point.clone();
                     if (Math.random() < 0.5) {
                         const line = this.cheerDialogue[Math.floor(Math.random() * this.cheerDialogue.length)];
-                        this.showNPCDialogue(npc, line);
+                        this.showNPCSubtitle(npc, line);
                     }
                 } else {
                     // Record it
@@ -1193,7 +1193,7 @@ export class NPCManager {
                     npc._recordingTarget = point.clone();
                     if (Math.random() < 0.4) {
                         const line = this.recordDialogue[Math.floor(Math.random() * this.recordDialogue.length)];
-                        this.showNPCDialogue(npc, line);
+                        this.showNPCSubtitle(npc, line);
                     }
                 }
             }

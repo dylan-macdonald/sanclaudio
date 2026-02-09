@@ -422,7 +422,7 @@ export class InteriorManager {
 
                         // Auto-save
                         if (this.game.systems.save) {
-                            this.game.systems.save.saveGame();
+                            this.game.systems.save.save();
                         }
                     }
 
@@ -599,9 +599,9 @@ export class InteriorManager {
     }
 
     enterInterior(door) {
-        this.transitioning = true;
         const interior = this.interiors[door.interior];
         if (!interior) return;
+        this.transitioning = true;
 
         // Fade to black
         this.fadeTransition(() => {

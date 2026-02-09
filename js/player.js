@@ -550,9 +550,9 @@ export class Player {
             this.position.copy(this.currentVehicle.mesh.position);
             this.model.visible = this.currentVehicle.type === 'motorcycle';
 
-            // E key to exit vehicle
+            // E key to exit vehicle (helicopter exit handled by vehicle flight code)
             const input = this.game.systems.input;
-            if (input.justPressed('interact')) {
+            if (input.justPressed('interact') && this.currentVehicle.type !== 'helicopter') {
                 this.exitVehicle();
             }
         }

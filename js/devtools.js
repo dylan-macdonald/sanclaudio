@@ -614,10 +614,10 @@ export class DevTools {
                 const dest = args[0];
                 const districts = {
                     downtown: { x: 0, z: 0 },
-                    docks: { x: 200, z: 200 },
+                    docks: { x: -200, z: 200 },
                     hillside: { x: -200, z: -200 },
                     strip: { x: 200, z: -200 },
-                    industrial: { x: -200, z: 200 }
+                    industrial: { x: 200, z: 200 }
                 };
                 const interiors = ['safehouse', 'bank', 'warehouse', 'club', 'garage'];
 

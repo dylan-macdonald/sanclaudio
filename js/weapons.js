@@ -938,6 +938,8 @@ export class WeaponManager {
             proj.mesh.position.add(move);
             proj.traveled += proj.speed * dt;
 
+            let removed = false;
+
             // Check hit on NPCs
             const npcs = this.game.systems.npcs;
             if (npcs) {
@@ -952,13 +954,14 @@ export class WeaponManager {
                         }
 
                         this.removeProjectile(i);
-                        break; // Break inner NPC loop, continue processing other projectiles
+                        removed = true;
+                        break;
                     }
                 }
             }
 
-            // Max range
-            if (proj.traveled > proj.range) {
+            // Max range — only if not already removed
+            if (!removed && proj.traveled > proj.range) {
                 this.removeProjectile(i);
             }
         }
