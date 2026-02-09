@@ -606,9 +606,19 @@ export class World {
     _generateDistrictBuildingGeoms(key, district, geoms) {
         const { bounds, colors, buildingHeight, density } = district;
 
+        // Landmark exclusion zones — prevent random buildings from overlapping landmarks
+        const exclusionZones = [
+            { minX: -130, maxX: -70, minZ: -100, maxZ: -60 },   // Claudio Gardens
+            { minX: 48, maxX: 72, minZ: -30, maxZ: 30 },        // The Canyon
+            { minX: 185, maxX: 215, minZ: -215, maxZ: -185 },   // Claudio Square
+        ];
+
         for (let bx = bounds.minX + this.blockSize / 2; bx < bounds.maxX; bx += this.blockSize) {
             for (let bz = bounds.minZ + this.blockSize / 2; bz < bounds.maxZ; bz += this.blockSize) {
                 if (Math.random() > density) continue;
+
+                // Skip if block center falls inside a landmark exclusion zone
+                if (exclusionZones.some(z => bx >= z.minX && bx <= z.maxX && bz >= z.minZ && bz <= z.maxZ)) continue;
 
                 // 3% chance to be an open area (plaza, parking lot, park)
                 if (Math.random() < 0.03) continue;
@@ -1008,6 +1018,546 @@ export class World {
                 this.game.scene.add(mesh);
                 for (const g of cableGeoms) g.dispose();
             }
+        }
+
+        // ─── Claudio Square (Times Square) — The Strip ───
+        {
+            const gx = 200, gz = -200;
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7, metalness: 0.4 });
+            const panelMat1 = new THREE.MeshStandardMaterial({ color: 0xff2266, emissive: 0xff2266, emissiveIntensity: 0.6, roughness: 0.3 });
+            const panelMat2 = new THREE.MeshStandardMaterial({ color: 0x22aaff, emissive: 0x22aaff, emissiveIntensity: 0.6, roughness: 0.3 });
+            const panelMat3 = new THREE.MeshStandardMaterial({ color: 0xffee00, emissive: 0xffee00, emissiveIntensity: 0.6, roughness: 0.3 });
+            const frameGeoms = [];
+            const p1Geoms = [];
+            const p2Geoms = [];
+            const p3Geoms = [];
+
+            // Billboard structures — 4 angled frames with glowing panels
+            const billboards = [
+                { x: -8, z: -8, ry: 0.3, h: 25, pw: 7, ph: 10, panels: p1Geoms },
+                { x: 9, z: -5, ry: -0.4, h: 20, pw: 6, ph: 8, panels: p2Geoms },
+                { x: -5, z: 8, ry: 0.6, h: 22, pw: 8, ph: 7, panels: p3Geoms },
+                { x: 7, z: 7, ry: -0.2, h: 18, pw: 5, ph: 9, panels: p1Geoms },
+            ];
+
+            for (const bb of billboards) {
+                // Frame pole
+                const poleGeo = new THREE.BoxGeometry(1.2, bb.h, 1.2);
+                bakeTransform(poleGeo, gx + bb.x, bb.h / 2, gz + bb.z, bb.ry);
+                frameGeoms.push(poleGeo);
+                // Panel face
+                const panelGeo = new THREE.BoxGeometry(bb.pw, bb.ph, 0.3);
+                bakeTransform(panelGeo, gx + bb.x, bb.h - bb.ph / 2 - 1, gz + bb.z + 0.8, bb.ry);
+                bb.panels.push(panelGeo);
+            }
+
+            // Marquee base structure
+            const marqueeGeo = new THREE.BoxGeometry(12, 3, 12);
+            bakeTransform(marqueeGeo, gx, 1.5, gz);
+            frameGeoms.push(marqueeGeo);
+
+            // Neon accent strips
+            for (let i = 0; i < 3; i++) {
+                const stripGeo = new THREE.BoxGeometry(0.2, 0.2, 14);
+                bakeTransform(stripGeo, gx - 5 + i * 5, 3.2, gz);
+                p2Geoms.push(stripGeo);
+            }
+
+            const fmesh = new THREE.Mesh(safeMerge(frameGeoms), frameMat);
+            fmesh.castShadow = true;
+            this.game.scene.add(fmesh);
+            for (const g of frameGeoms) g.dispose();
+
+            if (p1Geoms.length > 0) { const m = new THREE.Mesh(safeMerge(p1Geoms), panelMat1); this.game.scene.add(m); for (const g of p1Geoms) g.dispose(); }
+            if (p2Geoms.length > 0) { const m = new THREE.Mesh(safeMerge(p2Geoms), panelMat2); this.game.scene.add(m); for (const g of p2Geoms) g.dispose(); }
+            if (p3Geoms.length > 0) { const m = new THREE.Mesh(safeMerge(p3Geoms), panelMat3); this.game.scene.add(m); for (const g of p3Geoms) g.dispose(); }
+
+            this.colliders.push({ type: 'building', minX: gx - 15, maxX: gx + 15, minZ: gz - 15, maxZ: gz + 15, height: 25 });
+        }
+
+        // ─── Lady Claudio (Statue of Liberty) — Offshore near The Docks ───
+        {
+            const gx = -350, gz = 280;
+            const statueMat = new THREE.MeshStandardMaterial({ color: 0x6b8e6b, roughness: 0.6, metalness: 0.3 });
+            const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x999988, roughness: 0.7, metalness: 0.1 });
+            const islandMat = new THREE.MeshStandardMaterial({ color: 0xccbb88, roughness: 0.9 });
+            const torchMat = new THREE.MeshStandardMaterial({ color: 0xffcc33, emissive: 0xffaa00, emissiveIntensity: 0.8, roughness: 0.3 });
+            const statueGeoms = [];
+            const pedGeoms = [];
+            const islandGeoms = [];
+            const torchGeoms = [];
+
+            // Island base (flattened cylinder)
+            const islandGeo = new THREE.CylinderGeometry(20, 22, 2, 12);
+            bakeTransform(islandGeo, gx, 0.5, gz);
+            islandGeoms.push(islandGeo);
+
+            // Rectangular pedestal
+            const pedGeo = new THREE.BoxGeometry(8, 8, 8);
+            bakeTransform(pedGeo, gx, 5.5, gz);
+            pedGeoms.push(pedGeo);
+            // Pedestal base (wider)
+            const pedBase = new THREE.BoxGeometry(10, 2, 10);
+            bakeTransform(pedBase, gx, 1.5, gz);
+            pedGeoms.push(pedBase);
+
+            // Statue body (tapered cylinder)
+            const bodyGeo = new THREE.CylinderGeometry(1.5, 2.5, 12, 8);
+            bakeTransform(bodyGeo, gx, 15.5, gz);
+            statueGeoms.push(bodyGeo);
+
+            // Head
+            const headGeo = new THREE.SphereGeometry(1.2, 8, 6);
+            bakeTransform(headGeo, gx, 22.5, gz);
+            statueGeoms.push(headGeo);
+
+            // Crown (small ring of spikes)
+            for (let i = 0; i < 7; i++) {
+                const spikeGeo = new THREE.ConeGeometry(0.15, 1.2, 4);
+                const angle = (i / 7) * Math.PI * 2;
+                bakeTransform(spikeGeo, gx + Math.sin(angle) * 1.1, 24, gz + Math.cos(angle) * 1.1);
+                statueGeoms.push(spikeGeo);
+            }
+
+            // Raised right arm with torch
+            const armGeo = new THREE.CylinderGeometry(0.4, 0.5, 6, 6);
+            bakeTransform(armGeo, gx + 1.5, 24, gz, 0, 0, -0.3);
+            statueGeoms.push(armGeo);
+
+            // Torch flame
+            const flameGeo = new THREE.SphereGeometry(0.7, 6, 6);
+            bakeTransform(flameGeo, gx + 2.5, 27.5, gz);
+            torchGeoms.push(flameGeo);
+
+            // Left arm (holding tablet)
+            const lArmGeo = new THREE.BoxGeometry(0.5, 4, 0.8);
+            bakeTransform(lArmGeo, gx - 1.8, 18, gz);
+            statueGeoms.push(lArmGeo);
+
+            // Tablet
+            const tabletGeo = new THREE.BoxGeometry(0.3, 3, 2);
+            bakeTransform(tabletGeo, gx - 2.2, 18, gz);
+            statueGeoms.push(tabletGeo);
+
+            const smesh = new THREE.Mesh(safeMerge(statueGeoms), statueMat);
+            smesh.castShadow = true;
+            this.game.scene.add(smesh);
+            for (const g of statueGeoms) g.dispose();
+
+            const pmesh = new THREE.Mesh(safeMerge(pedGeoms), pedestalMat);
+            pmesh.castShadow = true;
+            this.game.scene.add(pmesh);
+            for (const g of pedGeoms) g.dispose();
+
+            const imesh = new THREE.Mesh(safeMerge(islandGeoms), islandMat);
+            imesh.receiveShadow = true;
+            this.game.scene.add(imesh);
+            for (const g of islandGeoms) g.dispose();
+
+            const tmesh = new THREE.Mesh(safeMerge(torchGeoms), torchMat);
+            this.game.scene.add(tmesh);
+            for (const g of torchGeoms) g.dispose();
+
+            this.colliders.push({ type: 'building', minX: gx - 5, maxX: gx + 5, minZ: gz - 5, maxZ: gz + 5, height: 28 });
+        }
+
+        // ─── Claudio Gardens (Central Park) — Between Downtown and Hillside ───
+        {
+            const gx = -100, gz = -80;
+            const grassMat = new THREE.MeshStandardMaterial({ color: 0x4a8a3a, roughness: 0.9 });
+            const pathMat = new THREE.MeshStandardMaterial({ color: 0xbbbbaa, roughness: 0.8 });
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0xccccbb, roughness: 0.6, metalness: 0.1 });
+            const waterMat = new THREE.MeshStandardMaterial({ color: 0x3388aa, roughness: 0.2, metalness: 0.3, transparent: true, opacity: 0.8 });
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x887766, roughness: 0.7 });
+            const grassGeoms = [];
+            const pathGeoms = [];
+            const stoneGeoms = [];
+            const waterGeoms = [];
+            const wallGeoms = [];
+
+            // Main green ground plane
+            const lawnGeo = new THREE.BoxGeometry(60, 0.15, 40);
+            bakeTransform(lawnGeo, gx, 0.08, gz);
+            grassGeoms.push(lawnGeo);
+
+            // Perimeter low wall
+            const wallSegments = [
+                { x: gx, z: gz - 20, w: 60, d: 0.6 },  // south
+                { x: gx, z: gz + 20, w: 60, d: 0.6 },  // north
+                { x: gx - 30, z: gz, w: 0.6, d: 40 },   // west
+                { x: gx + 30, z: gz, w: 0.6, d: 40 },   // east
+            ];
+            for (const ws of wallSegments) {
+                const wGeo = new THREE.BoxGeometry(ws.w, 1.2, ws.d);
+                bakeTransform(wGeo, ws.x, 0.6, ws.z);
+                wallGeoms.push(wGeo);
+            }
+
+            // Walking paths (cross shape)
+            const hPath = new THREE.BoxGeometry(58, 0.05, 3);
+            bakeTransform(hPath, gx, 0.18, gz);
+            pathGeoms.push(hPath);
+            const vPath = new THREE.BoxGeometry(3, 0.05, 38);
+            bakeTransform(vPath, gx, 0.18, gz);
+            pathGeoms.push(vPath);
+
+            // Central circular fountain basin
+            const basinGeo = new THREE.CylinderGeometry(5, 5.5, 1.2, 16);
+            bakeTransform(basinGeo, gx, 0.6, gz);
+            stoneGeoms.push(basinGeo);
+
+            // Fountain water surface
+            const fwGeo = new THREE.CircleGeometry(4.5, 16);
+            fwGeo.rotateX(-Math.PI / 2);
+            bakeTransform(fwGeo, gx, 1.0, gz);
+            waterGeoms.push(fwGeo);
+
+            // Central spout column
+            const spoutGeo = new THREE.CylinderGeometry(0.3, 0.4, 3, 8);
+            bakeTransform(spoutGeo, gx, 2.5, gz);
+            stoneGeoms.push(spoutGeo);
+
+            // Benches along paths (8 total)
+            for (let i = -2; i <= 2; i++) {
+                if (i === 0) continue;
+                const benchGeo = new THREE.BoxGeometry(2, 0.6, 0.8);
+                bakeTransform(benchGeo, gx + i * 10, 0.45, gz + 3);
+                stoneGeoms.push(benchGeo);
+                const benchGeo2 = new THREE.BoxGeometry(2, 0.6, 0.8);
+                bakeTransform(benchGeo2, gx + i * 10, 0.45, gz - 3);
+                stoneGeoms.push(benchGeo2);
+            }
+
+            // Tree clusters (simple cylinders + spheres, not instanced — just a few)
+            for (const tp of [[-22, -12], [-22, 12], [22, -12], [22, 12], [-12, -15], [12, 15]]) {
+                const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 4, 6);
+                bakeTransform(trunkGeo, gx + tp[0], 2, gz + tp[1]);
+                wallGeoms.push(trunkGeo); // reuse brown-ish material
+                const canopyGeo = new THREE.SphereGeometry(2.5, 6, 5);
+                bakeTransform(canopyGeo, gx + tp[0], 5.5, gz + tp[1]);
+                grassGeoms.push(canopyGeo); // reuse green material
+            }
+
+            const gmesh = new THREE.Mesh(safeMerge(grassGeoms), grassMat);
+            gmesh.receiveShadow = true;
+            this.game.scene.add(gmesh);
+            for (const g of grassGeoms) g.dispose();
+
+            if (pathGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(pathGeoms), pathMat); m.receiveShadow = true; this.game.scene.add(m); for (const g of pathGeoms) g.dispose(); }
+            if (stoneGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(stoneGeoms), stoneMat); m.castShadow = true; this.game.scene.add(m); for (const g of stoneGeoms) g.dispose(); }
+            if (waterGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(waterGeoms), waterMat); this.game.scene.add(m); for (const g of waterGeoms) g.dispose(); }
+            if (wallGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(wallGeoms), wallMat); m.castShadow = true; this.game.scene.add(m); for (const g of wallGeoms) g.dispose(); }
+
+            // Only collide on fountain and walls, not the open park
+            this.colliders.push({ type: 'building', minX: gx - 5.5, maxX: gx + 5.5, minZ: gz - 5.5, maxZ: gz + 5.5, height: 4 });
+        }
+
+        // ─── The Canyon (Wall Street) — Downtown East ───
+        {
+            const gx = 60, gz = 0;
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x666677, roughness: 0.5, metalness: 0.2 });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x334455, emissive: 0x112233, emissiveIntensity: 0.3, roughness: 0.2, metalness: 0.5 });
+            const stoneGeoms = [];
+            const glassGeoms = [];
+
+            // Tall narrow buildings flanking both sides of a narrow street
+            const buildings = [
+                // West row (x < gx)
+                { x: -8, z: -20, w: 10, h: 45, d: 12 },
+                { x: -9, z: -5, w: 8, h: 38, d: 10 },
+                { x: -8, z: 8, w: 10, h: 50, d: 14 },
+                { x: -9, z: 22, w: 9, h: 42, d: 10 },
+                // East row (x > gx)
+                { x: 8, z: -18, w: 10, h: 40, d: 12 },
+                { x: 9, z: -3, w: 8, h: 48, d: 10 },
+                { x: 8, z: 10, w: 10, h: 35, d: 13 },
+                { x: 9, z: 24, w: 9, h: 44, d: 11 },
+            ];
+
+            for (const b of buildings) {
+                // Main building body
+                const bodyGeo = new THREE.BoxGeometry(b.w, b.h, b.d);
+                bakeTransform(bodyGeo, gx + b.x, b.h / 2, gz + b.z);
+                stoneGeoms.push(bodyGeo);
+
+                // Glass window strips on faces
+                const stripH = b.h - 4;
+                const stripGeo = new THREE.BoxGeometry(b.w * 0.8, stripH, 0.15);
+                bakeTransform(stripGeo, gx + b.x, stripH / 2 + 2, gz + b.z + b.d / 2 + 0.08);
+                glassGeoms.push(stripGeo);
+                const stripGeo2 = new THREE.BoxGeometry(b.w * 0.8, stripH, 0.15);
+                bakeTransform(stripGeo2, gx + b.x, stripH / 2 + 2, gz + b.z - b.d / 2 - 0.08);
+                glassGeoms.push(stripGeo2);
+            }
+
+            // Ground-level columns at entries
+            for (const z of [-25, 25]) {
+                for (const side of [-5, 5]) {
+                    const colGeo = new THREE.CylinderGeometry(0.3, 0.4, 4, 6);
+                    bakeTransform(colGeo, gx + side, 2, gz + z);
+                    stoneGeoms.push(colGeo);
+                }
+            }
+
+            const smesh = new THREE.Mesh(safeMerge(stoneGeoms), stoneMat);
+            smesh.castShadow = true;
+            this.game.scene.add(smesh);
+            for (const g of stoneGeoms) g.dispose();
+
+            const gmesh = new THREE.Mesh(safeMerge(glassGeoms), glassMat);
+            this.game.scene.add(gmesh);
+            for (const g of glassGeoms) g.dispose();
+
+            // Colliders for each row
+            this.colliders.push({ type: 'building', minX: gx - 14, maxX: gx - 3, minZ: gz - 28, maxZ: gz + 28, height: 50 });
+            this.colliders.push({ type: 'building', minX: gx + 3, maxX: gx + 14, minZ: gz - 28, maxZ: gz + 28, height: 50 });
+        }
+
+        // ─── Dragon Gate (Chinatown) — West End ───
+        {
+            const gx = -280, gz = 20;
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5, metalness: 0.15 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xddaa33, roughness: 0.3, metalness: 0.6 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x443333, roughness: 0.7, metalness: 0.1 });
+            const lanternMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0xff2200, emissiveIntensity: 0.5, roughness: 0.4 });
+            const redGeoms = [];
+            const goldGeoms = [];
+            const roofGeoms = [];
+            const lanternGeoms = [];
+
+            // Two main pillars
+            for (const side of [-6, 6]) {
+                const pillarGeo = new THREE.BoxGeometry(1.2, 10, 1.2);
+                bakeTransform(pillarGeo, gx + side, 5, gz);
+                redGeoms.push(pillarGeo);
+
+                // Pillar cap
+                const capGeo = new THREE.BoxGeometry(1.8, 0.4, 1.8);
+                bakeTransform(capGeo, gx + side, 10.2, gz);
+                goldGeoms.push(capGeo);
+
+                // Pillar base
+                const baseGeo = new THREE.BoxGeometry(1.8, 0.6, 1.8);
+                bakeTransform(baseGeo, gx + side, 0.3, gz);
+                goldGeoms.push(baseGeo);
+            }
+
+            // Main crossbar
+            const crossGeo = new THREE.BoxGeometry(14, 1, 1.5);
+            bakeTransform(crossGeo, gx, 9, gz);
+            redGeoms.push(crossGeo);
+
+            // Decorative top crossbar
+            const topCrossGeo = new THREE.BoxGeometry(15, 0.5, 1.8);
+            bakeTransform(topCrossGeo, gx, 10.5, gz);
+            goldGeoms.push(topCrossGeo);
+
+            // Curved roof segments (approximated with tilted boxes)
+            for (const side of [-1, 1]) {
+                const roofGeo = new THREE.BoxGeometry(8, 0.4, 2.5);
+                bakeTransform(roofGeo, gx + side * 3.5, 11.2, gz, 0, 0, side * 0.15);
+                roofGeoms.push(roofGeo);
+            }
+            // Roof ridge
+            const ridgeGeo = new THREE.BoxGeometry(16, 0.3, 0.8);
+            bakeTransform(ridgeGeo, gx, 11.5, gz);
+            roofGeoms.push(ridgeGeo);
+
+            // Curved eave tips
+            for (const side of [-1, 1]) {
+                const eaveGeo = new THREE.ConeGeometry(0.3, 1, 4);
+                bakeTransform(eaveGeo, gx + side * 8, 11.5, gz, 0, 0, side * 0.8);
+                roofGeoms.push(eaveGeo);
+            }
+
+            // Hanging lanterns
+            for (const lx of [-4, -1.5, 1.5, 4]) {
+                const lanternGeo = new THREE.SphereGeometry(0.4, 6, 6);
+                bakeTransform(lanternGeo, gx + lx, 8, gz);
+                lanternGeoms.push(lanternGeo);
+                // Lantern string
+                const stringGeo = new THREE.CylinderGeometry(0.03, 0.03, 1, 4);
+                bakeTransform(stringGeo, gx + lx, 8.7, gz);
+                goldGeoms.push(stringGeo);
+            }
+
+            const rmesh = new THREE.Mesh(safeMerge(redGeoms), redMat);
+            rmesh.castShadow = true;
+            this.game.scene.add(rmesh);
+            for (const g of redGeoms) g.dispose();
+
+            if (goldGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(goldGeoms), goldMat); m.castShadow = true; this.game.scene.add(m); for (const g of goldGeoms) g.dispose(); }
+            if (roofGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(roofGeoms), roofMat); m.castShadow = true; this.game.scene.add(m); for (const g of roofGeoms) g.dispose(); }
+            if (lanternGeoms.length > 0) { const m = new THREE.Mesh(safeMerge(lanternGeoms), lanternMat); this.game.scene.add(m); for (const g of lanternGeoms) g.dispose(); }
+
+            this.colliders.push({ type: 'building', minX: gx - 7, maxX: gx - 5.4, minZ: gz - 0.6, maxZ: gz + 0.6, height: 10 });
+            this.colliders.push({ type: 'building', minX: gx + 5.4, maxX: gx + 7, minZ: gz - 0.6, maxZ: gz + 0.6, height: 10 });
+        }
+
+        // ─── Claudio Pier (Coney Island) — North Shore ───
+        {
+            const gx = 0, gz = -370;
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.8, metalness: 0.05 });
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.6 });
+            const carMat1 = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.5 });
+            const carMat2 = new THREE.MeshStandardMaterial({ color: 0x4444ff, roughness: 0.5 });
+            const woodGeoms = [];
+            const metalGeoms = [];
+            const car1Geoms = [];
+            const car2Geoms = [];
+
+            // Main pier deck
+            const deckGeo = new THREE.BoxGeometry(15, 0.6, 40);
+            bakeTransform(deckGeo, gx, 1.5, gz);
+            woodGeoms.push(deckGeo);
+
+            // Pier support pillars
+            for (let pz = -18; pz <= 18; pz += 6) {
+                for (const side of [-6, 6]) {
+                    const pillarGeo = new THREE.CylinderGeometry(0.4, 0.5, 3, 6);
+                    bakeTransform(pillarGeo, gx + side, 0.3, gz + pz);
+                    woodGeoms.push(pillarGeo);
+                }
+            }
+
+            // Railing posts
+            for (let rz = -19; rz <= 19; rz += 2.5) {
+                for (const side of [-7.5, 7.5]) {
+                    const postGeo = new THREE.BoxGeometry(0.15, 1.2, 0.15);
+                    bakeTransform(postGeo, gx + side, 2.4, gz + rz);
+                    woodGeoms.push(postGeo);
+                }
+            }
+            // Railing top rails
+            for (const side of [-7.5, 7.5]) {
+                const railGeo = new THREE.BoxGeometry(0.1, 0.1, 40);
+                bakeTransform(railGeo, gx + side, 3.0, gz);
+                woodGeoms.push(railGeo);
+            }
+
+            // Ferris wheel — positioned at far end of pier
+            const fwX = gx, fwZ = gz - 12, fwR = 10;
+
+            // Central hub
+            const hubGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 8);
+            bakeTransform(hubGeo, fwX, fwR + 4, fwZ, 0, 0, Math.PI / 2);
+            metalGeoms.push(hubGeo);
+
+            // Support legs (A-frame)
+            for (const side of [-1, 1]) {
+                const legGeo = new THREE.CylinderGeometry(0.3, 0.4, fwR + 3, 6);
+                bakeTransform(legGeo, fwX + side * 3, (fwR + 4) / 2, fwZ, 0, 0, side * 0.25);
+                metalGeoms.push(legGeo);
+            }
+
+            // Spokes (8 radiating from center)
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const spokeGeo = new THREE.CylinderGeometry(0.08, 0.08, fwR, 4);
+                const mx = Math.cos(angle) * fwR / 2;
+                const my = Math.sin(angle) * fwR / 2;
+                bakeTransform(spokeGeo, fwX, fwR + 4 + my, fwZ + mx, Math.atan2(mx, my));
+                metalGeoms.push(spokeGeo);
+            }
+
+            // Rim segments (octagonal ring)
+            for (let i = 0; i < 16; i++) {
+                const a1 = (i / 16) * Math.PI * 2;
+                const a2 = ((i + 1) / 16) * Math.PI * 2;
+                const x1 = Math.cos(a1) * fwR, y1 = Math.sin(a1) * fwR;
+                const x2 = Math.cos(a2) * fwR, y2 = Math.sin(a2) * fwR;
+                const segLen = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                const segAngle = Math.atan2(y2 - y1, x2 - x1);
+                const rimGeo = new THREE.CylinderGeometry(0.06, 0.06, segLen, 4);
+                bakeTransform(rimGeo, fwX, fwR + 4 + (y1 + y2) / 2, fwZ + (x1 + x2) / 2, segAngle);
+                metalGeoms.push(rimGeo);
+            }
+
+            // Gondola cars at spoke ends (alternating colors)
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const cx = Math.cos(angle) * fwR;
+                const cy = Math.sin(angle) * fwR;
+                const carGeo = new THREE.SphereGeometry(0.6, 6, 5);
+                bakeTransform(carGeo, fwX, fwR + 4 + cy, fwZ + cx);
+                (i % 2 === 0 ? car1Geoms : car2Geoms).push(carGeo);
+            }
+
+            const wmesh = new THREE.Mesh(safeMerge(woodGeoms), woodMat);
+            wmesh.castShadow = true;
+            wmesh.receiveShadow = true;
+            this.game.scene.add(wmesh);
+            for (const g of woodGeoms) g.dispose();
+
+            const mmesh = new THREE.Mesh(safeMerge(metalGeoms), metalMat);
+            mmesh.castShadow = true;
+            this.game.scene.add(mmesh);
+            for (const g of metalGeoms) g.dispose();
+
+            if (car1Geoms.length > 0) { const m = new THREE.Mesh(safeMerge(car1Geoms), carMat1); this.game.scene.add(m); for (const g of car1Geoms) g.dispose(); }
+            if (car2Geoms.length > 0) { const m = new THREE.Mesh(safeMerge(car2Geoms), carMat2); this.game.scene.add(m); for (const g of car2Geoms) g.dispose(); }
+
+            this.colliders.push({ type: 'building', minX: gx - 8, maxX: gx + 8, minZ: gz - 20, maxZ: gz + 20, height: 2.4 });
+            this.colliders.push({ type: 'building', minX: fwX - 4, maxX: fwX + 4, minZ: fwZ - 1, maxZ: fwZ + 1, height: fwR * 2 + 5 });
+        }
+
+        // ─── SAN CLAUDIO Sign (Hollywood Sign) — Hillside ───
+        {
+            const gx = -220, gz = -250, gy = 3;
+            const letterMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 });
+            const letterGeoms = [];
+            const poleGeoms = [];
+
+            const letters = 'SANCLAUDIO';
+            const letterWidth = 4;
+            const letterHeight = 6;
+            const letterDepth = 0.5;
+            const spacing = 1.2;
+            const totalWidth = letters.length * letterWidth + (letters.length - 1) * spacing;
+            const startX = gx - totalWidth / 2 + letterWidth / 2;
+
+            // Add a space gap after 'SAN' (index 3)
+            let xOffset = 0;
+            for (let i = 0; i < letters.length; i++) {
+                if (i === 3) xOffset += letterWidth * 0.6; // space between SAN and CLAUDIO
+
+                const lx = startX + i * (letterWidth + spacing) + xOffset;
+
+                // Letter body
+                const letterGeo = new THREE.BoxGeometry(letterWidth, letterHeight, letterDepth);
+                bakeTransform(letterGeo, lx, gy + letterHeight / 2 + 2, gz);
+                letterGeoms.push(letterGeo);
+
+                // Two support poles per letter
+                for (const ps of [-1.2, 1.2]) {
+                    const poleGeo = new THREE.CylinderGeometry(0.12, 0.15, 2.5, 4);
+                    bakeTransform(poleGeo, lx + ps, gy + 1.25, gz);
+                    poleGeoms.push(poleGeo);
+                }
+            }
+
+            const lmesh = new THREE.Mesh(safeMerge(letterGeoms), letterMat);
+            lmesh.castShadow = true;
+            this.game.scene.add(lmesh);
+            for (const g of letterGeoms) g.dispose();
+
+            const pmesh = new THREE.Mesh(safeMerge(poleGeoms), poleMat);
+            this.game.scene.add(pmesh);
+            for (const g of poleGeoms) g.dispose();
+
+            // Uplights illuminating the sign at night (warm white, aimed upward at letters)
+            const numLights = 5;
+            const lightSpan = totalWidth + letterWidth * 0.6;
+            for (let i = 0; i < numLights; i++) {
+                const t = i / (numLights - 1);
+                const lx = gx - lightSpan / 2 + t * lightSpan;
+                const light = new THREE.PointLight(0xffeedd, 0.8, 20);
+                light.position.set(lx, gy + 0.5, gz + 3);
+                this.game.scene.add(light);
+            }
+
+            this.colliders.push({ type: 'building', minX: gx - totalWidth / 2 - 1, maxX: gx + totalWidth / 2 + 1 + letterWidth * 0.6, minZ: gz - 1, maxZ: gz + 1, height: 10 });
         }
     }
 
