@@ -136,8 +136,8 @@ export class World {
     createGround() {
         const geo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
         const mat = new THREE.MeshStandardMaterial({
-            color: 0x555555,
-            roughness: 0.85,
+            color: 0x4a4a48,
+            roughness: 0.88,
             metalness: 0.0
         });
         const ground = new THREE.Mesh(geo, mat);
@@ -148,7 +148,7 @@ export class World {
 
         const pavGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
         const pavMat = new THREE.MeshStandardMaterial({
-            color: 0x666666,
+            color: 0x5a5a58,
             roughness: 0.9,
             metalness: 0.0
         });

@@ -1588,7 +1588,7 @@ export class Player {
 
             setTimeout(() => {
                 this.respawn();
-            }, 3000);
+            }, 5000);
         }, 500);
     }
 

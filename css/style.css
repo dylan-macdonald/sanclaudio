@@ -445,7 +445,6 @@ canvas { display: block; }
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    animation: deathFadeIn 1.5s ease-in forwards;
     pointer-events: none;
 }
 @keyframes deathFadeIn {
@@ -459,7 +458,6 @@ canvas { display: block; }
     color: #cc0000;
     text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
     letter-spacing: 8px;
-    animation: wastedTextIn 0.8s ease-out 0.3s both;
 }
 @keyframes wastedTextIn {
     0%   { transform: scale(2); opacity: 0; }
