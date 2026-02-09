@@ -281,12 +281,17 @@ export class World {
 
         // Vertical roads (along Z axis)
         for (let rx = -this.halfMap; rx <= this.halfMap; rx += this.blockSize) {
-            this._collectRoadGeoms(rx, 'z', roadGeoms, dashGeoms, crosswalkGeoms, rotMatrix);
+            this._collectRoadGeoms(rx, 'z', roadGeoms, dashGeoms, rotMatrix);
         }
         // Horizontal roads (along X axis)
         for (let rz = -this.halfMap; rz <= this.halfMap; rz += this.blockSize) {
-            this._collectRoadGeoms(rz, 'x', roadGeoms, dashGeoms, crosswalkGeoms, rotMatrix);
+            this._collectRoadGeoms(rz, 'x', roadGeoms, dashGeoms, rotMatrix);
         }
+
+        // Crosswalks: generated per-intersection to avoid overlapping grid patterns.
+        // Each intersection gets crosswalks on 2 approaches (N/S or E/W alternating
+        // would still overlap; instead place on all 4 sides offset from center).
+        this._generateCrosswalks(crosswalkGeoms, rotMatrix);
 
         // Merge and create single meshes
         if (roadGeoms.length > 0) {
@@ -318,7 +323,7 @@ export class World {
         for (const g of [...roadGeoms, ...dashGeoms, ...crosswalkGeoms]) g.dispose();
     }
 
-    _collectRoadGeoms(pos, axis, roadGeoms, dashGeoms, crosswalkGeoms, rotMatrix) {
+    _collectRoadGeoms(pos, axis, roadGeoms, dashGeoms, rotMatrix) {
         const length = this.mapSize;
         const width = this.roadWidth;
 
@@ -353,22 +358,58 @@ export class World {
             dashGeo.applyMatrix4(t);
             dashGeoms.push(dashGeo);
         }
+    }
 
-        // Crosswalks at intersections
-        for (let cross = -this.halfMap; cross <= this.halfMap; cross += this.blockSize) {
-            for (let stripe = -2; stripe <= 2; stripe++) {
-                const cwGeo = axis === 'z'
-                    ? new THREE.PlaneGeometry(width * 0.8, 0.6)
-                    : new THREE.PlaneGeometry(0.6, width * 0.8);
-                cwGeo.applyMatrix4(rotMatrix);
-                const t = new THREE.Matrix4();
-                if (axis === 'z') {
-                    t.makeTranslation(pos, 0.02, cross + stripe * 1.2);
-                } else {
-                    t.makeTranslation(cross + stripe * 1.2, 0.02, pos);
+    // Generate crosswalks at intersections as proper zebra stripes.
+    // Places stripe groups on each of the 4 approach sides of every intersection,
+    // offset so they don't overlap in the center.
+    _generateCrosswalks(crosswalkGeoms, rotMatrix) {
+        const hw = this.roadWidth / 2;
+        const stripeCount = 6;   // number of stripes per crosswalk
+        const stripeGap = 0.8;   // gap between stripes
+        const stripeWidth = 0.5; // width of each stripe along the crossing direction
+        const stripeLen = this.roadWidth * 0.8; // length spanning across the road
+        // Offset from intersection center to first stripe center
+        const groupStart = hw + 1.0;
+
+        for (let ix = -this.halfMap; ix <= this.halfMap; ix += this.blockSize) {
+            for (let iz = -this.halfMap; iz <= this.halfMap; iz += this.blockSize) {
+                // North approach (stripes span in X, stacked along -Z from intersection)
+                for (let s = 0; s < stripeCount; s++) {
+                    const cwGeo = new THREE.PlaneGeometry(stripeLen, stripeWidth);
+                    cwGeo.applyMatrix4(rotMatrix);
+                    const t = new THREE.Matrix4();
+                    t.makeTranslation(ix, 0.025, iz - groupStart - s * (stripeWidth + stripeGap));
+                    cwGeo.applyMatrix4(t);
+                    crosswalkGeoms.push(cwGeo);
                 }
-                cwGeo.applyMatrix4(t);
-                crosswalkGeoms.push(cwGeo);
+                // South approach (stripes span in X, stacked along +Z)
+                for (let s = 0; s < stripeCount; s++) {
+                    const cwGeo = new THREE.PlaneGeometry(stripeLen, stripeWidth);
+                    cwGeo.applyMatrix4(rotMatrix);
+                    const t = new THREE.Matrix4();
+                    t.makeTranslation(ix, 0.025, iz + groupStart + s * (stripeWidth + stripeGap));
+                    cwGeo.applyMatrix4(t);
+                    crosswalkGeoms.push(cwGeo);
+                }
+                // West approach (stripes span in Z, stacked along -X)
+                for (let s = 0; s < stripeCount; s++) {
+                    const cwGeo = new THREE.PlaneGeometry(stripeWidth, stripeLen);
+                    cwGeo.applyMatrix4(rotMatrix);
+                    const t = new THREE.Matrix4();
+                    t.makeTranslation(ix - groupStart - s * (stripeWidth + stripeGap), 0.025, iz);
+                    cwGeo.applyMatrix4(t);
+                    crosswalkGeoms.push(cwGeo);
+                }
+                // East approach (stripes span in Z, stacked along +X)
+                for (let s = 0; s < stripeCount; s++) {
+                    const cwGeo = new THREE.PlaneGeometry(stripeWidth, stripeLen);
+                    cwGeo.applyMatrix4(rotMatrix);
+                    const t = new THREE.Matrix4();
+                    t.makeTranslation(ix + groupStart + s * (stripeWidth + stripeGap), 0.025, iz);
+                    cwGeo.applyMatrix4(t);
+                    crosswalkGeoms.push(cwGeo);
+                }
             }
         }
     }
@@ -740,25 +781,36 @@ export class World {
     }
 
     createLandmarks() {
-        // City Hall at Downtown center
+        // Helper: bake position/rotation into geometry
+        const bakeTransform = (geo, px, py, pz, ry, rx, rz) => {
+            const m = new THREE.Matrix4();
+            const euler = new THREE.Euler(rx || 0, ry || 0, rz || 0);
+            m.makeRotationFromEuler(euler);
+            m.setPosition(px || 0, py || 0, pz || 0);
+            geo.applyMatrix4(m);
+            return geo;
+        };
+
+        // City Hall at Downtown center — merge into 2 materials
         {
-            const group = new THREE.Group();
+            const gx = 0, gz = -30; // group position
             const mat = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.5, metalness: 0.1 });
+            const colMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.1 });
+            const matGeoms = [];
+            const colGeoms = [];
+
             // Main building
             const bodyGeo = new THREE.BoxGeometry(20, 12, 15);
-            const body = new THREE.Mesh(bodyGeo, mat);
-            body.position.y = 6;
-            body.castShadow = true;
-            group.add(body);
+            bakeTransform(bodyGeo, gx, 6, gz);
+            matGeoms.push(bodyGeo);
+
             // Columns (6 across front)
-            const colMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.1 });
             for (let i = 0; i < 6; i++) {
                 const colGeo = new THREE.CylinderGeometry(0.4, 0.5, 10, 8);
-                const col = new THREE.Mesh(colGeo, colMat);
-                col.position.set(-7.5 + i * 3, 5, 8);
-                col.castShadow = true;
-                group.add(col);
+                bakeTransform(colGeo, gx + (-7.5 + i * 3), 5, gz + 8);
+                colGeoms.push(colGeo);
             }
+
             // Pediment (triangular roof)
             const pedShape = new THREE.Shape();
             pedShape.moveTo(-10.5, 0);
@@ -766,60 +818,84 @@ export class World {
             pedShape.lineTo(10.5, 0);
             pedShape.lineTo(-10.5, 0);
             const pedGeo = new THREE.ExtrudeGeometry(pedShape, { steps: 1, depth: 1, bevelEnabled: false });
-            const ped = new THREE.Mesh(pedGeo, mat);
-            ped.position.set(0, 12, 7.5);
-            group.add(ped);
+            bakeTransform(pedGeo, gx, 12, gz + 7.5);
+            matGeoms.push(pedGeo);
+
             // Steps
             for (let s = 0; s < 4; s++) {
                 const stepGeo = new THREE.BoxGeometry(22 - s * 0.5, 0.3, 1);
-                const step = new THREE.Mesh(stepGeo, colMat);
-                step.position.set(0, s * 0.3, 8.5 + s * 0.5);
-                group.add(step);
+                bakeTransform(stepGeo, gx, s * 0.3, gz + 8.5 + s * 0.5);
+                colGeoms.push(stepGeo);
             }
-            group.position.set(0, 0, -30);
-            this.game.scene.add(group);
+
+            if (matGeoms.length > 0) {
+                const m = safeMerge(matGeoms);
+                const mesh = new THREE.Mesh(m, mat);
+                mesh.castShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of matGeoms) g.dispose();
+            }
+            if (colGeoms.length > 0) {
+                const m = safeMerge(colGeoms);
+                const mesh = new THREE.Mesh(m, colMat);
+                mesh.castShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of colGeoms) g.dispose();
+            }
             this.colliders.push({ type: 'building', minX: -10, maxX: 10, minZ: -45, maxZ: -22.5, height: 16 });
         }
 
-        // Clock Tower at Downtown center
+        // Clock Tower at Downtown center — merge into 2 materials
         {
-            const group = new THREE.Group();
+            const gx = 20, gz = 20;
             const mat = new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.6, metalness: 0.15 });
+            const clockMat = new THREE.MeshStandardMaterial({ color: 0xfffff0, roughness: 0.3 });
+            const matGeoms = [];
+            const clockGeoms = [];
+
             // Base
             const baseGeo = new THREE.BoxGeometry(5, 20, 5);
-            const base = new THREE.Mesh(baseGeo, mat);
-            base.position.y = 10;
-            base.castShadow = true;
-            group.add(base);
-            // Clock face (4 sides)
-            const clockMat = new THREE.MeshStandardMaterial({ color: 0xfffff0, roughness: 0.3 });
+            bakeTransform(baseGeo, gx, 10, gz);
+            matGeoms.push(baseGeo);
+
+            // Clock faces (4 sides)
             for (let i = 0; i < 4; i++) {
                 const clockGeo = new THREE.CircleGeometry(1.5, 16);
-                const clock = new THREE.Mesh(clockGeo, clockMat);
-                clock.position.y = 18;
                 const angle = (i / 4) * Math.PI * 2;
-                clock.position.x = Math.sin(angle) * 2.55;
-                clock.position.z = Math.cos(angle) * 2.55;
-                clock.rotation.y = angle;
-                group.add(clock);
+                bakeTransform(clockGeo,
+                    gx + Math.sin(angle) * 2.55, 18,
+                    gz + Math.cos(angle) * 2.55, angle);
+                clockGeoms.push(clockGeo);
             }
+
             // Pointed top
             const topGeo = new THREE.ConeGeometry(3, 6, 4);
-            const top = new THREE.Mesh(topGeo, mat);
-            top.position.y = 24;
-            top.rotation.y = Math.PI / 4;
-            top.castShadow = true;
-            group.add(top);
+            bakeTransform(topGeo, gx, 24, gz, Math.PI / 4);
+            matGeoms.push(topGeo);
 
-            group.position.set(20, 0, 20);
-            this.game.scene.add(group);
+            if (matGeoms.length > 0) {
+                const m = safeMerge(matGeoms);
+                const mesh = new THREE.Mesh(m, mat);
+                mesh.castShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of matGeoms) g.dispose();
+            }
+            if (clockGeoms.length > 0) {
+                const m = safeMerge(clockGeoms);
+                const mesh = new THREE.Mesh(m, clockMat);
+                this.game.scene.add(mesh);
+                for (const g of clockGeoms) g.dispose();
+            }
             this.colliders.push({ type: 'building', minX: 17.5, maxX: 22.5, minZ: 17.5, maxZ: 22.5, height: 27 });
         }
 
-        // Stadium at Eastgate
+        // Stadium at Eastgate — merge into 2 materials
         {
-            const group = new THREE.Group();
+            const gx = 280, gz = 0;
             const mat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.5, metalness: 0.2 });
+            const fieldMat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.9 });
+            const wallGeoms = [];
+
             // Octagonal outer wall using 8 segments
             for (let i = 0; i < 8; i++) {
                 const angle = (i / 8) * Math.PI * 2;
@@ -835,70 +911,103 @@ export class World {
                 const segAngle = Math.atan2(x2 - x1, z2 - z1);
 
                 const wallGeo = new THREE.BoxGeometry(1.5, 15, segLen);
-                const wall = new THREE.Mesh(wallGeo, mat);
-                wall.position.set(mx, 7.5, mz);
-                wall.rotation.y = segAngle;
-                wall.castShadow = true;
-                group.add(wall);
+                bakeTransform(wallGeo, gx + mx, 7.5, gz + mz, segAngle);
+                wallGeoms.push(wallGeo);
             }
+
+            if (wallGeoms.length > 0) {
+                const m = safeMerge(wallGeoms);
+                const mesh = new THREE.Mesh(m, mat);
+                mesh.castShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of wallGeoms) g.dispose();
+            }
+
             // Field (green center)
             const fieldGeo = new THREE.CircleGeometry(20, 8);
             fieldGeo.rotateX(-Math.PI / 2);
-            const fieldMat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.9 });
+            bakeTransform(fieldGeo, gx, 0.1, gz);
             const field = new THREE.Mesh(fieldGeo, fieldMat);
-            field.position.y = 0.1;
-            group.add(field);
+            field.receiveShadow = true;
+            this.game.scene.add(field);
 
-            group.position.set(280, 0, 0);
-            this.game.scene.add(group);
             this.colliders.push({ type: 'building', minX: 255, maxX: 305, minZ: -25, maxZ: 25, height: 15 });
         }
 
-        // Bridge from Portside to Docks
+        // Bridge from Portside to Docks — merge by material
         {
-            const group = new THREE.Group();
+            const gx = -120, gz = 260, gry = Math.PI * 0.3;
+            const groupMat = new THREE.Matrix4();
+            groupMat.makeRotationY(gry);
+            groupMat.setPosition(gx, 0, gz);
+
             const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.6, metalness: 0.3 });
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.7, metalness: 0.2 });
+            const cableMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.5 });
+            const bridgeGeoms = [];
+            const pillarGeoms = [];
+            const cableGeoms = [];
+
             // Road deck
             const deckGeo = new THREE.BoxGeometry(10, 0.5, 80);
-            const deck = new THREE.Mesh(deckGeo, bridgeMat);
-            deck.position.y = 4;
-            deck.castShadow = true;
-            deck.receiveShadow = true;
-            group.add(deck);
+            deckGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 4, 0));
+            deckGeo.applyMatrix4(groupMat);
+            bridgeGeoms.push(deckGeo);
+
             // Support pillars
-            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.7, metalness: 0.2 });
             for (let p = -30; p <= 30; p += 20) {
                 for (const side of [-4, 4]) {
                     const pillarGeo = new THREE.BoxGeometry(1, 5, 1);
-                    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                    pillar.position.set(side, 2, p);
-                    pillar.castShadow = true;
-                    group.add(pillar);
+                    pillarGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(side, 2, p));
+                    pillarGeo.applyMatrix4(groupMat);
+                    pillarGeoms.push(pillarGeo);
                 }
             }
-            // Cable stays (simplified as thin cylinders)
-            const cableMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.5 });
+
+            // Cable stays
             for (let c = -30; c <= 30; c += 15) {
                 for (const side of [-5.5, 5.5]) {
                     const cableGeo = new THREE.CylinderGeometry(0.05, 0.05, 10, 4);
-                    const cable = new THREE.Mesh(cableGeo, cableMat);
-                    cable.position.set(side, 7, c);
-                    cable.rotation.z = side > 0 ? 0.4 : -0.4;
-                    group.add(cable);
+                    const childMat = new THREE.Matrix4();
+                    childMat.makeRotationZ(side > 0 ? 0.4 : -0.4);
+                    childMat.setPosition(side, 7, c);
+                    cableGeo.applyMatrix4(childMat);
+                    cableGeo.applyMatrix4(groupMat);
+                    cableGeoms.push(cableGeo);
                 }
             }
-            // Railing
+
+            // Railing posts
             for (let r = -40; r <= 40; r += 3) {
                 for (const side of [-5, 5]) {
                     const postGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.2, 4);
-                    const post = new THREE.Mesh(postGeo, bridgeMat);
-                    post.position.set(side, 5, r);
-                    group.add(post);
+                    postGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(side, 5, r));
+                    postGeo.applyMatrix4(groupMat);
+                    bridgeGeoms.push(postGeo);
                 }
             }
-            group.position.set(-120, 0, 260);
-            group.rotation.y = Math.PI * 0.3;
-            this.game.scene.add(group);
+
+            if (bridgeGeoms.length > 0) {
+                const m = safeMerge(bridgeGeoms);
+                const mesh = new THREE.Mesh(m, bridgeMat);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of bridgeGeoms) g.dispose();
+            }
+            if (pillarGeoms.length > 0) {
+                const m = safeMerge(pillarGeoms);
+                const mesh = new THREE.Mesh(m, pillarMat);
+                mesh.castShadow = true;
+                this.game.scene.add(mesh);
+                for (const g of pillarGeoms) g.dispose();
+            }
+            if (cableGeoms.length > 0) {
+                const m = safeMerge(cableGeoms);
+                const mesh = new THREE.Mesh(m, cableMat);
+                this.game.scene.add(mesh);
+                for (const g of cableGeoms) g.dispose();
+            }
         }
     }
 
@@ -1506,9 +1615,11 @@ export class World {
             roughness: 0.5
         });
 
-        for (const loc of rampLocations) {
-            const group = new THREE.Group();
+        // Merge all ramp and stripe geometries into single meshes
+        const rampGeoms = [];
+        const stripeGeoms = [];
 
+        for (const loc of rampLocations) {
             // Ramp surface - wedge shape using ExtrudeGeometry
             const rampShape = new THREE.Shape();
             rampShape.moveTo(0, 0);
@@ -1522,24 +1633,26 @@ export class World {
                 depth: 5,
                 bevelEnabled: false
             });
-            const ramp = new THREE.Mesh(rampGeo, rampMat);
-            ramp.rotation.y = Math.PI / 2;
-            ramp.position.set(-2.5, 0, -3);
-            ramp.castShadow = true;
-            ramp.receiveShadow = true;
-            group.add(ramp);
+            // Bake child transform (position + rotation within group)
+            const childMat = new THREE.Matrix4();
+            childMat.makeRotationY(Math.PI / 2);
+            childMat.setPosition(-2.5, 0, -3);
+            rampGeo.applyMatrix4(childMat);
+            // Bake group transform (world position + rotation)
+            const groupMat = new THREE.Matrix4();
+            groupMat.makeRotationY(loc.rotY);
+            groupMat.setPosition(loc.x, 0, loc.z);
+            rampGeo.applyMatrix4(groupMat);
+            rampGeoms.push(rampGeo);
 
             // Yellow warning stripes on top
             const stripeGeo = new THREE.PlaneGeometry(4.5, 5.5);
-            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-            stripe.position.set(0, 1.55, 0);
-            stripe.rotation.x = -Math.atan2(3, 6);
-            stripe.rotation.z = 0;
-            group.add(stripe);
-
-            group.position.set(loc.x, 0, loc.z);
-            group.rotation.y = loc.rotY;
-            this.game.scene.add(group);
+            const stripeChild = new THREE.Matrix4();
+            stripeChild.makeRotationX(-Math.atan2(3, 6));
+            stripeChild.setPosition(0, 1.55, 0);
+            stripeGeo.applyMatrix4(stripeChild);
+            stripeGeo.applyMatrix4(groupMat);
+            stripeGeoms.push(stripeGeo);
 
             // Add a collider for the ramp (so vehicles drive up it)
             const hw = 2.5;
@@ -1558,6 +1671,21 @@ export class World {
                 rotation: loc.rotY,
                 completed: false
             });
+        }
+
+        if (rampGeoms.length > 0) {
+            const merged = safeMerge(rampGeoms);
+            const mesh = new THREE.Mesh(merged, rampMat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.game.scene.add(mesh);
+            for (const g of rampGeoms) g.dispose();
+        }
+        if (stripeGeoms.length > 0) {
+            const merged = safeMerge(stripeGeoms);
+            const mesh = new THREE.Mesh(merged, stripeMat);
+            this.game.scene.add(mesh);
+            for (const g of stripeGeoms) g.dispose();
         }
     }
 
@@ -2061,53 +2189,95 @@ export class World {
         // Only place every other intersection to reduce object count
         const selectedPositions = positions.filter((_, i) => i % 2 === 0);
 
+        // Collect pole and housing geometries for merging
+        const poleGeoms = [];
+        const housingGeoms = [];
+        const rotMatrix = new THREE.Matrix4(); // identity, no rotation needed
+
+        // Shared prototype geometries
+        const protoPole = new THREE.CylinderGeometry(0.06, 0.06, 3.5, 4);
+        const protoHousing = new THREE.BoxGeometry(0.2, 0.6, 0.15);
+        const protoLight = new THREE.SphereGeometry(0.06, 6, 6);
+
+        // 6 shared materials: NS and EW each have red, yellow, green
+        // All NS lights of the same color share one material, enabling batch opacity updates
+        const lightColors = [0xff0000, 0xffaa00, 0x00ff00];
+        this._tlMats = {
+            ns: lightColors.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.2 })),
+            ew: lightColors.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.2 }))
+        };
+
+        // Collect light positions per axis per color for InstancedMesh
+        const lightPositions = {
+            ns: [[], [], []], // [red[], yellow[], green[]]
+            ew: [[], [], []]
+        };
+
         for (const pos of selectedPositions) {
             const offset = this.roadWidth / 2 + 0.5;
 
-            // 4 traffic light poles per intersection (one per corner)
             const corners = [
-                { x: pos.x + offset, z: pos.z + offset, nsAngle: Math.PI, ewAngle: -Math.PI / 2 },
-                { x: pos.x - offset, z: pos.z - offset, nsAngle: 0, ewAngle: Math.PI / 2 },
+                { x: pos.x + offset, z: pos.z + offset, axis: 'ns' },
+                { x: pos.x - offset, z: pos.z - offset, axis: 'ew' },
             ];
 
             for (const corner of corners) {
-                // Pole
-                const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 3.5, 4);
-                const poleMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5 });
-                const pole = new THREE.Mesh(poleGeo, poleMat);
-                pole.position.set(corner.x, 1.75, corner.z);
-                this.game.scene.add(pole);
+                // Pole geometry - translate and collect for merge
+                const pGeo = protoPole.clone();
+                pGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(corner.x, 1.75, corner.z));
+                poleGeoms.push(pGeo);
 
-                // Light housing
-                const housingGeo = new THREE.BoxGeometry(0.2, 0.6, 0.15);
-                const housingMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-                const housing = new THREE.Mesh(housingGeo, housingMat);
-                housing.position.set(corner.x, 3.5, corner.z);
-                this.game.scene.add(housing);
+                // Housing geometry - translate and collect for merge
+                const hGeo = protoHousing.clone();
+                hGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(corner.x, 3.5, corner.z));
+                housingGeoms.push(hGeo);
 
-                // Three light spheres: red (top), yellow (mid), green (bottom)
-                const lightColors = [0xff0000, 0xffaa00, 0x00ff00];
-                const lightMeshes = [];
+                // Light sphere positions
                 for (let i = 0; i < 3; i++) {
-                    const lGeo = new THREE.SphereGeometry(0.06, 6, 6);
-                    const lMat = new THREE.MeshBasicMaterial({
-                        color: lightColors[i],
-                        transparent: true,
-                        opacity: 0.2
+                    lightPositions[corner.axis][i].push({
+                        x: corner.x, y: 3.7 - i * 0.2, z: corner.z + 0.08
                     });
-                    const light = new THREE.Mesh(lGeo, lMat);
-                    light.position.set(corner.x, 3.7 - i * 0.2, corner.z + 0.08);
-                    this.game.scene.add(light);
-                    lightMeshes.push(light);
                 }
 
+                // Store data for game logic (isRedLight, pedestrian checks)
                 this.trafficLights.push({
                     position: { x: corner.x, z: corner.z },
                     intersectionX: pos.x,
                     intersectionZ: pos.z,
-                    lights: lightMeshes, // [red, yellow, green]
-                    axis: (corner.x > pos.x) ? 'ns' : 'ew' // Opposite corners face different traffic
+                    axis: corner.axis
                 });
+            }
+        }
+
+        // Merge poles into one mesh
+        if (poleGeoms.length > 0) {
+            const merged = safeMerge(poleGeoms);
+            const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5 }));
+            this.game.scene.add(mesh);
+            for (const g of poleGeoms) g.dispose();
+        }
+
+        // Merge housings into one mesh
+        if (housingGeoms.length > 0) {
+            const merged = safeMerge(housingGeoms);
+            const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            this.game.scene.add(mesh);
+            for (const g of housingGeoms) g.dispose();
+        }
+
+        // Create 6 InstancedMeshes for light spheres (NS/EW x red/yellow/green)
+        for (const axis of ['ns', 'ew']) {
+            for (let ci = 0; ci < 3; ci++) {
+                const posList = lightPositions[axis][ci];
+                if (posList.length === 0) continue;
+                const im = new THREE.InstancedMesh(protoLight, this._tlMats[axis][ci], posList.length);
+                const mat4 = new THREE.Matrix4();
+                for (let j = 0; j < posList.length; j++) {
+                    mat4.makeTranslation(posList[j].x, posList[j].y, posList[j].z);
+                    im.setMatrixAt(j, mat4);
+                }
+                im.instanceMatrix.needsUpdate = true;
+                this.game.scene.add(im);
             }
         }
     }
@@ -2122,33 +2292,31 @@ export class World {
             this._trafficLightTimer = 0;
             this._trafficLightPhase = (this._trafficLightPhase + 1) % 4;
 
-            // Update all traffic light visuals
-            for (const tl of this.trafficLights) {
-                const [red, yellow, green] = tl.lights;
-                // Phase 0: NS green, Phase 1: NS yellow, Phase 2: EW green, Phase 3: EW yellow
-                // Invert phase for EW-facing lights
-                const isNS = tl.axis === 'ns';
+            // Update shared materials — all NS or EW lights change in sync
+            for (const axis of ['ns', 'ew']) {
+                const isNS = axis === 'ns';
                 const effectivePhase = isNS ? this._trafficLightPhase : (this._trafficLightPhase + 2) % 4;
+                const [redMat, yellowMat, greenMat] = this._tlMats[axis];
                 switch (effectivePhase) {
                     case 0: // green
-                        red.material.opacity = 0.2;
-                        yellow.material.opacity = 0.2;
-                        green.material.opacity = 1.0;
+                        redMat.opacity = 0.2;
+                        yellowMat.opacity = 0.2;
+                        greenMat.opacity = 1.0;
                         break;
                     case 1: // yellow
-                        red.material.opacity = 0.2;
-                        yellow.material.opacity = 1.0;
-                        green.material.opacity = 0.2;
+                        redMat.opacity = 0.2;
+                        yellowMat.opacity = 1.0;
+                        greenMat.opacity = 0.2;
                         break;
-                    case 2: // EW green (NS red)
-                        red.material.opacity = 1.0;
-                        yellow.material.opacity = 0.2;
-                        green.material.opacity = 0.2;
+                    case 2: // red
+                        redMat.opacity = 1.0;
+                        yellowMat.opacity = 0.2;
+                        greenMat.opacity = 0.2;
                         break;
-                    case 3: // EW yellow (NS still red)
-                        red.material.opacity = 1.0;
-                        yellow.material.opacity = 0.2;
-                        green.material.opacity = 0.2;
+                    case 3: // still red
+                        redMat.opacity = 1.0;
+                        yellowMat.opacity = 0.2;
+                        greenMat.opacity = 0.2;
                         break;
                 }
             }

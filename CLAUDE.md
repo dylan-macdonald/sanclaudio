@@ -227,6 +227,11 @@ Run `npx playwright install chromium` if the browser isn't installed.
   or `toggleConsole()`).
 - **Canvas click hangs**: `page.click('canvas')` times out. Use `page.evaluate(() =>
   document.getElementById('game-canvas').focus())` instead.
+- **setTimeout throttling**: Headless browsers heavily throttle `setTimeout` — a 500ms
+  timer can take 3+ seconds to fire. Do NOT debug timing issues by inspecting setTimeout
+  delays. Instead, use `window.game.timeScale = 0.1` (or any small value) to slow the
+  game simulation down, which lets you observe slow-motion gameplay in real time without
+  fighting browser throttling.
 
 ### Methodology
 
@@ -451,6 +456,36 @@ next frame, `sm.checkpoints[sm.currentCheckpoint]` could be `undefined`, causing
 TypeError on `.x` / `.z` access.
 
 **Fix**: Added `if (!cp) return;` guard after checkpoint lookup.
+
+### 24. Crosswalk checkerboard pattern — `world.js:_collectRoadGeoms()`
+
+**Problem**: Both vertical and horizontal roads generated crosswalk stripes at every
+intersection, overlapping in the center. The vertical road placed stripes spanning X
+at Z=cross, and the horizontal road placed stripes spanning Z at X=cross. Where roads
+intersected, both sets of stripes overlapped, creating a grid/checkerboard pattern
+instead of proper zebra crossings.
+
+**Fix**: Removed crosswalk generation from `_collectRoadGeoms()`. Added new method
+`_generateCrosswalks()` that iterates intersections once and places 4 zebra crossing
+groups (N/S/E/W approaches) per intersection, offset from center by `roadWidth/2 + 1.0`
+so they sit on the road approaches without overlapping. Each crosswalk has 6 parallel
+stripes (0.5 wide, 0.8 gap) spanning the road width.
+
+### 25. Excessive draw calls from unmerged static geometry — `world.js`
+
+**Problem**: Traffic lights (~410 individual meshes), landmark structures (~102 meshes
+across 4 groups), and stunt ramps (~20 meshes) were all created as individual Three.js
+Mesh objects. With 1272 total geometries and only 20 FPS, reducing draw calls was critical.
+
+**Fix**: Three geometry merging optimizations:
+1. **Traffic lights**: Merged all poles into 1 mesh, all housings into 1 mesh, and
+   created 6 InstancedMeshes for light spheres (NS/EW x red/yellow/green). All NS
+   lights of the same color share one material, so `updateTrafficLights()` now changes
+   6 material opacities instead of iterating 246 individual meshes. Saves ~402 meshes.
+2. **Landmarks**: Merged per-material within each landmark — City Hall (12 -> 2),
+   Clock Tower (6 -> 2), Stadium (9 -> 2), Bridge (75 -> 3). Saves ~92 meshes.
+3. **Stunt ramps**: Merged all ramp geometries into 1 mesh and all stripes into 1 mesh.
+   Saves ~18 meshes. Total reduction: ~512 fewer draw calls.
 
 ## Known Issues (Not Yet Fixed)
 
