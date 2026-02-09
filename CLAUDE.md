@@ -402,12 +402,57 @@ leaving a stale waypoint on the minimap after missions ended.
 
 **Fix**: Removed the `!== undefined` guard — always restore if data exists.
 
+### 18. No kill plane — `player.js:update()`
+
+**Problem**: Player could fall infinitely below the map with no recovery. Tested at
+y:-162 and still falling. Also affected players in vehicles and swimming states.
+
+**Fix**: Added kill plane check at top of `update()` (before any early returns for
+swimming/vehicle/noclip). If `position.y < -50`, resets position to (0, 2, 0), applies
+30 fall damage, force-exits vehicles and clears swimming state.
+
+### 19. No out-of-bounds respawn — `player.js:update()`
+
+**Problem**: Teleporting beyond map bounds (e.g. 500, 500) caused player to fall through
+void. The water detection marked the area as swimming, so the on-foot bounds check never
+ran (swimming returns early).
+
+**Fix**: Added bounds clamp at top of `update()` (before swimming/vehicle checks). Clamps
+position to `±(mapSize/2 - 5)` = ±395. Updates model position immediately.
+
+### 20. NPC spawn cap not enforced — `npcs.js:spawnPedestrian()`
+
+**Problem**: `spawnPedestrian()` had no internal cap. Event spawns (accidents, robberies)
+could push count past `maxPedestrians + 5`.
+
+**Fix**: Added guard at top of `spawnPedestrian(forceSpawn)`. Returns `null` if
+`pedestrians.length >= maxPedestrians + 5` unless `forceSpawn = true`. Event spawns
+use `forceSpawn = true` to bypass the cap for scripted NPCs.
+
+### 21. Death state not triggered by direct health=0 — `player.js:update()`
+
+**Problem**: Setting `player.health = 0` via console or external code didn't trigger
+death. Only `takeDamage()` called `die()`.
+
+**Fix**: Added health check at top of `update()`: if `health <= 0 && !isDead`, sets
+health to 0 and calls `die()`.
+
+### 22. Negative damage increases health — `player.js:takeDamage()`
+
+**Problem**: `takeDamage(-50)` subtracted negative damage, adding 50 health. Health
+could exceed `maxHealth` with no cap.
+
+**Fix**: Added `if (amount <= 0) return;` guard at top of `takeDamage()`.
+
+### 23. Race checkpoint out-of-bounds access — `missions.js:_updateRace()`
+
+**Problem**: If `_completeSideMission()` didn't clear `activeSideMission` before the
+next frame, `sm.checkpoints[sm.currentCheckpoint]` could be `undefined`, causing a
+TypeError on `.x` / `.z` access.
+
+**Fix**: Added `if (!cp) return;` guard after checkpoint lookup.
+
 ## Known Issues (Not Yet Fixed)
 
-- **No kill plane**: Player can fall infinitely below the map (tested at y:-162 and still falling)
-- **No out-of-bounds respawn**: Teleporting to (500, 500) just falls through void
-- **NPC spawn cap not enforced**: `spawnPedestrian()` can exceed `maxPedestrians`
-- **Death state not triggered by direct health=0**: Setting `player.health = 0` doesn't
-  trigger death state — needs to go through `takeDamage()` system
 - **Audio untestable in headless**: All 31 audio methods exist but cannot be verified
   without a headed browser

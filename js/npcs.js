@@ -174,7 +174,11 @@ export class NPCManager {
         }
     }
 
-    spawnPedestrian() {
+    spawnPedestrian(forceSpawn = false) {
+        // Enforce spawn cap unless forced (e.g. mission/event spawns)
+        if (!forceSpawn && this.pedestrians.length >= this.maxPedestrians + 5) {
+            return null;
+        }
         const player = this.game.systems.player;
         const angle = Math.random() * Math.PI * 2;
         const dist = 30 + Math.random() * this.spawnRadius;
@@ -1289,7 +1293,7 @@ export class NPCManager {
                     car.mesh.rotation.y = Math.random() * Math.PI * 2;
                     // Spawn 2-3 bystanders nearby
                     for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
-                        const npc = this.spawnPedestrian();
+                        const npc = this.spawnPedestrian(true);
                         if (npc && npc.mesh) {
                             npc.mesh.position.set(
                                 x + (Math.random() - 0.5) * 6,
@@ -1317,7 +1321,7 @@ export class NPCManager {
                 this.fleeFromPoint(fleePoint);
 
                 // Spawn a running NPC with cash effect
-                const robber = this.spawnPedestrian();
+                const robber = this.spawnPedestrian(true);
                 if (robber && robber.mesh) {
                     robber.mesh.position.set(x, 0, z);
                     robber.isFleeing = true;

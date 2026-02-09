@@ -250,6 +250,37 @@ export class Player {
 
     update(dt) {
         if (this.isDead) return;
+
+        // Catch direct health=0 (e.g. console commands, external damage)
+        if (this.health <= 0 && !this.isDead) {
+            this.health = 0;
+            this.die();
+            return;
+        }
+
+        // Kill plane — respawn if fallen below map (works in any state)
+        if (this.position.y < -50) {
+            if (this.inVehicle) {
+                this.exitVehicle();
+            }
+            this.isSwimming = false;
+            this.position.set(0, 2, 0);
+            this.velocity.set(0, 0, 0);
+            this.model.position.copy(this.position);
+            this.takeDamage(30);
+            return;
+        }
+
+        // Out-of-bounds clamp — keep player within map (works in any state)
+        const halfMap = this.game.systems.world.mapSize / 2;
+        if (Math.abs(this.position.x) > halfMap || Math.abs(this.position.z) > halfMap) {
+            this.position.x = Math.max(-halfMap + 5, Math.min(halfMap - 5, this.position.x));
+            this.position.z = Math.max(-halfMap + 5, Math.min(halfMap - 5, this.position.z));
+            this.velocity.x = 0;
+            this.velocity.z = 0;
+            this.model.position.copy(this.position);
+        }
+
         if (this._carjacking) return; // Frozen during carjack animation
 
         const input = this.game.systems.input;
@@ -1409,6 +1440,7 @@ export class Player {
 
     takeDamage(amount) {
         if (this.isDead) return;
+        if (amount <= 0) return; // Ignore zero/negative damage
 
         if (this.armor > 0) {
             const absorbed = Math.min(this.armor, amount);

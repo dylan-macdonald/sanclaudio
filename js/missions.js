@@ -832,6 +832,7 @@ export class MissionManager {
         if (!player.inVehicle) return;
 
         const cp = sm.checkpoints[sm.currentCheckpoint];
+        if (!cp) return;
         const dist = Math.sqrt(
             (player.position.x - cp.x) ** 2 + (player.position.z - cp.z) ** 2
         );
