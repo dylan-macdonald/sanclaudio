@@ -858,6 +858,501 @@ function addWheels(group, width, length, radius, wheelMat) {
 
 
 // ============================================================
+// WEAPON MODELS
+// ============================================================
+
+function buildWeapon(weaponId) {
+    const scene = new THREE.Scene();
+    const metal = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.7 });
+    const wood = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0.1 });
+    const matte = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.3 });
+
+    const group = new THREE.Group();
+    group.name = weaponId;
+
+    switch (weaponId) {
+        case 'bat': {
+            const shaft = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.105, 1.65, 8),
+                wood(0x8B5A2B)
+            );
+            shaft.rotation.x = Math.PI / 2;
+            shaft.position.z = 0.75;
+            shaft.name = 'shaft';
+            group.add(shaft);
+            const grip = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.066, 0.066, 0.36, 8),
+                matte(0x222222)
+            );
+            grip.rotation.x = Math.PI / 2;
+            grip.position.z = -0.06;
+            grip.name = 'grip';
+            group.add(grip);
+            // Knob at end of handle
+            const knob = new THREE.Mesh(
+                new THREE.SphereGeometry(0.072, 6, 6),
+                wood(0x7a4e25)
+            );
+            knob.position.z = -0.24;
+            knob.name = 'knob';
+            group.add(knob);
+            break;
+        }
+
+        case 'knife': {
+            const blade = new THREE.Mesh(
+                new THREE.BoxGeometry(0.024, 0.075, 0.54),
+                metal(0xbbccdd)
+            );
+            blade.position.z = 0.42;
+            blade.name = 'blade';
+            group.add(blade);
+            // Blade edge taper
+            const edge = new THREE.Mesh(
+                new THREE.BoxGeometry(0.006, 0.06, 0.48),
+                metal(0xddeeff)
+            );
+            edge.position.set(0, -0.01, 0.42);
+            edge.name = 'edge';
+            group.add(edge);
+            const handle = new THREE.Mesh(
+                new THREE.BoxGeometry(0.066, 0.096, 0.24),
+                wood(0x332211)
+            );
+            handle.position.z = 0.03;
+            handle.name = 'handle';
+            group.add(handle);
+            const guard = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, 0.024, 0.024),
+                metal(0x888888)
+            );
+            guard.position.z = 0.15;
+            guard.name = 'guard';
+            group.add(guard);
+            // Pommel
+            const pommel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.036, 0.03, 6),
+                metal(0x888888)
+            );
+            pommel.rotation.x = Math.PI / 2;
+            pommel.position.z = -0.09;
+            pommel.name = 'pommel';
+            group.add(pommel);
+            break;
+        }
+
+        case 'pistol': {
+            const slide = new THREE.Mesh(
+                new THREE.BoxGeometry(0.084, 0.096, 0.42),
+                metal(0x2a2a2a)
+            );
+            slide.position.z = 0.18;
+            slide.name = 'slide';
+            group.add(slide);
+            const barrel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.024, 0.024, 0.12, 8),
+                metal(0x333333)
+            );
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.z = 0.45;
+            barrel.name = 'barrel';
+            group.add(barrel);
+            const pGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.072, 0.18, 0.09),
+                matte(0x1a1a1a)
+            );
+            pGrip.position.set(0, -0.12, -0.015);
+            pGrip.rotation.x = 0.2;
+            pGrip.name = 'grip';
+            group.add(pGrip);
+            const tGuard = new THREE.Mesh(
+                new THREE.BoxGeometry(0.009, 0.06, 0.09),
+                metal(0x333333)
+            );
+            tGuard.position.set(0, -0.054, 0.06);
+            tGuard.name = 'trigger_guard';
+            group.add(tGuard);
+            // Front sight
+            const fSight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.012, 0.024, 0.012),
+                metal(0x444444)
+            );
+            fSight.position.set(0, 0.06, 0.36);
+            fSight.name = 'front_sight';
+            group.add(fSight);
+            // Rear sight
+            const rSight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.042, 0.024, 0.012),
+                metal(0x444444)
+            );
+            rSight.position.set(0, 0.06, 0.03);
+            rSight.name = 'rear_sight';
+            group.add(rSight);
+            break;
+        }
+
+        case 'smg': {
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(0.105, 0.12, 0.66),
+                metal(0x222222)
+            );
+            body.position.z = 0.24;
+            body.name = 'body';
+            group.add(body);
+            const shroud = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.036, 0.036, 0.24, 8),
+                metal(0x333333)
+            );
+            shroud.rotation.x = Math.PI / 2;
+            shroud.position.z = 0.69;
+            shroud.name = 'shroud';
+            group.add(shroud);
+            const sGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.075, 0.165, 0.075),
+                matte(0x1a1a1a)
+            );
+            sGrip.position.set(0, -0.12, 0.06);
+            sGrip.rotation.x = 0.15;
+            sGrip.name = 'grip';
+            group.add(sGrip);
+            const mag = new THREE.Mesh(
+                new THREE.BoxGeometry(0.06, 0.18, 0.045),
+                metal(0x2a2a2a)
+            );
+            mag.position.set(0, -0.135, 0.24);
+            mag.name = 'magazine';
+            group.add(mag);
+            const stock = new THREE.Mesh(
+                new THREE.BoxGeometry(0.075, 0.045, 0.18),
+                metal(0x2a2a2a)
+            );
+            stock.position.set(0, 0.03, -0.18);
+            stock.name = 'stock';
+            group.add(stock);
+            // Foregrip
+            const fGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.045, 0.09, 0.045),
+                matte(0x1a1a1a)
+            );
+            fGrip.position.set(0, -0.09, 0.45);
+            fGrip.name = 'foregrip';
+            group.add(fGrip);
+            break;
+        }
+
+        case 'shotgun': {
+            const sgBarrel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.045, 0.045, 1.5, 8),
+                metal(0x3a3a3a)
+            );
+            sgBarrel.rotation.x = Math.PI / 2;
+            sgBarrel.position.z = 0.66;
+            sgBarrel.name = 'barrel';
+            group.add(sgBarrel);
+            const pump = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8),
+                metal(0x555555)
+            );
+            pump.rotation.x = Math.PI / 2;
+            pump.position.set(0, -0.06, 0.45);
+            pump.name = 'pump';
+            group.add(pump);
+            const recv = new THREE.Mesh(
+                new THREE.BoxGeometry(0.105, 0.12, 0.36),
+                metal(0x2a2a2a)
+            );
+            recv.position.z = -0.06;
+            recv.name = 'receiver';
+            group.add(recv);
+            const sgStock = new THREE.Mesh(
+                new THREE.BoxGeometry(0.075, 0.12, 0.54),
+                wood(0x6b4226)
+            );
+            sgStock.position.set(0, -0.015, -0.51);
+            sgStock.rotation.x = -0.08;
+            sgStock.name = 'stock';
+            group.add(sgStock);
+            const sgGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.066, 0.135, 0.06),
+                wood(0x5a3520)
+            );
+            sgGrip.position.set(0, -0.105, -0.03);
+            sgGrip.rotation.x = 0.2;
+            sgGrip.name = 'grip';
+            group.add(sgGrip);
+            // Front bead sight
+            const bead = new THREE.Mesh(
+                new THREE.SphereGeometry(0.015, 4, 4),
+                metal(0xcccccc)
+            );
+            bead.position.set(0, 0.054, 1.35);
+            bead.name = 'bead_sight';
+            group.add(bead);
+            break;
+        }
+
+        case 'rifle': {
+            const rBarrel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8),
+                metal(0x333333)
+            );
+            rBarrel.rotation.x = Math.PI / 2;
+            rBarrel.position.z = 0.84;
+            rBarrel.name = 'barrel';
+            group.add(rBarrel);
+            const handguard = new THREE.Mesh(
+                new THREE.BoxGeometry(0.096, 0.09, 0.48),
+                matte(0x2a2a2a)
+            );
+            handguard.position.z = 0.54;
+            handguard.name = 'handguard';
+            group.add(handguard);
+            const rRecv = new THREE.Mesh(
+                new THREE.BoxGeometry(0.105, 0.135, 0.42),
+                metal(0x222222)
+            );
+            rRecv.position.z = 0.06;
+            rRecv.name = 'receiver';
+            group.add(rRecv);
+            const rMag = new THREE.Mesh(
+                new THREE.BoxGeometry(0.054, 0.195, 0.054),
+                metal(0x2a2a2a)
+            );
+            rMag.position.set(0, -0.15, 0.09);
+            rMag.rotation.x = 0.1;
+            rMag.name = 'magazine';
+            group.add(rMag);
+            const rStock = new THREE.Mesh(
+                new THREE.BoxGeometry(0.084, 0.12, 0.42),
+                matte(0x2a2a2a)
+            );
+            rStock.position.set(0, -0.015, -0.36);
+            rStock.name = 'stock';
+            group.add(rStock);
+            const rGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.06, 0.12, 0.06),
+                matte(0x1a1a1a)
+            );
+            rGrip.position.set(0, -0.105, -0.06);
+            rGrip.rotation.x = 0.25;
+            rGrip.name = 'grip';
+            group.add(rGrip);
+            // Front sight post
+            const fSight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.009, 0.045, 0.009),
+                metal(0x444444)
+            );
+            fSight.position.set(0, 0.075, 0.75);
+            fSight.name = 'front_sight';
+            group.add(fSight);
+            // Carry handle / rear sight
+            const carry = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, 0.045, 0.12),
+                metal(0x333333)
+            );
+            carry.position.set(0, 0.09, 0.15);
+            carry.name = 'carry_handle';
+            group.add(carry);
+            break;
+        }
+
+        case 'sniper': {
+            const sBarrel = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.036, 0.03, 1.65, 8),
+                metal(0x333333)
+            );
+            sBarrel.rotation.x = Math.PI / 2;
+            sBarrel.position.z = 1.05;
+            sBarrel.name = 'barrel';
+            group.add(sBarrel);
+            const sBody = new THREE.Mesh(
+                new THREE.BoxGeometry(0.105, 0.12, 0.75),
+                metal(0x222222)
+            );
+            sBody.position.z = 0.09;
+            sBody.name = 'body';
+            group.add(sBody);
+            // Scope
+            const scope = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.045, 0.045, 0.36, 8),
+                metal(0x111111)
+            );
+            scope.rotation.x = Math.PI / 2;
+            scope.position.set(0, 0.105, 0.18);
+            scope.name = 'scope';
+            group.add(scope);
+            // Scope lens
+            const lens = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.042, 0.042, 0.006, 8),
+                new THREE.MeshStandardMaterial({ color: 0x4488ff, metalness: 0.9, roughness: 0.1 })
+            );
+            lens.rotation.x = Math.PI / 2;
+            lens.position.set(0, 0.105, 0.36);
+            lens.name = 'lens';
+            group.add(lens);
+            // Scope mounts
+            for (let i = 0; i < 2; i++) {
+                const mount = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.024, 0.06, 0.024),
+                    metal(0x444444)
+                );
+                mount.position.set(0, 0.075, 0.06 + i * 0.24);
+                mount.name = `scope_mount_${i}`;
+                group.add(mount);
+            }
+            const bolt = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.015, 0.015, 0.075, 6),
+                metal(0x444444)
+            );
+            bolt.rotation.z = Math.PI / 2;
+            bolt.position.set(0.075, 0.03, 0.0);
+            bolt.name = 'bolt';
+            group.add(bolt);
+            // Bolt knob
+            const boltKnob = new THREE.Mesh(
+                new THREE.SphereGeometry(0.024, 4, 4),
+                metal(0x555555)
+            );
+            boltKnob.position.set(0.11, 0.03, 0.0);
+            boltKnob.name = 'bolt_knob';
+            group.add(boltKnob);
+            const sStock = new THREE.Mesh(
+                new THREE.BoxGeometry(0.09, 0.135, 0.6),
+                wood(0x5a3520)
+            );
+            sStock.position.set(0, -0.015, -0.54);
+            sStock.rotation.x = -0.05;
+            sStock.name = 'stock';
+            group.add(sStock);
+            const sGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.06, 0.12, 0.06),
+                matte(0x1a1a1a)
+            );
+            sGrip.position.set(0, -0.105, -0.09);
+            sGrip.rotation.x = 0.25;
+            sGrip.name = 'grip';
+            group.add(sGrip);
+            // Bipod legs
+            for (const side of [-1, 1]) {
+                const leg = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.009, 0.009, 0.24, 6),
+                    metal(0x444444)
+                );
+                leg.rotation.x = Math.PI / 2;
+                leg.position.set(side * 0.045, -0.06, 0.6);
+                leg.name = `bipod_${side > 0 ? 'r' : 'l'}`;
+                group.add(leg);
+            }
+            break;
+        }
+
+        case 'grenade': {
+            const gBody = new THREE.Mesh(
+                new THREE.SphereGeometry(0.105, 10, 10),
+                matte(0x445533)
+            );
+            gBody.position.z = 0.06;
+            gBody.name = 'body';
+            group.add(gBody);
+            // Pineapple texture ridges
+            for (let row = 0; row < 3; row++) {
+                const ridge = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.09, 0.006, 4, 12),
+                    matte(0x3a4a28)
+                );
+                ridge.position.set(0, -0.06 + row * 0.06, 0.06);
+                ridge.name = `ridge_${row}`;
+                group.add(ridge);
+            }
+            const cap = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.036, 0.045, 0.075, 8),
+                metal(0x666666)
+            );
+            cap.position.set(0, 0.105, 0.06);
+            cap.name = 'cap';
+            group.add(cap);
+            // Spoon/lever
+            const spoon = new THREE.Mesh(
+                new THREE.BoxGeometry(0.018, 0.006, 0.12),
+                metal(0x888888)
+            );
+            spoon.position.set(0.03, 0.09, 0.06);
+            spoon.name = 'spoon';
+            group.add(spoon);
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(0.03, 0.006, 4, 8),
+                metal(0x888888)
+            );
+            ring.position.set(0, 0.15, 0.06);
+            ring.rotation.x = Math.PI / 2;
+            ring.name = 'ring';
+            group.add(ring);
+            break;
+        }
+
+        case 'atomizer': {
+            const aBody = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.075, 0.09, 0.6, 10),
+                metal(0x4a3a6a)
+            );
+            aBody.rotation.x = Math.PI / 2;
+            aBody.position.z = 0.24;
+            aBody.name = 'body';
+            group.add(aBody);
+            const emitter = new THREE.Mesh(
+                new THREE.SphereGeometry(0.09, 10, 10),
+                new THREE.MeshStandardMaterial({
+                    color: 0x6644cc,
+                    emissive: 0x4422aa,
+                    emissiveIntensity: 0.6,
+                    roughness: 0.2,
+                    metalness: 0.8
+                })
+            );
+            emitter.position.z = 0.6;
+            emitter.name = 'emitter';
+            group.add(emitter);
+            // Energy coils
+            for (let i = 0; i < 4; i++) {
+                const coil = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.084, 0.009, 6, 12),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x8866ff,
+                        emissive: 0x6644cc,
+                        emissiveIntensity: 0.4
+                    })
+                );
+                coil.position.z = 0.06 + i * 0.15;
+                coil.name = `coil_${i}`;
+                group.add(coil);
+            }
+            const aGrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.066, 0.15, 0.075),
+                matte(0x2a2a3a)
+            );
+            aGrip.position.set(0, -0.12, 0.06);
+            aGrip.rotation.x = 0.2;
+            aGrip.name = 'grip';
+            group.add(aGrip);
+            // Rear cap
+            const rearCap = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.075, 0.06, 8),
+                metal(0x3a2a5a)
+            );
+            rearCap.rotation.x = Math.PI / 2;
+            rearCap.position.z = -0.06;
+            rearCap.name = 'rear_cap';
+            group.add(rearCap);
+            break;
+        }
+    }
+
+    group.traverse(child => { if (child.isMesh) child.castShadow = true; });
+    scene.add(group);
+    return { scene, animations: [] };
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 async function main() {
@@ -875,6 +1370,14 @@ async function main() {
         console.log(`Building ${type} model...`);
         const vData = buildVehicle(type);
         await exportToGLB(vData.scene, vData.animations, `${type}.glb`);
+    }
+
+    // Weapons
+    const weaponTypes = ['bat', 'knife', 'pistol', 'smg', 'shotgun', 'rifle', 'sniper', 'grenade', 'atomizer'];
+    for (const type of weaponTypes) {
+        console.log(`Building ${type} weapon model...`);
+        const wData = buildWeapon(type);
+        await exportToGLB(wData.scene, [], `weapon_${type}.glb`);
     }
 
     console.log('\nDone! All models exported to assets/models/');

@@ -19,6 +19,16 @@ export class ModelManager {
             { name: 'motorcycle', url: 'assets/models/motorcycle.glb' },
             { name: 'boat', url: 'assets/models/boat.glb' },
             { name: 'police', url: 'assets/models/police.glb' },
+            // Weapons
+            { name: 'weapon_bat', url: 'assets/models/weapon_bat.glb' },
+            { name: 'weapon_knife', url: 'assets/models/weapon_knife.glb' },
+            { name: 'weapon_pistol', url: 'assets/models/weapon_pistol.glb' },
+            { name: 'weapon_smg', url: 'assets/models/weapon_smg.glb' },
+            { name: 'weapon_shotgun', url: 'assets/models/weapon_shotgun.glb' },
+            { name: 'weapon_rifle', url: 'assets/models/weapon_rifle.glb' },
+            { name: 'weapon_sniper', url: 'assets/models/weapon_sniper.glb' },
+            { name: 'weapon_grenade', url: 'assets/models/weapon_grenade.glb' },
+            { name: 'weapon_atomizer', url: 'assets/models/weapon_atomizer.glb' },
         ];
 
         let loaded = 0;

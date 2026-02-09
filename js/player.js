@@ -52,6 +52,10 @@ export class Player {
         this.weapons = [{ id: 'fists', ammo: Infinity, clipSize: Infinity }];
         this.currentWeaponIndex = 0;
 
+        // Held weapon model
+        this._currentWeaponMesh = null;
+        this._lastWeaponId = null;
+
         // Speed multiplier (cheat)
         this.speedMultiplier = 1;
 
@@ -585,6 +589,9 @@ export class Player {
             this.animState = targetState;
             this._updateFallbackAnimation(dt, speed);
         }
+
+        // Update held weapon model
+        this._updateHeldWeapon();
     }
 
     _crossfadeTo(clipName, duration = 0.2) {
@@ -1159,6 +1166,10 @@ export class Player {
         const outfit = this.outfits[index];
         if (!outfit) return;
 
+        // Sync outfit colors into appearance object for save/load
+        this.appearance.shirtColor = outfit.shirt;
+        this.appearance.pantsColor = outfit.pants;
+
         // Update fallback model parts (if using fallback model)
         if (this.parts.torso) {
             this.parts.torso.material.color.setHex(outfit.shirt);
@@ -1177,6 +1188,9 @@ export class Player {
         // Shoes
         if (this.parts.leftShoe) this.parts.leftShoe.material.color.setHex(outfit.shoes);
         if (this.parts.rightShoe) this.parts.rightShoe.material.color.setHex(outfit.shoes);
+
+        // Also apply to GLTF model
+        this._applyAppearanceToGLTF();
     }
 
     // --- Clothing Shop Appearance ---
@@ -1221,6 +1235,133 @@ export class Player {
                 this._sunglassesMesh = new THREE.Mesh(glassGeo, glassMat);
                 this._sunglassesMesh.position.set(0, 1.78, 0.18);
                 this.model.add(this._sunglassesMesh);
+            }
+            this._sunglassesMesh.visible = true;
+        } else {
+            if (this._sunglassesMesh) this._sunglassesMesh.visible = false;
+        }
+
+        // Also apply to GLTF model vertex colors
+        this._applyAppearanceToGLTF();
+    }
+
+    _indexGLTFVertexGroups() {
+        if (this._glbVertexMap) return; // Already indexed
+        let mesh;
+        this.model.traverse(child => {
+            if (child.isSkinnedMesh) mesh = child;
+        });
+        if (!mesh) return;
+
+        this._glbMesh = mesh;
+        const colorAttr = mesh.geometry.getAttribute('color');
+        const skinIdxAttr = mesh.geometry.getAttribute('skinIndex');
+        if (!colorAttr || !skinIdxAttr) return;
+
+        // Original colors from the model
+        const SHIRT = 0x4466aa;
+        const PANTS = 0x333344;
+        const SHOE  = 0x222222;
+
+        const shirtR = ((SHIRT >> 16) & 0xff) / 255;
+        const shirtG = ((SHIRT >> 8) & 0xff) / 255;
+        const shirtB = (SHIRT & 0xff) / 255;
+        const pantsR = ((PANTS >> 16) & 0xff) / 255;
+        const pantsG = ((PANTS >> 8) & 0xff) / 255;
+        const pantsB = (PANTS & 0xff) / 255;
+        const shoeR = ((SHOE >> 16) & 0xff) / 255;
+        const shoeG = ((SHOE >> 8) & 0xff) / 255;
+        const shoeB = (SHOE & 0xff) / 255;
+
+        // Foot bone names for identifying shoe vertices vs other dark vertices
+        const footBones = new Set();
+        mesh.skeleton.bones.forEach((bone, idx) => {
+            if (bone.name === 'L_Foot' || bone.name === 'R_Foot') footBones.add(idx);
+        });
+
+        this._glbVertexMap = { shirt: [], pants: [], shoe: [] };
+        const eps = 0.02; // Color match tolerance
+
+        for (let i = 0; i < colorAttr.count; i++) {
+            const r = colorAttr.getX(i);
+            const g = colorAttr.getY(i);
+            const b = colorAttr.getZ(i);
+            const boneIdx = skinIdxAttr.getX(i);
+
+            if (Math.abs(r - shirtR) < eps && Math.abs(g - shirtG) < eps && Math.abs(b - shirtB) < eps) {
+                this._glbVertexMap.shirt.push(i);
+            } else if (Math.abs(r - pantsR) < eps && Math.abs(g - pantsG) < eps && Math.abs(b - pantsB) < eps) {
+                this._glbVertexMap.pants.push(i);
+            } else if (Math.abs(r - shoeR) < eps && Math.abs(g - shoeG) < eps && Math.abs(b - shoeB) < eps && footBones.has(boneIdx)) {
+                this._glbVertexMap.shoe.push(i);
+            }
+        }
+    }
+
+    _applyAppearanceToGLTF() {
+        this._indexGLTFVertexGroups();
+        if (!this._glbVertexMap || !this._glbMesh) return;
+
+        const colorAttr = this._glbMesh.geometry.getAttribute('color');
+        if (!colorAttr) return;
+
+        const a = this.appearance;
+
+        // Apply shirt color
+        const sr = ((a.shirtColor >> 16) & 0xff) / 255;
+        const sg = ((a.shirtColor >> 8) & 0xff) / 255;
+        const sb = (a.shirtColor & 0xff) / 255;
+        for (const idx of this._glbVertexMap.shirt) {
+            colorAttr.setXYZ(idx, sr, sg, sb);
+        }
+
+        // Apply pants color
+        const pr = ((a.pantsColor >> 16) & 0xff) / 255;
+        const pg = ((a.pantsColor >> 8) & 0xff) / 255;
+        const pb = (a.pantsColor & 0xff) / 255;
+        for (const idx of this._glbVertexMap.pants) {
+            colorAttr.setXYZ(idx, pr, pg, pb);
+        }
+
+        colorAttr.needsUpdate = true;
+
+        // Hat: attach to Head bone for GLTF model
+        if (a.hasHat) {
+            if (!this._hatMesh) {
+                const hatGeo = new THREE.CylinderGeometry(0.25, 0.28, 0.12, 10);
+                const hatMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+                this._hatMesh = new THREE.Mesh(hatGeo, hatMat);
+                // Find Head bone for GLTF, else use model direct
+                let headBone;
+                this.model.traverse(c => { if (c.isBone && c.name === 'Head') headBone = c; });
+                if (headBone) {
+                    this._hatMesh.position.set(0, 0.28, 0);
+                    headBone.add(this._hatMesh);
+                } else {
+                    this._hatMesh.position.set(0, 1.95, 0);
+                    this.model.add(this._hatMesh);
+                }
+            }
+            this._hatMesh.visible = true;
+        } else {
+            if (this._hatMesh) this._hatMesh.visible = false;
+        }
+
+        // Sunglasses: attach to Head bone for GLTF model
+        if (a.hasSunglasses) {
+            if (!this._sunglassesMesh) {
+                const glassGeo = new THREE.BoxGeometry(0.3, 0.06, 0.08);
+                const glassMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.6 });
+                this._sunglassesMesh = new THREE.Mesh(glassGeo, glassMat);
+                let headBone;
+                this.model.traverse(c => { if (c.isBone && c.name === 'Head') headBone = c; });
+                if (headBone) {
+                    this._sunglassesMesh.position.set(0, 0.12, 0.18);
+                    headBone.add(this._sunglassesMesh);
+                } else {
+                    this._sunglassesMesh.position.set(0, 1.78, 0.18);
+                    this.model.add(this._sunglassesMesh);
+                }
             }
             this._sunglassesMesh.visible = true;
         } else {
@@ -1371,5 +1512,64 @@ export class Player {
         if (index >= 0 && index < this.weapons.length) {
             this.currentWeaponIndex = index;
         }
+    }
+
+    _getRightHand() {
+        // Use fallback parts if available
+        if (this.parts.rightHand) return this.parts.rightHand;
+        // Otherwise find GLTF skeleton bone
+        if (!this._rightHandBone && this.model) {
+            this.model.traverse(child => {
+                if (child.isBone && child.name === 'R_Hand') {
+                    this._rightHandBone = child;
+                }
+            });
+        }
+        return this._rightHandBone || null;
+    }
+
+    _updateHeldWeapon() {
+        const weapon = this.getCurrentWeapon();
+        const hand = this._getRightHand();
+        if (!weapon || !hand) return;
+
+        // Hide weapon in vehicle
+        if (this._currentWeaponMesh) {
+            this._currentWeaponMesh.visible = !this.inVehicle;
+        }
+
+        const weaponId = weapon.id;
+
+        // Only update if weapon changed
+        if (weaponId === this._lastWeaponId) return;
+        this._lastWeaponId = weaponId;
+
+        // Remove old weapon mesh
+        if (this._currentWeaponMesh) {
+            hand.remove(this._currentWeaponMesh);
+            this._currentWeaponMesh = null;
+        }
+
+        // Skip fists — no model needed
+        if (weaponId === 'fists') return;
+
+        // Create new weapon model
+        const weapons = this.game.systems.weapons;
+        if (!weapons) return;
+
+        const model = weapons.createWeaponModel(weaponId);
+        if (!model || model.children.length === 0) return;
+
+        // Position relative to hand bone
+        if (this._rightHandBone) {
+            // GLTF skeleton — scale up weapon for visibility, extend forward from hand
+            model.scale.set(3, 3, 3);
+            model.position.set(0, 0, 0.05);
+        } else {
+            // Fallback box model — weapon extends forward from hand
+            model.position.set(0, 0, 0.04);
+        }
+        hand.add(model);
+        this._currentWeaponMesh = model;
     }
 }

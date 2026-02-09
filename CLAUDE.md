@@ -91,19 +91,72 @@ Key properties on `window.game` (NOT inside `.systems`):
 | grenade | thrown | 80 | 8 | 10 |
 | atomizer | special | 30 | 50 | 20 |
 
-### Asset Generation
+### Asset Generation & GLB Models
 
-All assets are procedurally generated at runtime — no external model files required:
+**All 3D models are generated as `.glb` files** via `tools/model-generator.js`. Run:
+```bash
+cd tools && npm install && node model-generator.js
+```
 
+This generates all models to `assets/models/`:
+
+| Model | File | Size | Description |
+|-------|------|------|-------------|
+| Character | character.glb | 72 KB | Skinned mesh, 16-bone skeleton, vertex colors, walk/run/idle animations |
+| Sedan | sedan.glb | 41 KB | Car with named wheel parts |
+| Sports | sports.glb | 46 KB | Sports car with spoiler |
+| Truck | truck.glb | 29 KB | Cab + cargo bed |
+| Motorcycle | motorcycle.glb | 25 KB | Frame, engine, forks |
+| Boat | boat.glb | 13 KB | Hull, cabin, motor |
+| Police | police.glb | 43 KB | Sedan variant with lightbar |
+| Bat | weapon_bat.glb | 9 KB | Wood shaft, grip tape, knob |
+| Knife | weapon_knife.glb | 10 KB | Blade, guard, handle, pommel |
+| Pistol | weapon_pistol.glb | 13 KB | Slide, barrel, grip, sights |
+| SMG | weapon_smg.glb | 13 KB | Body, shroud, magazine, foregrip |
+| Shotgun | weapon_shotgun.glb | 14 KB | Barrel, pump, receiver, wood stock |
+| Rifle | weapon_rifle.glb | 17 KB | Barrel, handguard, magazine, carry handle |
+| Sniper | weapon_sniper.glb | 28 KB | Long barrel, scope+lens, bolt, bipod, wood stock |
+| Grenade | weapon_grenade.glb | 25 KB | Sphere body, ridges, spoon, pin ring |
+| Atomizer | weapon_atomizer.glb | 34 KB | Cylinder body, emitter sphere, energy coils |
+
+**Model loading priority**: GLB first → procedural fallback. Both `vehicles.js` and `weapons.js`
+check `models.hasModel()` before falling back to `_createFallbackVehicleMesh()` or procedural geometry.
+
+**Other procedural assets** (NOT GLB — generated at runtime):
 - **Buildings**: Box geometry with randomized width/depth/height per district, window UV patterns
-- **Trees**: Cone + cylinder geometry with color/size/rotation variety
-- **Vehicles**: Fallback box-based meshes with wheels (`_createFallbackVehicleMesh`)
-- **Characters**: Fallback box-limb models (`_createFallbackModel`, `_createFallbackNPCModel`)
+- **Trees**: Instanced cone/sphere/cylinder with per-instance HSL variation
 - **Props**: Instanced geometry for lamps, benches, dumpsters, traffic lights, etc.
 - **Terrain**: Flat ground plane with road network overlay
 - **Water**: Blue plane at y=0 for dock/port areas
 
-The model system (`models.js`) can load GLTF if available, but falls back to procedural.
+### Weapon Model System
+
+Weapons attach to the player's R_Hand bone (GLTF) or `parts.rightHand` (fallback).
+Key files: `weapons.js:createWeaponModel()`, `player.js:_updateHeldWeapon()`.
+
+- Weapon mesh swaps automatically when `currentWeaponIndex` changes
+- Fists = no model (mesh removed)
+- Hidden when player is in vehicle (`_currentWeaponMesh.visible = false`)
+- GLB models are 3x scale relative to bone space
+
+### Clothing / Appearance System
+
+Two systems for changing player appearance:
+
+1. **Clothing Shops** (`interiors.js:36-40`, `ui.js:1136-1310`): Color pickers for shirt/pants,
+   toggles for hat/sunglasses. Costs money. Stores: Binco Downtown, SubUrban Strip, Victim Docks.
+2. **Wardrobe** (`player.js:1165`): 8 preset outfits, accessed via C key in owned properties.
+
+Both systems sync to `player.appearance` and persist via save/load.
+
+**GLTF vertex color mapping** (character.glb):
+- Shirt `0x4466aa` → R_Shoulder, L_Shoulder, R_Elbow, L_Elbow, R_Hip, L_Hip (120 verts)
+- Pants `0x333344` → Root, L_Knee, R_Knee, L_Foot, R_Foot, L_Hand, R_Hand (96 verts)
+- Shoes `0x222222` → L_Foot, R_Foot only (48 verts, filtered by foot bone)
+- Skin `0xd4a574`, Hair `0x221100` — not modified by clothing
+
+`applyAppearance()` modifies vertex colors via `_applyAppearanceToGLTF()`.
+Hat/sunglasses attach to the Head bone.
 
 ### Key Code Patterns
 

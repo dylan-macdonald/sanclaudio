@@ -1144,4 +1144,398 @@ export class WeaponManager {
             crosshair.style.display = 'none';
         }
     }
+
+    // ── Procedural Weapon 3D Models ──────────────────────────────────
+
+    createWeaponModel(weaponId) {
+        if (!this._weaponModelCache) this._weaponModelCache = {};
+        if (this._weaponModelCache[weaponId]) {
+            return this._weaponModelCache[weaponId].clone();
+        }
+
+        // Try to use GLB model first
+        const models = this.game.systems.models;
+        const glbName = `weapon_${weaponId}`;
+        if (models && models.hasModel(glbName)) {
+            const model = models.models[glbName].clone();
+            model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+            this._weaponModelCache[weaponId] = model;
+            return model.clone();
+        }
+
+        // Fallback: procedural generation
+        const group = new THREE.Group();
+        const metal = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.7 });
+        const wood = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0.1 });
+        const matte = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.3 });
+
+        switch (weaponId) {
+            case 'fists':
+                // No model for fists
+                break;
+
+            case 'bat': {
+                // Wooden baseball bat
+                const shaft = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.02, 0.035, 0.55, 6),
+                    wood(0x8B5A2B)
+                );
+                shaft.rotation.x = Math.PI / 2;
+                shaft.position.z = 0.25;
+                group.add(shaft);
+                // Grip tape
+                const grip = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.022, 0.022, 0.12, 6),
+                    matte(0x222222)
+                );
+                grip.rotation.x = Math.PI / 2;
+                grip.position.z = -0.02;
+                group.add(grip);
+                break;
+            }
+
+            case 'knife': {
+                // Combat knife
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.008, 0.025, 0.18),
+                    metal(0xbbccdd)
+                );
+                blade.position.z = 0.14;
+                group.add(blade);
+                // Handle
+                const handle = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.032, 0.08),
+                    wood(0x332211)
+                );
+                handle.position.z = 0.01;
+                group.add(handle);
+                // Guard
+                const guard = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.04, 0.008, 0.008),
+                    metal(0x888888)
+                );
+                guard.position.z = 0.05;
+                group.add(guard);
+                break;
+            }
+
+            case 'pistol': {
+                // Semi-auto pistol
+                const slide = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.028, 0.032, 0.14),
+                    metal(0x2a2a2a)
+                );
+                slide.position.z = 0.06;
+                group.add(slide);
+                // Barrel (extends from slide)
+                const barrel = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.008, 0.008, 0.04, 6),
+                    metal(0x333333)
+                );
+                barrel.rotation.x = Math.PI / 2;
+                barrel.position.z = 0.15;
+                group.add(barrel);
+                // Grip
+                const pGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.024, 0.06, 0.03),
+                    matte(0x1a1a1a)
+                );
+                pGrip.position.set(0, -0.04, -0.005);
+                pGrip.rotation.x = 0.2;
+                group.add(pGrip);
+                // Trigger guard
+                const tGuard = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.003, 0.02, 0.03),
+                    metal(0x333333)
+                );
+                tGuard.position.set(0, -0.018, 0.02);
+                group.add(tGuard);
+                break;
+            }
+
+            case 'smg': {
+                // Compact SMG
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.035, 0.04, 0.22),
+                    metal(0x222222)
+                );
+                body.position.z = 0.08;
+                group.add(body);
+                // Barrel shroud
+                const shroud = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.012, 0.012, 0.08, 6),
+                    metal(0x333333)
+                );
+                shroud.rotation.x = Math.PI / 2;
+                shroud.position.z = 0.23;
+                group.add(shroud);
+                // Grip
+                const sGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.025, 0.055, 0.025),
+                    matte(0x1a1a1a)
+                );
+                sGrip.position.set(0, -0.04, 0.02);
+                sGrip.rotation.x = 0.15;
+                group.add(sGrip);
+                // Magazine
+                const mag = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.02, 0.06, 0.015),
+                    metal(0x2a2a2a)
+                );
+                mag.position.set(0, -0.045, 0.08);
+                group.add(mag);
+                // Folding stock stub
+                const stock = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.025, 0.015, 0.06),
+                    metal(0x2a2a2a)
+                );
+                stock.position.set(0, 0.01, -0.06);
+                group.add(stock);
+                break;
+            }
+
+            case 'shotgun': {
+                // Pump-action shotgun
+                const sgBarrel = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6),
+                    metal(0x3a3a3a)
+                );
+                sgBarrel.rotation.x = Math.PI / 2;
+                sgBarrel.position.z = 0.22;
+                group.add(sgBarrel);
+                // Pump tube (underneath)
+                const pump = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.01, 0.01, 0.12, 6),
+                    metal(0x444444)
+                );
+                pump.rotation.x = Math.PI / 2;
+                pump.position.set(0, -0.02, 0.15);
+                group.add(pump);
+                // Receiver
+                const recv = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.035, 0.04, 0.12),
+                    metal(0x2a2a2a)
+                );
+                recv.position.z = -0.02;
+                group.add(recv);
+                // Stock
+                const sgStock = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.025, 0.04, 0.18),
+                    wood(0x6b4226)
+                );
+                sgStock.position.set(0, -0.005, -0.17);
+                sgStock.rotation.x = -0.08;
+                group.add(sgStock);
+                // Grip
+                const sgGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.045, 0.02),
+                    wood(0x5a3520)
+                );
+                sgGrip.position.set(0, -0.035, -0.01);
+                sgGrip.rotation.x = 0.2;
+                group.add(sgGrip);
+                break;
+            }
+
+            case 'rifle': {
+                // Assault rifle
+                const rBarrel = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.01, 0.01, 0.3, 6),
+                    metal(0x333333)
+                );
+                rBarrel.rotation.x = Math.PI / 2;
+                rBarrel.position.z = 0.28;
+                group.add(rBarrel);
+                // Handguard
+                const handguard = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.032, 0.03, 0.16),
+                    matte(0x2a2a2a)
+                );
+                handguard.position.z = 0.18;
+                group.add(handguard);
+                // Upper/lower receiver
+                const rRecv = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.035, 0.045, 0.14),
+                    metal(0x222222)
+                );
+                rRecv.position.z = 0.02;
+                group.add(rRecv);
+                // Magazine
+                const rMag = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.018, 0.065, 0.018),
+                    metal(0x2a2a2a)
+                );
+                rMag.position.set(0, -0.05, 0.03);
+                rMag.rotation.x = 0.1;
+                group.add(rMag);
+                // Stock
+                const rStock = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.028, 0.04, 0.14),
+                    matte(0x2a2a2a)
+                );
+                rStock.position.set(0, -0.005, -0.12);
+                group.add(rStock);
+                // Grip
+                const rGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.02, 0.04, 0.02),
+                    matte(0x1a1a1a)
+                );
+                rGrip.position.set(0, -0.035, -0.02);
+                rGrip.rotation.x = 0.25;
+                group.add(rGrip);
+                // Front sight
+                const fSight = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.003, 0.015, 0.003),
+                    metal(0x444444)
+                );
+                fSight.position.set(0, 0.025, 0.25);
+                group.add(fSight);
+                break;
+            }
+
+            case 'sniper': {
+                // Bolt-action sniper rifle
+                const sBarrel = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.012, 0.01, 0.55, 6),
+                    metal(0x333333)
+                );
+                sBarrel.rotation.x = Math.PI / 2;
+                sBarrel.position.z = 0.35;
+                group.add(sBarrel);
+                // Body
+                const sBody = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.035, 0.04, 0.25),
+                    metal(0x222222)
+                );
+                sBody.position.z = 0.03;
+                group.add(sBody);
+                // Scope
+                const scope = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8),
+                    metal(0x111111)
+                );
+                scope.rotation.x = Math.PI / 2;
+                scope.position.set(0, 0.035, 0.06);
+                group.add(scope);
+                // Scope lens (front)
+                const lens = new THREE.Mesh(
+                    new THREE.CircleGeometry(0.014, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x4488ff, metalness: 0.9, roughness: 0.1 })
+                );
+                lens.position.set(0, 0.035, 0.12);
+                group.add(lens);
+                // Bolt handle
+                const bolt = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.005, 0.005, 0.025, 4),
+                    metal(0x444444)
+                );
+                bolt.rotation.z = Math.PI / 2;
+                bolt.position.set(0.025, 0.01, 0.0);
+                group.add(bolt);
+                // Stock
+                const sStock = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.03, 0.045, 0.2),
+                    wood(0x5a3520)
+                );
+                sStock.position.set(0, -0.005, -0.18);
+                sStock.rotation.x = -0.05;
+                group.add(sStock);
+                // Grip
+                const sGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.02, 0.04, 0.02),
+                    matte(0x1a1a1a)
+                );
+                sGrip.position.set(0, -0.035, -0.03);
+                sGrip.rotation.x = 0.25;
+                group.add(sGrip);
+                // Bipod legs (folded)
+                for (const side of [-1, 1]) {
+                    const leg = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.003, 0.003, 0.08, 4),
+                        metal(0x444444)
+                    );
+                    leg.rotation.x = Math.PI / 2;
+                    leg.position.set(side * 0.015, -0.02, 0.2);
+                    group.add(leg);
+                }
+                break;
+            }
+
+            case 'grenade': {
+                // Fragmentation grenade
+                const gBody = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.035, 8, 8),
+                    matte(0x445533)
+                );
+                gBody.position.z = 0.02;
+                group.add(gBody);
+                // Top cap / spoon
+                const cap = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.012, 0.015, 0.025, 6),
+                    metal(0x666666)
+                );
+                cap.position.set(0, 0.035, 0.02);
+                group.add(cap);
+                // Pin ring
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.01, 0.002, 4, 8),
+                    metal(0x888888)
+                );
+                ring.position.set(0, 0.05, 0.02);
+                ring.rotation.x = Math.PI / 2;
+                group.add(ring);
+                break;
+            }
+
+            case 'atomizer': {
+                // Sci-fi energy weapon
+                const aBody = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.025, 0.03, 0.2, 8),
+                    metal(0x4a3a6a)
+                );
+                aBody.rotation.x = Math.PI / 2;
+                aBody.position.z = 0.08;
+                group.add(aBody);
+                // Emitter head
+                const emitter = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.03, 8, 8),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x6644cc,
+                        emissive: 0x4422aa,
+                        emissiveIntensity: 0.6,
+                        roughness: 0.2,
+                        metalness: 0.8
+                    })
+                );
+                emitter.position.z = 0.2;
+                group.add(emitter);
+                // Energy coils
+                for (let i = 0; i < 3; i++) {
+                    const coil = new THREE.Mesh(
+                        new THREE.TorusGeometry(0.028, 0.003, 4, 8),
+                        new THREE.MeshStandardMaterial({
+                            color: 0x8866ff,
+                            emissive: 0x6644cc,
+                            emissiveIntensity: 0.4
+                        })
+                    );
+                    coil.position.z = 0.04 + i * 0.06;
+                    group.add(coil);
+                }
+                // Grip
+                const aGrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.05, 0.025),
+                    matte(0x2a2a3a)
+                );
+                aGrip.position.set(0, -0.04, 0.02);
+                aGrip.rotation.x = 0.2;
+                group.add(aGrip);
+                break;
+            }
+        }
+
+        group.traverse(child => { if (child.isMesh) child.castShadow = true; });
+        this._weaponModelCache[weaponId] = group;
+        return group.clone();
+    }
 }
