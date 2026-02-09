@@ -294,6 +294,61 @@ teleported to (-200, 200) which is The Docks. Coordinates were swapped.
 
 **Fix**: Swapped: `docks: { x: -200, z: 200 }`, `industrial: { x: 200, z: 200 }`.
 
+### 11. `Infinity` lost on save/load — `save.js:85`
+
+**Problem**: `JSON.stringify(Infinity)` produces `null`. After a save/load cycle, the
+fists weapon's `ammo` and `clipSize` changed from `Infinity` to `null`, breaking melee
+combat (ammo checks fail, `ammo--` produces `NaN`).
+
+**Fix**: Added `.map()` in the load path to restore `null` back to `Infinity`:
+`ammo: w.ammo === null ? Infinity : w.ammo`.
+
+### 12. Rampage weapons never restored — `missions.js:1967`
+
+**Problem**: `_startRampage()` saved the player's original weapons and index but
+`_cleanupRampage()` never restored them. After any rampage, the temporary weapon
+persisted permanently.
+
+**Fix**: Added weapon/index restoration from `_rampageOrigWeapons`/`_rampageOrigIndex`
+at the top of `_cleanupRampage()`.
+
+### 13. Rampage enemies never despawned — `missions.js:1967`
+
+**Problem**: When a rampage ended (pass or fail), the spawned hostile enemies remained
+alive in the game world permanently, causing ongoing unintended combat.
+
+**Fix**: Added enemy cleanup loop in `_cleanupRampage()` that sets `health = 0` and
+`alive = false` on all rampage enemies.
+
+### 14. Assassination marker removed from wrong parent — `missions.js:867`
+
+**Problem**: The assassination target marker was added as a child of `npc.mesh`, but
+on target kill, `this.game.scene.remove(sm.targetMarker)` tried to remove it from
+the scene (wrong parent). The marker silently persisted in the scene graph.
+
+**Fix**: Changed to `sm.targetMarker.parent.remove(sm.targetMarker)`.
+
+### 15. Side mission cleanup misses assassination markers — `missions.js:1997`
+
+**Problem**: `_cleanupSideMission()` handled race checkpoints and delivery markers but
+not assassination target markers. Failed assassination missions left orphaned markers.
+
+**Fix**: Added assassination target marker cleanup at the end of `_cleanupSideMission()`.
+
+### 16. Main mission waypoint persists after complete/fail — `missions.js:444,487`
+
+**Problem**: `completeMission()` and `failMission()` never cleared `ui.waypoint`,
+leaving a stale waypoint on the minimap after missions ended.
+
+**Fix**: Added `this.game.systems.ui.waypoint = null` to both methods.
+
+### 17. Save/load guards too cautious — `save.js:126,129`
+
+**Problem**: `rampageCompleted` and `sfCompleted` restore was guarded by
+`missions.X !== undefined`, which could fail if `load()` ran before full init.
+
+**Fix**: Removed the `!== undefined` guard — always restore if data exists.
+
 ## Known Issues (Not Yet Fixed)
 
 - **No kill plane**: Player can fall infinitely below the map (tested at y:-162 and still falling)
