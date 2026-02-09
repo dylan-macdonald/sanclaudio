@@ -142,6 +142,7 @@ export class UIManager {
 
     updateHUD() {
         const player = this.game.systems.player;
+        const veh = this.game.systems.vehicles;
 
         // Health
         const healthFill = document.getElementById('hud-health-fill');
@@ -209,7 +210,6 @@ export class UIManager {
         }
 
         // Drift score display
-        const veh = this.game.systems.vehicles;
         if (veh.isDrifting && player.inVehicle) {
             const score = Math.floor(veh.driftScore * veh.driftMultiplier);
             const multiplierColor = veh.driftMultiplier >= 4 ? '#ff4444' :
