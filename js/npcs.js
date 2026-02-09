@@ -168,6 +168,14 @@ export class NPCManager {
         this._eventMeshes = [];
     }
 
+    // Get ground Y via physics raycast, fallback to world terrain height
+    _getGroundY(x, z) {
+        const ph = this.game.systems.physics;
+        if (ph && ph.ready) return ph.getGroundHeight(x, z);
+        const w = this.game.systems.world;
+        return w ? w.getTerrainHeight(x, z) : 0;
+    }
+
     init() {
         this.spawnInitialPedestrians();
         this.spawnInitialTraffic();
@@ -237,7 +245,7 @@ export class NPCManager {
         };
 
         npc.mesh = this.createNPCModel(npc.isMale, district);
-        npc.mesh.position.set(x, 0, z);
+        npc.mesh.position.set(x, this._getGroundY(x, z), z);
         this.game.scene.add(npc.mesh);
 
         // Animation state
@@ -580,6 +588,7 @@ export class NPCManager {
             }
             npc.mesh.position.x += Math.sin(npc.walkDir) * speed * dt;
             npc.mesh.position.z += Math.cos(npc.walkDir) * speed * dt;
+            npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
             npc.mesh.rotation.y = npc.walkDir;
 
             if (npc.fleeTarget) {
@@ -597,7 +606,7 @@ export class NPCManager {
                 npc._reaction = null;
                 npc._reactionCooldown = 8 + Math.random() * 5;
                 npc._recordingTarget = null;
-                npc.mesh.position.y = 0;
+                npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
                 const rParts = npc.mesh.userData.parts;
                 if (rParts) {
                     if (rParts.torso) rParts.torso.rotation.set(0, 0, 0);
@@ -654,7 +663,7 @@ export class NPCManager {
 
                     case 'cheer':
                         // Pump fists in the air
-                        npc.mesh.position.y = 0;
+                        npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
                         if (parts) {
                             const cheerTime = npc._reactionTimer * 6;
                             if (parts.leftArm) parts.leftArm.rotation.x = -2.5 + Math.sin(cheerTime) * 0.4;
@@ -674,7 +683,7 @@ export class NPCManager {
 
                     case 'record':
                         // Hold phone up and face the action
-                        npc.mesh.position.y = 0;
+                        npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
                         if (parts) {
                             // Right arm holds phone up
                             if (parts.rightArm) parts.rightArm.rotation.x = -2.0;
@@ -694,7 +703,7 @@ export class NPCManager {
 
                     case 'flinch':
                         // Stumble back, arms up defensively
-                        npc.mesh.position.y = 0;
+                        npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
                         if (parts) {
                             if (parts.torso) parts.torso.rotation.x = -0.3;
                             if (parts.leftArm) parts.leftArm.rotation.x = -1.2;
@@ -715,7 +724,7 @@ export class NPCManager {
 
                     case 'look':
                         // Turn and look toward the point
-                        npc.mesh.position.y = 0;
+                        npc.mesh.position.y = this._getGroundY(npc.mesh.position.x, npc.mesh.position.z);
                         if (npc._recordingTarget) {
                             const ldx = npc._recordingTarget.x - npc.mesh.position.x;
                             const ldz = npc._recordingTarget.z - npc.mesh.position.z;
@@ -1026,7 +1035,7 @@ export class NPCManager {
                 const newX = player.position.x + Math.cos(angle) * spawnDist;
                 const newZ = player.position.z + Math.sin(angle) * spawnDist;
 
-                npc.mesh.position.set(newX, 0, newZ);
+                npc.mesh.position.set(newX, this._getGroundY(newX, newZ), newZ);
                 npc.alive = true;
                 npc.health = 50;
                 npc.isFleeing = false;
@@ -1440,11 +1449,9 @@ export class NPCManager {
                     for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
                         const npc = this.spawnPedestrian(true);
                         if (npc && npc.mesh) {
-                            npc.mesh.position.set(
-                                x + (Math.random() - 0.5) * 6,
-                                0,
-                                z + (Math.random() - 0.5) * 6
-                            );
+                            const bx = x + (Math.random() - 0.5) * 6;
+                            const bz = z + (Math.random() - 0.5) * 6;
+                            npc.mesh.position.set(bx, this._getGroundY(bx, bz), bz);
                             npc.idleBehavior = 'standing';
                             npc.idleTimer = 20;
                         }
@@ -1468,7 +1475,7 @@ export class NPCManager {
                 // Spawn a running NPC with cash effect
                 const robber = this.spawnPedestrian(true);
                 if (robber && robber.mesh) {
-                    robber.mesh.position.set(x, 0, z);
+                    robber.mesh.position.set(x, this._getGroundY(x, z), z);
                     robber.isFleeing = true;
                     robber.fleeTarget = fleePoint;
                     robber.walkDir = Math.random() * Math.PI * 2;

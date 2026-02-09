@@ -114,6 +114,14 @@ class Game {
         // Build the world (progress 30-100)
         this.updateLoadProgress(35);
         this.systems.world.init();
+        // Build physics heightfield from terrain data
+        if (this.systems.physics.ready) {
+            const world = this.systems.world;
+            this.systems.physics.buildTerrainHeightfield(
+                (x, z) => world.getTerrainHeight(x, z),
+                world.mapSize
+            );
+        }
         this.updateLoadProgress(50);
         this.systems.player.init();
         this.updateLoadProgress(55);

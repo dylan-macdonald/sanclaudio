@@ -178,7 +178,8 @@ export class VehicleManager {
 
         // Create mesh
         vehicle.mesh = this.createVehicleMesh(type, vType, color);
-        vehicle.mesh.position.set(x, onWater ? 0.3 : 0, z);
+        const groundY = onWater ? 0.3 : (this.game.systems.physics.getGroundHeight(x, z) || 0);
+        vehicle.mesh.position.set(x, groundY, z);
         this.game.scene.add(vehicle.mesh);
 
         // Add collider
@@ -1237,10 +1238,15 @@ export class VehicleManager {
 
         const physics = this.game.systems.physics;
         if (physics && physics.ready && vehicle.physicsBody) {
-            // Rapier kinematic velocity path
+            // Rapier kinematic velocity path — terrain-following via physics raycast
+            let yVel = 0;
+            if (vehicle.type !== 'boat' && vehicle.type !== 'helicopter') {
+                const groundY = physics.getGroundHeight(vehicle.mesh.position.x, vehicle.mesh.position.z);
+                yVel = (groundY - vehicle.mesh.position.y) * 8;
+            }
             const linvel = {
                 x: forward.x * vehicle.speed,
-                y: 0,
+                y: yVel,
                 z: forward.z * vehicle.speed
             };
             const angvel = {
@@ -1274,6 +1280,13 @@ export class VehicleManager {
             } else {
                 vehicle.mesh.position.x = newX;
                 vehicle.mesh.position.z = newZ;
+            }
+
+            // Ground vehicles follow terrain elevation via physics raycast
+            if (vehicle.type !== 'boat' && vehicle.type !== 'helicopter' && !vehicle._stuntActive) {
+                const ph = this.game.systems.physics;
+                const terrainY = (ph && ph.ready) ? ph.getGroundHeight(vehicle.mesh.position.x, vehicle.mesh.position.z) : 0;
+                vehicle.mesh.position.y = terrainY;
             }
 
             if (vehicle.type === 'boat') {
@@ -2246,6 +2259,10 @@ export class VehicleManager {
             vehicle.mesh.position.x = corrX;
             vehicle.mesh.position.z = corrZ;
         }
+
+        // Follow terrain height
+        const groundY = this.game.systems.physics.getGroundHeight(vehicle.mesh.position.x, vehicle.mesh.position.z);
+        vehicle.mesh.position.y = groundY;
 
         // Despawn if too far from player
         const playerDist = vehicle.mesh.position.distanceTo(this.game.systems.player.position);

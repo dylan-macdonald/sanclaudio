@@ -115,8 +115,13 @@ export class Player {
     }
 
     init() {
+        // Set initial position above terrain
+        const groundY = this.game.systems.physics.getGroundHeight(0, 0);
+        this.position.set(0, groundY + 1, 0);
+
         this.createModel();
         this.game.scene.add(this.model);
+        this.model.position.copy(this.position);
         this.initPhysics();
     }
 
@@ -269,7 +274,8 @@ export class Player {
                 this.exitVehicle();
             }
             this.isSwimming = false;
-            this.position.set(0, 2, 0);
+            const spawnY = this.game.systems.world.getTerrainHeight(0, 0) + 2;
+            this.position.set(0, spawnY, 0);
             this.velocity.set(0, 0, 0);
             this.model.position.copy(this.position);
             this.takeDamage(30);
@@ -457,8 +463,9 @@ export class Player {
                 this.velocity.z = 0;
             }
 
-            if (newY <= 0) {
-                this.position.y = 0;
+            const groundY = this.game.systems.world.getTerrainHeight(this.position.x, this.position.z);
+            if (newY <= groundY) {
+                this.position.y = groundY;
                 this.velocity.y = 0;
                 this.isOnGround = true;
             } else {
@@ -1617,12 +1624,20 @@ export class Player {
         this.phoneOpen = false;
         this.wardrobeOpen = false;
 
-        this.position.set(0, 0, 0);
+        const spawnY = this.game.systems.physics.getGroundHeight(0, 0) + 1;
+        this.position.set(0, spawnY, 0);
         this.velocity.set(0, 0, 0);
         this.model.visible = true;
         this.model.position.copy(this.position);
         this.model.scale.y = 1;
         this.model.rotation.x = 0;
+
+        // Reset physics body position
+        if (this.physicsBody) {
+            this.physicsBody.setNextKinematicTranslation({
+                x: 0, y: spawnY + 0.9, z: 0
+            });
+        }
 
         this.game.setState('playing');
         const deathScreen = document.getElementById('death-screen');

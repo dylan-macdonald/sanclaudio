@@ -134,27 +134,49 @@ export class World {
     }
 
     createGround() {
-        const geo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        // Subdivided ground plane for terrain elevation
+        const segs = 80; // 80x80 = 6400 verts, ~10m resolution on 800x800 map
+        const geo = new THREE.PlaneGeometry(this.mapSize, this.mapSize, segs, segs);
+        geo.rotateX(-Math.PI / 2);
+
+        // Displace Y vertices using getTerrainHeight
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const z = pos.getZ(i);
+            pos.setY(i, this.getTerrainHeight(x, z));
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals();
+
         const mat = new THREE.MeshStandardMaterial({
             color: 0x4a4a48,
             roughness: 0.88,
             metalness: 0.0
         });
         const ground = new THREE.Mesh(geo, mat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = 0;
         ground.receiveShadow = true;
         this.game.scene.add(ground);
+        this.groundMesh = ground;
 
-        const pavGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        // Pavement layer follows terrain (slightly above)
+        const pavGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize, segs, segs);
+        pavGeo.rotateX(-Math.PI / 2);
+        const pavPos = pavGeo.attributes.position;
+        for (let i = 0; i < pavPos.count; i++) {
+            const x = pavPos.getX(i);
+            const z = pavPos.getZ(i);
+            pavPos.setY(i, this.getTerrainHeight(x, z) + 0.005);
+        }
+        pavPos.needsUpdate = true;
+        pavGeo.computeVertexNormals();
+
         const pavMat = new THREE.MeshStandardMaterial({
             color: 0x5a5a58,
             roughness: 0.9,
             metalness: 0.0
         });
         const pavement = new THREE.Mesh(pavGeo, pavMat);
-        pavement.rotation.x = -Math.PI / 2;
-        pavement.position.y = 0.005;
         pavement.receiveShadow = true;
         this.game.scene.add(pavement);
     }
@@ -180,38 +202,59 @@ export class World {
     }
 
     createCoastline() {
-        // Sand/beach strip ring around map edges
+        // Sand/beach strip ring around map edges — sloping from terrain to water
         const sandMat = new THREE.MeshStandardMaterial({
             color: 0xccbb88, roughness: 0.9, metalness: 0.0
         });
         const beachWidth = 15;
         const h = this.halfMap;
         const sandGeoms = [];
-        const rotMatrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+        const beachSegs = 40;
 
-        // North beach
-        const northGeo = new THREE.PlaneGeometry(this.mapSize + beachWidth * 2, beachWidth);
-        northGeo.applyMatrix4(rotMatrix);
-        northGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.01, -h - beachWidth / 2));
-        sandGeoms.push(northGeo);
+        // Helper to create a sloping beach strip
+        const makeBeach = (isNS, sign) => {
+            const w = isNS ? this.mapSize + beachWidth * 2 : beachWidth;
+            const d = isNS ? beachWidth : this.mapSize;
+            const segsW = isNS ? beachSegs : 4;
+            const segsD = isNS ? 4 : beachSegs;
+            const geo = new THREE.PlaneGeometry(w, d, segsW, segsD);
+            geo.rotateX(-Math.PI / 2);
+            const tx = isNS ? 0 : sign * (h + beachWidth / 2);
+            const tz = isNS ? sign * (h + beachWidth / 2) : 0;
+            geo.translate(tx, 0, tz);
 
-        // South beach
-        const southGeo = new THREE.PlaneGeometry(this.mapSize + beachWidth * 2, beachWidth);
-        southGeo.applyMatrix4(rotMatrix);
-        southGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.01, h + beachWidth / 2));
-        sandGeoms.push(southGeo);
+            // Slope: inner edge = terrain height, outer edge = water level (-0.5)
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                // How far from map edge toward water (0 = inner edge, 1 = outer edge)
+                let t;
+                if (isNS) {
+                    t = sign > 0
+                        ? Math.max(0, Math.min(1, (z - h) / beachWidth))
+                        : Math.max(0, Math.min(1, (-h - z) / beachWidth));
+                } else {
+                    t = sign > 0
+                        ? Math.max(0, Math.min(1, (x - h) / beachWidth))
+                        : Math.max(0, Math.min(1, (-h - x) / beachWidth));
+                }
+                const innerH = this.getTerrainHeight(
+                    isNS ? x : (sign > 0 ? h : -h),
+                    isNS ? (sign > 0 ? h : -h) : z
+                );
+                const y = innerH * (1 - t) + (-0.3) * t;
+                pos.setY(i, Math.max(-0.3, y));
+            }
+            pos.needsUpdate = true;
+            geo.computeVertexNormals();
+            return geo;
+        };
 
-        // West beach
-        const westGeo = new THREE.PlaneGeometry(beachWidth, this.mapSize);
-        westGeo.applyMatrix4(rotMatrix);
-        westGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-h - beachWidth / 2, 0.01, 0));
-        sandGeoms.push(westGeo);
-
-        // East beach
-        const eastGeo = new THREE.PlaneGeometry(beachWidth, this.mapSize);
-        eastGeo.applyMatrix4(rotMatrix);
-        eastGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(h + beachWidth / 2, 0.01, 0));
-        sandGeoms.push(eastGeo);
+        sandGeoms.push(makeBeach(true, -1));   // North beach
+        sandGeoms.push(makeBeach(true, 1));    // South beach
+        sandGeoms.push(makeBeach(false, -1));  // West beach
+        sandGeoms.push(makeBeach(false, 1));   // East beach
 
         const mergedSand = safeMerge(sandGeoms);
         if (mergedSand) {
@@ -326,11 +369,12 @@ export class World {
     _collectRoadGeoms(pos, axis, roadGeoms, dashGeoms, rotMatrix) {
         const length = this.mapSize;
         const width = this.roadWidth;
+        const segsAlong = 40; // subdivisions along road length for terrain following
 
-        // Road surface
+        // Road surface — subdivided to follow terrain elevation
         const roadGeo = axis === 'z'
-            ? new THREE.PlaneGeometry(width, length)
-            : new THREE.PlaneGeometry(length, width);
+            ? new THREE.PlaneGeometry(width, length, 1, segsAlong)
+            : new THREE.PlaneGeometry(length, width, segsAlong, 1);
         roadGeo.applyMatrix4(rotMatrix);
         const translateRoad = new THREE.Matrix4();
         if (axis === 'z') {
@@ -339,6 +383,8 @@ export class World {
             translateRoad.makeTranslation(0, 0.01, pos);
         }
         roadGeo.applyMatrix4(translateRoad);
+        // Apply terrain height to road vertices
+        this._applyTerrainToGeo(roadGeo, 0.01);
         roadGeoms.push(roadGeo);
 
         // Center dashes
@@ -349,12 +395,11 @@ export class World {
                 ? new THREE.PlaneGeometry(0.15, dashLength)
                 : new THREE.PlaneGeometry(dashLength, 0.15);
             dashGeo.applyMatrix4(rotMatrix);
+            const dx = axis === 'z' ? pos : d;
+            const dz = axis === 'z' ? d : pos;
+            const dy = this.getTerrainHeight(dx, dz) + 0.02;
             const t = new THREE.Matrix4();
-            if (axis === 'z') {
-                t.makeTranslation(pos, 0.02, d);
-            } else {
-                t.makeTranslation(d, 0.02, pos);
-            }
+            t.makeTranslation(dx, dy, dz);
             dashGeo.applyMatrix4(t);
             dashGeoms.push(dashGeo);
         }
@@ -374,12 +419,13 @@ export class World {
 
         for (let ix = -this.halfMap; ix <= this.halfMap; ix += this.blockSize) {
             for (let iz = -this.halfMap; iz <= this.halfMap; iz += this.blockSize) {
+                const iy = this.getTerrainHeight(ix, iz) + 0.025;
                 // North approach (stripes span in X, stacked along -Z from intersection)
                 for (let s = 0; s < stripeCount; s++) {
                     const cwGeo = new THREE.PlaneGeometry(stripeLen, stripeWidth);
                     cwGeo.applyMatrix4(rotMatrix);
                     const t = new THREE.Matrix4();
-                    t.makeTranslation(ix, 0.025, iz - groupStart - s * (stripeWidth + stripeGap));
+                    t.makeTranslation(ix, iy, iz - groupStart - s * (stripeWidth + stripeGap));
                     cwGeo.applyMatrix4(t);
                     crosswalkGeoms.push(cwGeo);
                 }
@@ -388,7 +434,7 @@ export class World {
                     const cwGeo = new THREE.PlaneGeometry(stripeLen, stripeWidth);
                     cwGeo.applyMatrix4(rotMatrix);
                     const t = new THREE.Matrix4();
-                    t.makeTranslation(ix, 0.025, iz + groupStart + s * (stripeWidth + stripeGap));
+                    t.makeTranslation(ix, iy, iz + groupStart + s * (stripeWidth + stripeGap));
                     cwGeo.applyMatrix4(t);
                     crosswalkGeoms.push(cwGeo);
                 }
@@ -397,7 +443,7 @@ export class World {
                     const cwGeo = new THREE.PlaneGeometry(stripeWidth, stripeLen);
                     cwGeo.applyMatrix4(rotMatrix);
                     const t = new THREE.Matrix4();
-                    t.makeTranslation(ix - groupStart - s * (stripeWidth + stripeGap), 0.025, iz);
+                    t.makeTranslation(ix - groupStart - s * (stripeWidth + stripeGap), iy, iz);
                     cwGeo.applyMatrix4(t);
                     crosswalkGeoms.push(cwGeo);
                 }
@@ -406,7 +452,7 @@ export class World {
                     const cwGeo = new THREE.PlaneGeometry(stripeWidth, stripeLen);
                     cwGeo.applyMatrix4(rotMatrix);
                     const t = new THREE.Matrix4();
-                    t.makeTranslation(ix + groupStart + s * (stripeWidth + stripeGap), 0.025, iz);
+                    t.makeTranslation(ix + groupStart + s * (stripeWidth + stripeGap), iy, iz);
                     cwGeo.applyMatrix4(t);
                     crosswalkGeoms.push(cwGeo);
                 }
@@ -437,13 +483,15 @@ export class World {
             const midX = (diag.x1 + diag.x2) / 2;
             const midZ = (diag.z1 + diag.z2) / 2;
 
-            // Road surface
-            const roadGeo = new THREE.PlaneGeometry(this.roadWidth, length);
+            // Road surface (subdivided for terrain)
+            const diagSegs = Math.max(4, Math.floor(length / 20));
+            const roadGeo = new THREE.PlaneGeometry(this.roadWidth, length, 1, diagSegs);
             roadGeo.applyMatrix4(rotMatrix);
             const t = new THREE.Matrix4().makeRotationY(angle);
             roadGeo.applyMatrix4(t);
             const pos = new THREE.Matrix4().makeTranslation(midX, 0.015, midZ);
             roadGeo.applyMatrix4(pos);
+            this._applyTerrainToGeo(roadGeo, 0.015);
             roadGeoms.push(roadGeo);
 
             // Center dashes
@@ -452,10 +500,11 @@ export class World {
                 const frac = (d + 0.5) / dashCount;
                 const cx = diag.x1 + dx * frac;
                 const cz = diag.z1 + dz * frac;
+                const cy = this.getTerrainHeight(cx, cz) + 0.025;
                 const dashGeo = new THREE.PlaneGeometry(0.15, 3);
                 dashGeo.applyMatrix4(rotMatrix);
                 dashGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(angle));
-                dashGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(cx, 0.025, cz));
+                dashGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(cx, cy, cz));
                 dashGeoms.push(dashGeo);
             }
         }
@@ -477,10 +526,11 @@ export class World {
             const segMx = (x1 + x2) / 2;
             const segMz = (z1 + z2) / 2;
 
-            const segGeo = new THREE.PlaneGeometry(this.roadWidth * 1.2, segLen + 2);
+            const segGeo = new THREE.PlaneGeometry(this.roadWidth * 1.2, segLen + 2, 1, 2);
             segGeo.applyMatrix4(rotMatrix);
             segGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(segAngle));
             segGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(segMx, 0.018, segMz));
+            this._applyTerrainToGeo(segGeo, 0.018);
             roadGeoms.push(segGeo);
         }
 
@@ -1791,12 +1841,13 @@ export class World {
 
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            const lampY = this.getTerrainHeight(positions[i].x, positions[i].z);
+            dummy.position.set(positions[i].x, lampY, positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
 
             // Store world position of fixture for light pool
-            this.lampPositions.push(new THREE.Vector3(positions[i].x + 1.6, 4.5, positions[i].z));
+            this.lampPositions.push(new THREE.Vector3(positions[i].x + 1.6, lampY + 4.5, positions[i].z));
         }
         instancedMesh.instanceMatrix.needsUpdate = true;
         this.game.scene.add(instancedMesh);
@@ -1812,34 +1863,54 @@ export class World {
         let mergedGeo;
         let mat;
 
+        // Helper: paint all vertices of a geometry a given color
+        const paintVerts = (geo, color) => {
+            const count = geo.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            const c = new THREE.Color(color);
+            for (let i = 0; i < count; i++) {
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
+            }
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        };
+
+        const trunkColor = 0x8B4513; // saddle brown
+
         if (type === 'evergreen') {
             const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 2, 6);
             trunkGeo.translate(0, 1, 0);
+            paintVerts(trunkGeo, trunkColor);
             const canopyGeo = new THREE.ConeGeometry(1.8, 4, 6);
             canopyGeo.translate(0, 4, 0);
-            // Merge trunk and canopy -- use single color (trunk is small, canopy dominates)
+            paintVerts(canopyGeo, 0x1a5522);
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x1a5522, roughness: 0.6 });
+            mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         } else if (type === 'deciduous') {
             const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 2, 6);
             trunkGeo.translate(0, 1, 0);
+            paintVerts(trunkGeo, trunkColor);
             const canopyGeo = new THREE.SphereGeometry(2.2, 8, 6);
             canopyGeo.translate(0, 4.2, 0);
+            paintVerts(canopyGeo, 0x338833);
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.6 });
+            mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         } else {
             // Palm - trunk + simple flat canopy (sphere flattened)
             const trunkGeo = new THREE.CylinderGeometry(0.1, 0.2, 4, 6);
             trunkGeo.translate(0, 2, 0);
+            paintVerts(trunkGeo, trunkColor);
             const canopyGeo = new THREE.SphereGeometry(1.5, 6, 4);
             canopyGeo.scale(1, 0.3, 1);
             canopyGeo.translate(0, 4.3, 0);
+            paintVerts(canopyGeo, 0x2a7a2a);
             mergedGeo = safeMerge([trunkGeo, canopyGeo]);
-            mat = new THREE.MeshStandardMaterial({ color: 0x2a7a2a, roughness: 0.6 });
+            mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
             trunkGeo.dispose();
             canopyGeo.dispose();
         }
@@ -1847,15 +1918,17 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         instancedMesh.castShadow = true;
 
-        // Per-instance color variety via HSL shifts
-        const baseColor = new THREE.Color(mat.color.getHex());
+        // Per-instance color variety via HSL shifts (base on canopy color, not mat.color)
+        const canopyColors = { evergreen: 0x1a5522, deciduous: 0x338833, palm: 0x2a7a2a };
+        const baseColor = new THREE.Color(canopyColors[type] || 0x338833);
         const hsl = {};
         baseColor.getHSL(hsl);
 
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
             const scale = 0.8 + Math.random() * 0.5; // 0.8 - 1.3x
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            const ty = this.getTerrainHeight(positions[i].x, positions[i].z);
+            dummy.position.set(positions[i].x, ty, positions[i].z);
             dummy.rotation.y = Math.random() * Math.PI * 2;
             dummy.scale.set(scale, scale, scale);
             dummy.updateMatrix();
@@ -1906,7 +1979,7 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -1927,7 +2000,7 @@ export class World {
         instancedMesh.castShadow = true;
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -1948,7 +2021,7 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -1973,7 +2046,7 @@ export class World {
         instancedMesh.castShadow = true;
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -2002,7 +2075,7 @@ export class World {
         instancedMesh.castShadow = true;
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.rotation.y = positions[i].rot || 0;
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
@@ -2037,7 +2110,7 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.rotation.y = positions[i].rot || 0;
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
@@ -2067,7 +2140,7 @@ export class World {
         instancedMesh.castShadow = true;
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.rotation.y = 0;
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
@@ -2096,7 +2169,7 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -2121,7 +2194,7 @@ export class World {
         const instancedMesh = new THREE.InstancedMesh(mergedGeo, mat, positions.length);
         const dummy = new THREE.Object3D();
         for (let i = 0; i < positions.length; i++) {
-            dummy.position.set(positions[i].x, 0, positions[i].z);
+            dummy.position.set(positions[i].x, this.getTerrainHeight(positions[i].x, positions[i].z), positions[i].z);
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         }
@@ -2258,6 +2331,17 @@ export class World {
         physics.createStaticCuboid(-h - wallThick, -h, -h, h, wallHeight, 0);
         // East wall
         physics.createStaticCuboid(h, h + wallThick, -h, h, wallHeight, 0);
+    }
+
+    // Displace Y of geometry vertices to follow terrain, preserving existing Y as offset
+    _applyTerrainToGeo(geo, baseY) {
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const z = pos.getZ(i);
+            pos.setY(i, this.getTerrainHeight(x, z) + (baseY || 0));
+        }
+        pos.needsUpdate = true;
     }
 
     getTerrainHeight(x, z) {
