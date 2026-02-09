@@ -234,15 +234,18 @@ export class WantedSystem {
 
             // Show escape timer
             const timerEl = document.getElementById('hud-escape-timer');
-            timerEl.style.display = 'block';
-            timerEl.textContent = `Escaping: ${Math.ceil(this.escapeTimer)}s`;
+            if (timerEl) {
+                timerEl.style.display = 'block';
+                timerEl.textContent = `Escaping: ${Math.ceil(this.escapeTimer)}s`;
+            }
 
             if (this.escapeTimer <= 0) {
                 this.clearWanted();
             }
         } else {
             this.isEscaping = false;
-            document.getElementById('hud-escape-timer').style.display = 'none';
+            const timerEl = document.getElementById('hud-escape-timer');
+            if (timerEl) timerEl.style.display = 'none';
         }
 
         // Spawn police
@@ -346,11 +349,12 @@ export class WantedSystem {
                     cam.camera.fov = 65;
                     cam.camera.updateProjectionMatrix();
                 }
-                // Apply random new color
-                if (vehicle) {
+                // Apply random new color (re-check vehicle in case player exited during spray)
+                const currentVehicle = player.inVehicle ? player.currentVehicle : vehicle;
+                if (currentVehicle && currentVehicle.mesh) {
                     const colors = [0xcc3333, 0x3333cc, 0x33cc33, 0xcccc33, 0xeeeeee, 0xff8800, 0x8800ff, 0x00cccc];
                     const newColor = colors[Math.floor(Math.random() * colors.length)];
-                    vehicle.mesh.traverse(child => {
+                    currentVehicle.mesh.traverse(child => {
                         if (child.isMesh && child.material && !child.name?.startsWith('wheel')) {
                             child.material = child.material.clone();
                             child.material.color.setHex(newColor);
@@ -381,6 +385,7 @@ export class WantedSystem {
             if (dist < 8) {
                 const cost = this.payNSprayCost[this.level];
                 const promptEl = document.getElementById('hud-interact-prompt');
+                if (!promptEl) continue;
                 if (player.cash >= cost) {
                     promptEl.textContent = `Press E — Pay N Spray ($${cost}) — Clear ${this.level}★ wanted`;
                     promptEl.classList.add('visible');

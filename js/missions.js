@@ -298,7 +298,7 @@ export class MissionManager {
             if (dist < 3) {
                 const promptEl = document.getElementById('hud-interact-prompt');
                 const mission = this.missionDefs.find(m => m.id === marker.missionId);
-                if (mission) {
+                if (mission && promptEl) {
                     promptEl.textContent = `Press E to start: ${mission.title}`;
                     promptEl.classList.add('visible');
 
@@ -714,6 +714,10 @@ export class MissionManager {
                 this.activeSideMission.currentCheckpoint = 0;
                 this.activeSideMission.checkpointMeshes = [];
                 this._createCheckpointMarkers();
+                // Set waypoint to first checkpoint
+                if (sideMission.checkpoints && sideMission.checkpoints.length > 0) {
+                    this.game.systems.ui.waypoint = { x: sideMission.checkpoints[0].x, z: sideMission.checkpoints[0].z };
+                }
                 break;
             case 'assassination':
                 this._spawnAssassinationTarget();
@@ -824,7 +828,7 @@ export class MissionManager {
         }
     }
 
-    _updateRace(sm, player) {
+    _updateRace(sm, player, dt) {
         if (!player.inVehicle) return;
 
         const cp = sm.checkpoints[sm.currentCheckpoint];

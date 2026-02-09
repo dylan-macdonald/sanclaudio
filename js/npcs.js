@@ -907,8 +907,8 @@ export class NPCManager {
 
             const dist = npc.mesh.position.distanceTo(player.position);
 
-            // Despawn if too far or dead
-            if (dist > this.despawnRadius || !npc.alive) {
+            // Despawn if too far or dead (but never recycle mission targets or rampage targets)
+            if ((dist > this.despawnRadius || !npc.alive) && !npc.isTarget && !npc.isRampageTarget) {
                 // Recycle: spawn at edge of spawn radius (behind player's camera)
                 const camYaw = this.game.systems.camera ? this.game.systems.camera.yaw : 0;
                 // Bias spawn to behind/sides of camera so player doesn't see pop-in
