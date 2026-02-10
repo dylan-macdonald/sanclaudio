@@ -344,6 +344,18 @@ export class NPCManager {
                 skinnedMesh.material.needsUpdate = true;
             }
 
+            // Apply random body type variation using morph targets
+            if (skinnedMesh && skinnedMesh.morphTargetInfluences) {
+                // Fat morph: 30% chance of 0.2-0.8
+                if (Math.random() < 0.3 && skinnedMesh.morphTargetInfluences.length >= 1) {
+                    skinnedMesh.morphTargetInfluences[0] = 0.2 + Math.random() * 0.6;
+                }
+                // Muscle morph: 20% chance of 0.3-0.7
+                if (Math.random() < 0.2 && skinnedMesh.morphTargetInfluences.length >= 2) {
+                    skinnedMesh.morphTargetInfluences[1] = 0.3 + Math.random() * 0.4;
+                }
+            }
+
             return model;
         }
 

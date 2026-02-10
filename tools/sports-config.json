@@ -1,0 +1,149 @@
+{
+    "name": "SportsBody",
+    "svgFront": "svgs/sports-front.svg",
+    "svgSide": "svgs/sports-side.svg",
+    "svgTop": "svgs/sports-top.svg",
+    "svgHeight": 220,
+    "svgCenterX": 210,
+    "sideCenterX": 420,
+    "topCenterX": 210,
+    "topCenterY": 420,
+    "scale": 0.005,
+    "vertsPerRing": 16,
+    "samplesPerUnit": 40,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 16,
+            "color": "0xcc0000"
+        }
+    ],
+    "children": [
+        {
+            "name": "wheel_FL",
+            "type": "wheel",
+            "radius": 0.28,
+            "width": 0.18,
+            "position": [-0.9, 0.28, 1.2]
+        },
+        {
+            "name": "wheel_FR",
+            "type": "wheel",
+            "radius": 0.28,
+            "width": 0.18,
+            "position": [0.9, 0.28, 1.2]
+        },
+        {
+            "name": "wheel_RL",
+            "type": "wheel",
+            "radius": 0.28,
+            "width": 0.18,
+            "position": [-0.9, 0.28, -1.2]
+        },
+        {
+            "name": "wheel_RR",
+            "type": "wheel",
+            "radius": 0.28,
+            "width": 0.18,
+            "position": [0.9, 0.28, -1.2]
+        },
+        {
+            "name": "headlight_L",
+            "type": "cylinder",
+            "radius": 0.07,
+            "height": 0.04,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [-0.65, 0.45, 1.95],
+            "color": "0xffffcc",
+            "emissive": "0xffffcc",
+            "emissiveIntensity": 0.5
+        },
+        {
+            "name": "headlight_R",
+            "type": "cylinder",
+            "radius": 0.07,
+            "height": 0.04,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [0.65, 0.45, 1.95],
+            "color": "0xffffcc",
+            "emissive": "0xffffcc",
+            "emissiveIntensity": 0.5
+        },
+        {
+            "name": "taillight_L",
+            "type": "box",
+            "size": [0.25, 0.06, 0.04],
+            "position": [-0.65, 0.45, -1.95],
+            "color": "0xff0000",
+            "emissive": "0xff0000",
+            "emissiveIntensity": 0.4
+        },
+        {
+            "name": "taillight_R",
+            "type": "box",
+            "size": [0.25, 0.06, 0.04],
+            "position": [0.65, 0.45, -1.95],
+            "color": "0xff0000",
+            "emissive": "0xff0000",
+            "emissiveIntensity": 0.4
+        },
+        {
+            "name": "windshield",
+            "type": "box",
+            "size": [1.6, 0.4, 0.02],
+            "position": [0, 0.72, 0.6],
+            "rotation": [-0.35, 0, 0],
+            "color": "0x88aacc",
+            "transparent": true,
+            "opacity": 0.6
+        },
+        {
+            "name": "rear_window",
+            "type": "box",
+            "size": [1.4, 0.3, 0.02],
+            "position": [0, 0.72, -0.7],
+            "rotation": [0.3, 0, 0],
+            "color": "0x88aacc",
+            "transparent": true,
+            "opacity": 0.6
+        },
+        {
+            "name": "spoiler_base",
+            "type": "box",
+            "size": [1.4, 0.04, 0.3],
+            "position": [0, 0.72, -1.8],
+            "color": "0x222222",
+            "roughness": 0.6,
+            "metalness": 0.4
+        },
+        {
+            "name": "spoiler_support_L",
+            "type": "box",
+            "size": [0.04, 0.15, 0.04],
+            "position": [-0.5, 0.64, -1.8],
+            "color": "0x222222"
+        },
+        {
+            "name": "spoiler_support_R",
+            "type": "box",
+            "size": [0.04, 0.15, 0.04],
+            "position": [0.5, 0.64, -1.8],
+            "color": "0x222222"
+        },
+        {
+            "name": "front_bumper",
+            "type": "box",
+            "size": [2.0, 0.15, 0.1],
+            "position": [0, 0.24, 2.0],
+            "color": "0x222222",
+            "roughness": 0.6
+        }
+    ],
+    "output": "../assets/models/sports.glb"
+}

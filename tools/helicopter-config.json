@@ -1,0 +1,186 @@
+{
+    "name": "HelicopterBody",
+    "svgFront": "svgs/helicopter-front.svg",
+    "svgSide": "svgs/helicopter-side.svg",
+    "svgTop": "svgs/helicopter-top.svg",
+    "svgHeight": 400,
+    "svgCenterX": 200,
+    "sideCenterX": 400,
+    "topCenterX": 200,
+    "topCenterY": 400,
+    "scale": 0.005,
+    "vertsPerRing": 16,
+    "samplesPerUnit": 35,
+    "roughness": 0.4,
+    "metalness": 0.5,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 16,
+            "color": "0x556655"
+        }
+    ],
+    "children": [
+        {
+            "name": "tail_boom",
+            "type": "cylinder",
+            "radius": 0.08,
+            "height": 1.8,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.65, -1.8],
+            "color": "0x556655",
+            "roughness": 0.4,
+            "metalness": 0.5
+        },
+        {
+            "name": "tail_fin_v",
+            "type": "box",
+            "size": [0.04, 0.5, 0.3],
+            "position": [0, 0.95, -2.6],
+            "color": "0x556655",
+            "roughness": 0.4,
+            "metalness": 0.5
+        },
+        {
+            "name": "tail_fin_h",
+            "type": "box",
+            "size": [0.5, 0.04, 0.2],
+            "position": [0, 1.2, -2.6],
+            "color": "0x556655",
+            "roughness": 0.4,
+            "metalness": 0.5
+        },
+        {
+            "name": "main_rotor_mast",
+            "type": "cylinder",
+            "radius": 0.05,
+            "height": 0.25,
+            "segments": 8,
+            "position": [0, 1.25, 0],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "main_rotor_blade_1",
+            "type": "box",
+            "size": [4.0, 0.02, 0.15],
+            "position": [0, 1.4, 0],
+            "color": "0x333333",
+            "roughness": 0.3,
+            "metalness": 0.6
+        },
+        {
+            "name": "main_rotor_blade_2",
+            "type": "box",
+            "size": [0.15, 0.02, 4.0],
+            "position": [0, 1.4, 0],
+            "color": "0x333333",
+            "roughness": 0.3,
+            "metalness": 0.6
+        },
+        {
+            "name": "tail_rotor",
+            "type": "box",
+            "size": [0.04, 0.6, 0.08],
+            "position": [0.08, 1.2, -2.6],
+            "color": "0x333333",
+            "roughness": 0.3,
+            "metalness": 0.6
+        },
+        {
+            "name": "skid_left",
+            "type": "cylinder",
+            "radius": 0.03,
+            "height": 1.6,
+            "segments": 6,
+            "rotateX": 1.5708,
+            "position": [-0.5, -0.15, 0],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "skid_right",
+            "type": "cylinder",
+            "radius": 0.03,
+            "height": 1.6,
+            "segments": 6,
+            "rotateX": 1.5708,
+            "position": [0.5, -0.15, 0],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "skid_strut_FL",
+            "type": "cylinder",
+            "radius": 0.02,
+            "height": 0.35,
+            "segments": 6,
+            "position": [-0.4, 0.05, 0.4],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "skid_strut_FR",
+            "type": "cylinder",
+            "radius": 0.02,
+            "height": 0.35,
+            "segments": 6,
+            "position": [0.4, 0.05, 0.4],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "skid_strut_RL",
+            "type": "cylinder",
+            "radius": 0.02,
+            "height": 0.35,
+            "segments": 6,
+            "position": [-0.4, 0.05, -0.4],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "skid_strut_RR",
+            "type": "cylinder",
+            "radius": 0.02,
+            "height": 0.35,
+            "segments": 6,
+            "position": [0.4, 0.05, -0.4],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "windshield",
+            "type": "box",
+            "size": [1.2, 0.6, 0.02],
+            "position": [0, 0.8, 0.75],
+            "rotation": [-0.3, 0, 0],
+            "color": "0x88aacc",
+            "transparent": true,
+            "opacity": 0.5
+        },
+        {
+            "name": "headlight",
+            "type": "cylinder",
+            "radius": 0.08,
+            "height": 0.04,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [0, 0.4, 0.9],
+            "color": "0xffffcc",
+            "emissive": "0xffffcc",
+            "emissiveIntensity": 0.4
+        }
+    ],
+    "output": "../assets/models/helicopter.glb"
+}

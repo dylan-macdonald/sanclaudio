@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 12">
+  <!-- Grenade TOP view. Canvas: 10x12, scale=0.01 -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 5 0.5
+    L 7 1.5
+    L 8.5 3
+    L 9.5 5
+    L 9.5 7
+    L 8.5 9
+    L 7 10.5
+    L 5 11.5
+    L 3 10.5
+    L 1.5 9
+    L 0.5 7
+    L 0.5 5
+    L 1.5 3
+    L 3 1.5
+    Z"/>
+</svg>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- Helicopter FRONT view. Canvas: 400x400, centerX=200, scale=0.005 -->
+  <!-- 2.0m wide x 2.0m tall body -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 200 110
+    L 248 116
+    L 284 130
+    L 310 152
+    L 326 180
+    L 334 212
+    L 334 248
+    L 326 280
+    L 310 308
+    L 284 330
+    L 248 344
+    L 200 350
+    L 152 344
+    L 116 330
+    L 90 308
+    L 74 280
+    L 66 248
+    L 66 212
+    L 74 180
+    L 90 152
+    L 116 130
+    L 152 116
+    Z"/>
+</svg>

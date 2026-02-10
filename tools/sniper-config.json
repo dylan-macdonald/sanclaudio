@@ -1,0 +1,96 @@
+{
+    "name": "WeaponSniper",
+    "svgFront": "svgs/sniper-front.svg",
+    "svgSide": "svgs/sniper-side.svg",
+    "svgTop": "svgs/sniper-top.svg",
+    "svgHeight": 28,
+    "svgCenterX": 3,
+    "sideCenterX": 60,
+    "topCenterX": 3,
+    "topCenterY": 60,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x333333"
+        }
+    ],
+    "children": [
+        {
+            "name": "scope_body",
+            "type": "cylinder",
+            "radius": 0.018,
+            "height": 0.20,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.05, 0.08],
+            "color": "0x222222",
+            "roughness": 0.2,
+            "metalness": 0.8
+        },
+        {
+            "name": "scope_lens_front",
+            "type": "cylinder",
+            "radius": 0.022,
+            "height": 0.015,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.05, 0.19],
+            "color": "0x4488cc",
+            "emissive": "0x224466",
+            "emissiveIntensity": 0.2
+        },
+        {
+            "name": "scope_lens_rear",
+            "type": "cylinder",
+            "radius": 0.015,
+            "height": 0.01,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.05, -0.02],
+            "color": "0x4488cc"
+        },
+        {
+            "name": "bipod_L",
+            "type": "cylinder",
+            "radius": 0.005,
+            "height": 0.12,
+            "segments": 6,
+            "position": [-0.025, -0.04, 0.35],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "bipod_R",
+            "type": "cylinder",
+            "radius": 0.005,
+            "height": 0.12,
+            "segments": 6,
+            "position": [0.025, -0.04, 0.35],
+            "color": "0x444444",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "bolt_handle",
+            "type": "cylinder",
+            "radius": 0.006,
+            "height": 0.04,
+            "segments": 6,
+            "rotateZ": 1.5708,
+            "position": [0.025, 0.02, 0.05],
+            "color": "0x555555",
+            "roughness": 0.3,
+            "metalness": 0.8
+        }
+    ],
+    "output": "../assets/models/weapon_sniper.glb"
+}

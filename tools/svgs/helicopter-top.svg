@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800">
+  <!-- Helicopter TOP view. Canvas: 400x800, centerX=200, centerY=400 -->
+  <!-- Teardrop body from above -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 200 140
+    L 260 160
+    L 300 200
+    L 324 260
+    L 334 340
+    L 336 400
+    L 334 460
+    L 324 520
+    L 304 560
+    L 272 590
+    L 232 610
+    L 200 620
+    L 168 610
+    L 128 590
+    L 96 560
+    L 76 520
+    L 66 460
+    L 64 400
+    L 66 340
+    L 76 260
+    L 100 200
+    L 140 160
+    Z"/>
+</svg>

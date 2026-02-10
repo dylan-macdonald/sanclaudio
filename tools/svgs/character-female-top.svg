@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Female character TOP view (looking down). Canvas: 200x200, center (100,100) -->
+  <!-- Narrower shoulders, more rounded cross-section -->
+
+  <!-- BODY cross-section: slightly narrower, more rounded -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 100 78
+    L 116 80
+    L 132 86
+    L 140 94
+    L 140 102
+    L 138 110
+    L 130 116
+    L 116 120
+    L 100 122
+    L 84 120
+    L 70 116
+    L 62 110
+    L 60 102
+    L 60 94
+    L 68 86
+    L 84 80
+    Z"/>
+
+  <!-- ARM cross-section: slightly thinner -->
+  <path id="arm_R" fill="none" stroke="#555" d="
+    M 100 88
+    L 110 92
+    L 114 100
+    L 110 108
+    L 100 112
+    L 90 108
+    L 86 100
+    L 90 92
+    Z"/>
+
+  <path id="arm_L" fill="none" stroke="#555" d="
+    M 100 88
+    L 110 92
+    L 114 100
+    L 110 108
+    L 100 112
+    L 90 108
+    L 86 100
+    L 90 92
+    Z"/>
+
+  <!-- LEG cross-section: slightly rounder -->
+  <path id="leg_R" fill="none" stroke="#777" d="
+    M 100 86
+    L 112 90
+    L 116 100
+    L 112 110
+    L 100 114
+    L 88 110
+    L 84 100
+    L 88 90
+    Z"/>
+
+  <path id="leg_L" fill="none" stroke="#777" d="
+    M 100 86
+    L 112 90
+    L 116 100
+    L 112 110
+    L 100 114
+    L 88 110
+    L 84 100
+    L 88 90
+    Z"/>
+</svg>

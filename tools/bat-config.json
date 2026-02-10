@@ -1,0 +1,26 @@
+{
+    "name": "WeaponBat",
+    "svgFront": "svgs/bat-front.svg",
+    "svgSide": "svgs/bat-side.svg",
+    "svgTop": "svgs/bat-top.svg",
+    "svgHeight": 8,
+    "svgCenterX": 4,
+    "sideCenterX": 42,
+    "topCenterX": 4,
+    "topCenterY": 42,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 100,
+    "roughness": 0.7,
+    "metalness": 0.1,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x8B6914"
+        }
+    ],
+    "output": "../assets/models/weapon_bat.glb"
+}

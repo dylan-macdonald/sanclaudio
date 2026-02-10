@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Cube test TOP view: 100x100 square centered at (100,100) -->
+  <!-- Should produce a square cross-section -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 50 50
+    L 150 50
+    L 150 150
+    L 50 150
+    Z"/>
+</svg>

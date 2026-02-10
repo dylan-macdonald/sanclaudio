@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 28">
+  <!-- Sniper rifle SIDE view. Canvas: 120x28, scale=0.01 -->
+  <!-- 120cm long, 28cm tall. Barrel on right, stock on left -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 120 11
+    L 118 10
+    L 100 10
+    L 90 10.5
+    L 80 11
+    L 72 11
+    L 68 10
+    L 62 8
+    L 58 7
+    L 52 8
+    L 48 10
+    L 42 11
+    L 36 12
+    L 30 14
+    L 24 16
+    L 18 18
+    L 12 20
+    L 6 22
+    L 2 24
+    L 0 26
+    L 0 28
+    L 4 27
+    L 8 25
+    L 14 23
+    L 20 21
+    L 26 19
+    L 32 17
+    L 38 16
+    L 42 15
+    L 48 14
+    L 52 14
+    L 56 15
+    L 60 16
+    L 64 17
+    L 68 16
+    L 72 15
+    L 80 14
+    L 90 13.5
+    L 100 13
+    L 118 13
+    L 120 12
+    Z"/>
+</svg>

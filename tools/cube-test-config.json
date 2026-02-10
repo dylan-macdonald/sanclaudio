@@ -1,0 +1,25 @@
+{
+    "name": "CubeTest",
+    "svgFront": "svgs/cube-test-front.svg",
+    "svgSide": "svgs/cube-test-side.svg",
+    "svgTop": "svgs/cube-test-top.svg",
+    "svgHeight": 200,
+    "svgCenterX": 100,
+    "topCenterX": 100,
+    "topCenterY": 100,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 40,
+    "roughness": 0.5,
+    "metalness": 0.1,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0xff4444"
+        }
+    ],
+    "output": "../assets/models/cube_test.glb"
+}

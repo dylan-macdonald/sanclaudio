@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260">
+  <!-- Sedan FRONT view. Canvas: 400x260, centerX=200, scale=0.005 -->
+  <!-- Y=0=top (roof), Y=260=ground. X=0=left, X=400=right -->
+  <!-- At scale 0.005: 400 units = 2.0m width, 260 units = 1.3m height -->
+
+  <!-- BODY: front cross-section profile -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 200 30
+    L 260 34
+    L 310 44
+    L 340 60
+    L 360 80
+    L 380 110
+    L 390 140
+    L 394 170
+    L 392 200
+    L 386 220
+    L 370 238
+    L 340 248
+    L 300 254
+    L 260 258
+    L 200 260
+    L 140 258
+    L 100 254
+    L 60 248
+    L 30 238
+    L 14 220
+    L 8 200
+    L 6 170
+    L 10 140
+    L 20 110
+    L 40 80
+    L 60 60
+    L 90 44
+    L 140 34
+    Z"/>
+</svg>

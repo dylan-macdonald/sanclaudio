@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 220">
+  <!-- Sports car SIDE view. Canvas: 840x220, centerX=420, scale=0.005 -->
+  <!-- 4.2m long x 1.1m tall. Low, sleek, aggressive profile -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 280 30
+    L 360 26
+    L 440 24
+    L 520 28
+    L 560 36
+    L 590 54
+    L 620 80
+    L 650 92
+    L 720 98
+    L 780 104
+    L 810 114
+    L 825 130
+    L 830 150
+    L 828 170
+    L 820 186
+    L 800 196
+    L 760 202
+    L 720 208
+    L 680 212
+    L 640 208
+    L 600 198
+    L 560 196
+    L 480 196
+    L 400 196
+    L 340 198
+    L 300 208
+    L 260 212
+    L 200 208
+    L 140 202
+    L 90 196
+    L 50 186
+    L 30 170
+    L 22 150
+    L 24 130
+    L 34 114
+    L 60 104
+    L 120 98
+    L 190 92
+    L 220 80
+    L 240 60
+    L 260 44
+    Z"/>
+</svg>

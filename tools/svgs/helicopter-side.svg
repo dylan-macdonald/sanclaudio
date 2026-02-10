@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <!-- Helicopter SIDE view. Canvas: 800x400, centerX=400, scale=0.005 -->
+  <!-- 4.0m long x 2.0m tall. Teardrop body + tail boom -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 340 120
+    L 380 110
+    L 440 106
+    L 500 110
+    L 540 120
+    L 570 136
+    L 590 158
+    L 600 180
+    L 604 200
+    L 600 224
+    L 590 248
+    L 574 268
+    L 552 284
+    L 520 296
+    L 480 304
+    L 440 308
+    L 400 310
+    L 340 308
+    L 280 302
+    L 230 292
+    L 190 276
+    L 160 256
+    L 140 232
+    L 130 208
+    L 128 186
+    L 134 164
+    L 146 144
+    L 166 128
+    L 196 118
+    L 230 112
+    L 280 114
+    Z"/>
+</svg>

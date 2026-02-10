@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 80">
+  <!-- Rifle TOP view (looking down). Canvas: 10x80 (cm) -->
+  <!-- X = left-right (width), Y = front-back (barrel toward Y=0) -->
+  <!-- centerX=5, centerY=40 -->
+  <!-- Narrow barrel at top, wider handguard, widest at receiver, stock narrows -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 5.0 2.0
+    L 5.6 2.5
+    L 5.8 3.5
+    L 5.8 5.0
+    L 5.6 8.0
+    L 5.5 12.0
+    L 5.4 16.0
+    L 5.5 20.0
+    L 5.8 24.0
+    L 6.2 28.0
+    L 6.5 30.0
+    L 6.8 32.0
+    L 7.0 34.0
+    L 7.2 36.0
+    L 7.2 38.0
+    L 7.0 40.0
+    L 6.8 42.0
+    L 6.5 44.0
+    L 6.2 46.0
+    L 6.0 48.0
+    L 5.8 50.0
+    L 5.8 52.0
+    L 6.0 54.0
+    L 6.2 56.0
+    L 6.5 58.0
+    L 6.8 60.0
+    L 7.0 62.0
+    L 7.0 64.0
+    L 6.8 66.0
+    L 6.5 68.0
+    L 6.0 70.0
+    L 5.5 72.0
+    L 5.0 74.0
+    L 4.5 72.0
+    L 4.0 70.0
+    L 3.5 68.0
+    L 3.2 66.0
+    L 3.0 64.0
+    L 3.0 62.0
+    L 3.2 60.0
+    L 3.5 58.0
+    L 3.8 56.0
+    L 4.0 54.0
+    L 4.2 52.0
+    L 4.2 50.0
+    L 4.0 48.0
+    L 3.8 46.0
+    L 3.5 44.0
+    L 3.2 42.0
+    L 3.0 40.0
+    L 2.8 38.0
+    L 2.8 36.0
+    L 3.0 34.0
+    L 3.2 32.0
+    L 3.5 30.0
+    L 3.8 28.0
+    L 4.2 24.0
+    L 4.5 20.0
+    L 4.6 16.0
+    L 4.5 12.0
+    L 4.4 8.0
+    L 4.2 5.0
+    L 4.2 3.5
+    L 4.4 2.5
+    Z"/>
+</svg>

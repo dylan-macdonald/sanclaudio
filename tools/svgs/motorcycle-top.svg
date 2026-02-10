@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 400">
+  <!-- Motorcycle TOP view (looking down). Canvas: 120x400 -->
+  <!-- SVG X = left-right (world X), SVG Y = front-back (world Z) -->
+  <!-- Y=0 = front wheel, Y=400 = rear wheel -->
+  <!-- centerX=60, centerY=200 -->
+
+  <!-- BODY: very narrow elongated shape, slightly wider at tank/seat area -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 60 16
+    L 72 24
+    L 80 38
+    L 86 58
+    L 90 84
+    L 92 114
+    L 94 148
+    L 96 184
+    L 96 220
+    L 94 256
+    L 92 288
+    L 90 316
+    L 86 342
+    L 80 362
+    L 72 376
+    L 60 384
+    L 48 376
+    L 40 362
+    L 34 342
+    L 30 316
+    L 28 288
+    L 26 256
+    L 24 220
+    L 24 184
+    L 26 148
+    L 28 114
+    L 30 84
+    L 34 58
+    L 40 38
+    L 48 24
+    Z"/>
+</svg>

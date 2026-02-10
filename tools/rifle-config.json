@@ -1,0 +1,55 @@
+{
+    "name": "WeaponRifle",
+    "svgFront": "svgs/rifle-front.svg",
+    "svgSide": "svgs/rifle-side.svg",
+    "svgTop": "svgs/rifle-top.svg",
+    "svgHeight": 24,
+    "svgCenterX": 5,
+    "sideCenterX": 40,
+    "topCenterX": 5,
+    "topCenterY": 40,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x333333"
+        }
+    ],
+    "children": [
+        {
+            "name": "magazine",
+            "type": "box",
+            "size": [0.025, 0.08, 0.06],
+            "position": [0, 0.02, -0.03],
+            "color": "0x2a2a2a",
+            "roughness": 0.4,
+            "metalness": 0.6
+        },
+        {
+            "name": "carry_handle",
+            "type": "box",
+            "size": [0.02, 0.025, 0.08],
+            "position": [0, 0.22, 0.01],
+            "color": "0x2a2a2a",
+            "roughness": 0.4,
+            "metalness": 0.7
+        },
+        {
+            "name": "trigger",
+            "type": "box",
+            "size": [0.008, 0.02, 0.005],
+            "position": [0, 0.06, -0.06],
+            "color": "0x222222",
+            "roughness": 0.3,
+            "metalness": 0.8
+        }
+    ],
+    "output": "../assets/models/weapon_rifle.glb"
+}

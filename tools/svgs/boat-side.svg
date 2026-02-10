@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200">
+  <!-- Boat SIDE view. Canvas: 600x200, centerX=300, scale=0.005 -->
+  <!-- 3.0m long x 1.0m tall. Hull with cabin superstructure -->
+  <!-- Faces RIGHT (+X = bow). Y=0=top, Y=200=waterline/bottom -->
+
+  <!-- BODY: side profile - pointed bow, flat stern, low cabin -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 560 120
+    L 580 130
+    L 590 142
+    L 586 156
+    L 570 168
+    L 540 176
+    L 500 182
+    L 440 186
+    L 380 188
+    L 300 190
+    L 220 188
+    L 150 186
+    L 90 182
+    L 50 176
+    L 26 168
+    L 14 156
+    L 10 142
+    L 14 130
+    L 24 120
+    L 50 112
+    L 90 106
+    L 140 102
+    L 200 100
+    L 250 96
+    L 280 88
+    L 300 78
+    L 320 66
+    L 340 56
+    L 370 48
+    L 400 46
+    L 430 48
+    L 460 56
+    L 480 66
+    L 490 78
+    L 492 88
+    L 490 96
+    L 480 100
+    L 460 102
+    L 500 104
+    L 530 108
+    L 550 114
+    Z"/>
+</svg>

@@ -1,0 +1,134 @@
+{
+    "name": "TruckBody",
+    "svgFront": "svgs/truck-front.svg",
+    "svgSide": "svgs/truck-side.svg",
+    "svgTop": "svgs/truck-top.svg",
+    "svgHeight": 440,
+    "svgCenterX": 220,
+    "sideCenterX": 550,
+    "topCenterX": 220,
+    "topCenterY": 550,
+    "scale": 0.005,
+    "vertsPerRing": 16,
+    "samplesPerUnit": 35,
+    "roughness": 0.5,
+    "metalness": 0.4,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 16,
+            "color": "0xcccccc"
+        }
+    ],
+    "children": [
+        {
+            "name": "wheel_FL",
+            "type": "wheel",
+            "radius": 0.35,
+            "width": 0.18,
+            "position": [-1.0, 0.35, 1.6]
+        },
+        {
+            "name": "wheel_FR",
+            "type": "wheel",
+            "radius": 0.35,
+            "width": 0.18,
+            "position": [1.0, 0.35, 1.6]
+        },
+        {
+            "name": "wheel_RL",
+            "type": "wheel",
+            "radius": 0.35,
+            "width": 0.18,
+            "position": [-1.0, 0.35, -1.6]
+        },
+        {
+            "name": "wheel_RR",
+            "type": "wheel",
+            "radius": 0.35,
+            "width": 0.18,
+            "position": [1.0, 0.35, -1.6]
+        },
+        {
+            "name": "headlight_L",
+            "type": "cylinder",
+            "radius": 0.1,
+            "height": 0.05,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [-0.7, 0.8, 2.55],
+            "color": "0xffffcc",
+            "emissive": "0xffffcc",
+            "emissiveIntensity": 0.4
+        },
+        {
+            "name": "headlight_R",
+            "type": "cylinder",
+            "radius": 0.1,
+            "height": 0.05,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [0.7, 0.8, 2.55],
+            "color": "0xffffcc",
+            "emissive": "0xffffcc",
+            "emissiveIntensity": 0.4
+        },
+        {
+            "name": "taillight_L",
+            "type": "box",
+            "size": [0.2, 0.15, 0.04],
+            "position": [-0.8, 0.8, -2.55],
+            "color": "0xff0000",
+            "emissive": "0xff0000",
+            "emissiveIntensity": 0.3
+        },
+        {
+            "name": "taillight_R",
+            "type": "box",
+            "size": [0.2, 0.15, 0.04],
+            "position": [0.8, 0.8, -2.55],
+            "color": "0xff0000",
+            "emissive": "0xff0000",
+            "emissiveIntensity": 0.3
+        },
+        {
+            "name": "windshield",
+            "type": "box",
+            "size": [1.6, 0.6, 0.02],
+            "position": [0, 1.6, 1.4],
+            "rotation": [-0.2, 0, 0],
+            "color": "0x88aacc",
+            "transparent": true,
+            "opacity": 0.6
+        },
+        {
+            "name": "grille",
+            "type": "box",
+            "size": [1.4, 0.3, 0.03],
+            "position": [0, 0.6, 2.6],
+            "color": "0x1a1a1a",
+            "roughness": 0.85
+        },
+        {
+            "name": "front_bumper",
+            "type": "box",
+            "size": [2.2, 0.2, 0.15],
+            "position": [0, 0.4, 2.65],
+            "color": "0xdddddd",
+            "roughness": 0.08,
+            "metalness": 0.95
+        },
+        {
+            "name": "rear_bumper",
+            "type": "box",
+            "size": [2.2, 0.2, 0.15],
+            "position": [0, 0.4, -2.65],
+            "color": "0xdddddd",
+            "roughness": 0.08,
+            "metalness": 0.95
+        }
+    ],
+    "output": "../assets/models/truck.glb"
+}

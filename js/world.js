@@ -143,13 +143,13 @@ export class World {
             rc.g = Math.max(0, Math.min(1, rc.g + shift));
             rc.b = Math.max(0, Math.min(1, rc.b + shift));
             ctx.fillStyle = '#' + rc.getHexString();
-            ctx.globalAlpha = 0.3 + Math.random() * 0.3;
+            ctx.globalAlpha = 0.4 + Math.random() * 0.3;
             ctx.fillRect(px, py, pw, ph);
         }
         ctx.globalAlpha = 1.0;
 
         // Floor separation lines (thin dark horizontal lines every ~30px)
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
         ctx.lineWidth = 1;
         for (let y = 30; y < 512; y += 30 + Math.random() * 8) {
             ctx.beginPath();
@@ -159,7 +159,7 @@ export class World {
         }
 
         // Brick/concrete masonry pattern - subtle vertical lines
-        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.16)';
         ctx.lineWidth = 0.5;
         for (let x = 0; x < 256; x += 16 + Math.random() * 8) {
             const yOffset = (Math.floor(x / 16) % 2) * 15;
@@ -174,15 +174,15 @@ export class World {
         // Base grime gradient at bottom ~20% of texture
         const grimeGrad = ctx.createLinearGradient(0, 512 * 0.75, 0, 512);
         grimeGrad.addColorStop(0, 'rgba(0,0,0,0)');
-        grimeGrad.addColorStop(0.4, 'rgba(0,0,0,0.12)');
-        grimeGrad.addColorStop(1, 'rgba(0,0,0,0.28)');
+        grimeGrad.addColorStop(0.4, 'rgba(0,0,0,0.18)');
+        grimeGrad.addColorStop(1, 'rgba(0,0,0,0.40)');
         ctx.fillStyle = grimeGrad;
         ctx.fillRect(0, 512 * 0.75, 256, 512 * 0.25);
 
         // Extra dark grime at very bottom (street level)
         const streetGrime = ctx.createLinearGradient(0, 512 * 0.92, 0, 512);
         streetGrime.addColorStop(0, 'rgba(20,15,10,0)');
-        streetGrime.addColorStop(1, 'rgba(20,15,10,0.35)');
+        streetGrime.addColorStop(1, 'rgba(20,15,10,0.50)');
         ctx.fillStyle = streetGrime;
         ctx.fillRect(0, 512 * 0.92, 256, 512 * 0.08);
 
@@ -193,7 +193,7 @@ export class World {
             const sr = 8 + Math.random() * 20;
             ctx.beginPath();
             ctx.ellipse(sx, sy, sr, sr * (0.6 + Math.random() * 0.8), Math.random() * Math.PI, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${Math.floor(Math.random() * 30)},${Math.floor(Math.random() * 20)},${Math.floor(Math.random() * 15)},${0.06 + Math.random() * 0.1})`;
+            ctx.fillStyle = `rgba(${Math.floor(Math.random() * 30)},${Math.floor(Math.random() * 20)},${Math.floor(Math.random() * 15)},${0.10 + Math.random() * 0.15})`;
             ctx.fill();
         }
 
@@ -202,7 +202,7 @@ export class World {
             const wx = Math.random() * 256;
             const wy = Math.random() * 256; // start in upper half
             const wLen = 60 + Math.random() * 200;
-            ctx.strokeStyle = `rgba(0,0,0,${0.04 + Math.random() * 0.08})`;
+            ctx.strokeStyle = `rgba(0,0,0,${0.08 + Math.random() * 0.12})`;
             ctx.lineWidth = 1 + Math.random() * 2;
             ctx.beginPath();
             ctx.moveTo(wx, wy);
@@ -222,7 +222,7 @@ export class World {
         ctx.fillRect(0, shopTop, 256, shopH);
 
         // Large display windows (2 windows with frames)
-        ctx.fillStyle = 'rgba(120,140,160,0.25)'; // glass tint
+        ctx.fillStyle = 'rgba(120,140,160,0.35)'; // glass tint
         const winY = shopTop + 6;
         const winH = shopH - 22;
         // Left window
@@ -263,7 +263,7 @@ export class World {
             for (let fx = 20; fx < 240; fx += 50 + Math.floor(Math.random() * 20)) {
                 if (Math.random() < 0.2) {
                     // Blinds: horizontal lines across window area
-                    ctx.strokeStyle = 'rgba(180,175,165,0.15)';
+                    ctx.strokeStyle = 'rgba(180,175,165,0.25)';
                     ctx.lineWidth = 1;
                     const bx = fx, by = fy + 4, bw = 22, bh = 18;
                     for (let bLine = by; bLine < by + bh; bLine += 3) {
@@ -285,7 +285,7 @@ export class World {
             ctx.fillStyle = 'rgba(90,88,85,0.25)';
             ctx.fillRect(acX, acY, 14, 8);
             // Drip stain below
-            ctx.strokeStyle = 'rgba(20,18,15,0.12)';
+            ctx.strokeStyle = 'rgba(20,18,15,0.20)';
             ctx.lineWidth = 3 + Math.random() * 3;
             ctx.beginPath();
             ctx.moveTo(acX + 7, acY + 8);
@@ -304,7 +304,7 @@ export class World {
             const tagColors = ['#e83030', '#30e830', '#4080ff', '#ff80ff', '#ffff40'];
             ctx.font = 'bold 24px Arial';
             ctx.fillStyle = tagColors[Math.floor(Math.random() * tagColors.length)];
-            ctx.globalAlpha = 0.5 + Math.random() * 0.3;
+            ctx.globalAlpha = 0.6 + Math.random() * 0.3;
             const gx = 20 + Math.random() * 160;
             const gy = shopTop - 20 - Math.random() * 100;
             ctx.save();
@@ -313,6 +313,15 @@ export class World {
             ctx.fillText(tag, 0, 0);
             ctx.restore();
             ctx.globalAlpha = 1.0;
+        }
+
+        // Noise pass — breaks uniformity when zoomed in
+        for (let i = 0; i < 1500; i++) {
+            const nx = Math.random() * 256;
+            const ny = Math.random() * 512;
+            const v = Math.floor(Math.random() * 16) - 8;
+            ctx.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},0.05)`;
+            ctx.fillRect(nx, ny, 1, 1);
         }
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -356,8 +365,8 @@ export class World {
             const oy = Math.random() * 512;
             const or = 10 + Math.random() * 30;
             const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, or);
-            grad.addColorStop(0, `rgba(10,8,5,${0.15 + Math.random() * 0.15})`);
-            grad.addColorStop(0.6, `rgba(10,8,5,${0.05 + Math.random() * 0.05})`);
+            grad.addColorStop(0, `rgba(10,8,5,${0.20 + Math.random() * 0.20})`);
+            grad.addColorStop(0.6, `rgba(10,8,5,${0.08 + Math.random() * 0.07})`);
             grad.addColorStop(1, 'rgba(10,8,5,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(ox - or, oy - or, or * 2, or * 2);
@@ -374,7 +383,7 @@ export class World {
         }
 
         // Crack lines - thin dark lines
-        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
         for (let i = 0; i < 4; i++) {
             ctx.lineWidth = 0.5 + Math.random() * 1;
             ctx.beginPath();
@@ -443,6 +452,15 @@ export class World {
             ctx.stroke();
         }
 
+        // Noise pass — breaks tiling uniformity
+        for (let i = 0; i < 1500; i++) {
+            const x = Math.random() * 512;
+            const y = Math.random() * 512;
+            const v = Math.floor(Math.random() * 20) - 10;
+            ctx.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},0.06)`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
@@ -457,67 +475,61 @@ export class World {
         canvas.height = 256;
         const ctx = canvas.getContext('2d');
 
-        // Base ground color
-        ctx.fillStyle = '#4a4a48';
+        // Neutral mid-gray base — vertex colors drive hue, texture adds detail
+        ctx.fillStyle = '#808080';
         ctx.fillRect(0, 0, 256, 256);
 
-        // Concrete panel grid lines
-        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-        ctx.lineWidth = 1;
-        const panelSize = 32;
-        for (let x = 0; x <= 256; x += panelSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, 256);
-            ctx.stroke();
-        }
-        for (let y = 0; y <= 256; y += panelSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(256, y);
-            ctx.stroke();
+        // Large-scale variation: overlapping radial gradient patches
+        for (let i = 0; i < 12; i++) {
+            const px = Math.random() * 256;
+            const py = Math.random() * 256;
+            const pr = 40 + Math.random() * 40;
+            const shift = Math.floor((Math.random() - 0.5) * 12);
+            const grad = ctx.createRadialGradient(px, py, 0, px, py, pr);
+            grad.addColorStop(0, `rgba(${128 + shift},${128 + shift},${128 + shift},0.1)`);
+            grad.addColorStop(1, `rgba(128,128,128,0)`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
         }
 
-        // Per-panel slight color variation
-        for (let px = 0; px < 256; px += panelSize) {
-            for (let py = 0; py < 256; py += panelSize) {
-                const shade = Math.floor(Math.random() * 10) - 5;
-                ctx.fillStyle = `rgba(${74 + shade},${74 + shade},${72 + shade},0.15)`;
-                ctx.fillRect(px + 1, py + 1, panelSize - 2, panelSize - 2);
+        // Fine grain: organic noise dots
+        for (let i = 0; i < 2500; i++) {
+            const x = Math.random() * 256;
+            const y = Math.random() * 256;
+            const v = Math.floor((Math.random() - 0.5) * 20);
+            ctx.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},0.08)`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+
+        // Scattered small rocks: clusters of darker dots
+        for (let i = 0; i < 30; i++) {
+            const cx = Math.random() * 256;
+            const cy = Math.random() * 256;
+            const count = 2 + Math.floor(Math.random() * 3);
+            for (let j = 0; j < count; j++) {
+                const rx = cx + (Math.random() - 0.5) * 6;
+                const ry = cy + (Math.random() - 0.5) * 6;
+                const size = 1 + Math.random() * 2;
+                ctx.fillStyle = `rgba(60,58,55,${0.08 + Math.random() * 0.08})`;
+                ctx.fillRect(rx, ry, size, size);
             }
         }
 
-        // Dirt patches - brownish splotches
-        for (let i = 0; i < 5; i++) {
-            const dx = Math.random() * 256;
-            const dy = Math.random() * 256;
-            const dr = 8 + Math.random() * 20;
-            const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, dr);
-            grad.addColorStop(0, `rgba(80,65,45,${0.1 + Math.random() * 0.1})`);
-            grad.addColorStop(1, 'rgba(80,65,45,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(dx - dr, dy - dr, dr * 2, dr * 2);
-        }
-
-        // Wear marks - lighter areas
-        for (let i = 0; i < 3; i++) {
-            const wx = Math.random() * 256;
-            const wy = Math.random() * 256;
-            const wr = 10 + Math.random() * 25;
-            const grad = ctx.createRadialGradient(wx, wy, 0, wx, wy, wr);
-            grad.addColorStop(0, `rgba(120,120,115,${0.06 + Math.random() * 0.06})`);
-            grad.addColorStop(1, 'rgba(120,120,115,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(wx - wr, wy - wr, wr * 2, wr * 2);
-        }
-
-        // Fine noise/grain
-        for (let i = 0; i < 1000; i++) {
-            const x = Math.random() * 256;
-            const y = Math.random() * 256;
-            const shade = 60 + Math.floor(Math.random() * 30);
-            ctx.fillStyle = `rgba(${shade},${shade},${shade},0.08)`;
-            ctx.fillRect(x, y, 1, 1);
+        // Organic cracks: thin dark irregular lines (dried earth)
+        for (let i = 0; i < 6; i++) {
+            ctx.strokeStyle = `rgba(50,48,45,${0.06 + Math.random() * 0.06})`;
+            ctx.lineWidth = 0.5 + Math.random() * 0.5;
+            ctx.beginPath();
+            let cx = Math.random() * 256;
+            let cy = Math.random() * 256;
+            ctx.moveTo(cx, cy);
+            const segs = 3 + Math.floor(Math.random() * 4);
+            for (let s = 0; s < segs; s++) {
+                cx += (Math.random() - 0.5) * 40;
+                cy += (Math.random() - 0.5) * 40;
+                ctx.lineTo(cx, cy);
+            }
+            ctx.stroke();
         }
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -658,6 +670,15 @@ export class World {
             ctx.fillRect(x, y, 1, 1);
         }
 
+        // Noise pass — breaks tiling uniformity
+        for (let i = 0; i < 1500; i++) {
+            const x = Math.random() * 256;
+            const y = Math.random() * 256;
+            const v = Math.floor(Math.random() * 20) - 10;
+            ctx.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},0.06)`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
@@ -714,8 +735,68 @@ export class World {
         pos.needsUpdate = true;
         geo.computeVertexNormals();
 
+        // Terrain vertex colors based on height, slope, and coastal proximity
+        const normals = geo.attributes.normal;
+        const colors = new Float32Array(pos.count * 3);
+        // Simple seeded noise based on world position
+        const _hashNoise = (x, z) => {
+            const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+            return (n - Math.floor(n)) * 2 - 1; // -1 to 1
+        };
+        for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const z = pos.getZ(i);
+            const h = pos.getY(i);
+            const slope = 1 - normals.getY(i); // 0=flat, ~1=vertical
+
+            let r, g, b;
+            if (h < 3) {
+                // Sandy beach
+                r = 0.60; g = 0.55; b = 0.42;
+            } else if (h < 10) {
+                // Urban concrete
+                const t = (h - 3) / 7;
+                r = 0.35 + t * 0; g = 0.35 + t * 0; b = 0.34 + t * 0;
+            } else if (h < 25) {
+                // Urban → grass transition
+                const t = (h - 10) / 15;
+                r = 0.35 * (1 - t) + 0.28 * t;
+                g = 0.35 * (1 - t) + 0.42 * t;
+                b = 0.34 * (1 - t) + 0.22 * t;
+            } else if (h < 70) {
+                // Grass vs exposed dirt/rock based on slope
+                const slopeT = Math.min(1, Math.max(0, (slope - 0.3) / 0.2));
+                r = 0.28 * (1 - slopeT) + 0.40 * slopeT;
+                g = 0.42 * (1 - slopeT) + 0.35 * slopeT;
+                b = 0.22 * (1 - slopeT) + 0.25 * slopeT;
+            } else if (h < 130) {
+                // Sparse grass → rocky cliff based on slope
+                const t = (h - 70) / 60;
+                const slopeT = Math.min(1, Math.max(0, (slope - 0.3) / 0.2));
+                const flatR = 0.28 * (1 - t) + 0.35 * t;
+                const flatG = 0.42 * (1 - t) + 0.40 * t;
+                const flatB = 0.22 * (1 - t) + 0.25 * t;
+                r = flatR * (1 - slopeT) + 0.38 * slopeT;
+                g = flatG * (1 - slopeT) + 0.34 * slopeT;
+                b = flatB * (1 - slopeT) + 0.28 * slopeT;
+            } else {
+                // Rocky peak / bare earth
+                r = 0.42; g = 0.38; b = 0.30;
+            }
+
+            // Deterministic noise ±0.04 per channel
+            const noise = _hashNoise(x, z) * 0.04;
+            const noise2 = _hashNoise(x * 1.7, z * 0.9) * 0.04;
+            const noise3 = _hashNoise(x * 0.6, z * 1.3) * 0.04;
+            colors[i * 3] = Math.max(0, Math.min(1, r + noise));
+            colors[i * 3 + 1] = Math.max(0, Math.min(1, g + noise2));
+            colors[i * 3 + 2] = Math.max(0, Math.min(1, b + noise3));
+        }
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
         const mat = new THREE.MeshStandardMaterial({
-            color: 0x4a4a48,
+            color: 0xffffff,
+            vertexColors: true,
             roughness: 0.88,
             metalness: 0.0,
             map: this._groundTexture
@@ -725,14 +806,26 @@ export class World {
         this.game.scene.add(ground);
         this.groundMesh = ground;
 
-        // Pavement layer follows terrain (slightly above)
+        // Pavement layer follows terrain (slightly above), faded on elevated terrain
         const pavGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize, segs, segs);
         pavGeo.rotateX(-Math.PI / 2);
         const pavPos = pavGeo.attributes.position;
+        const pavementFadeStart = 10;
+        const pavementFadeEnd = 15;
         for (let i = 0; i < pavPos.count; i++) {
             const x = pavPos.getX(i);
             const z = pavPos.getZ(i);
-            pavPos.setY(i, this.getTerrainHeight(x, z) + 0.005);
+            const h = this.getTerrainHeight(x, z);
+            if (h > pavementFadeEnd) {
+                // Push below water — invisible
+                pavPos.setY(i, -10);
+            } else if (h > pavementFadeStart) {
+                // Smooth transition: lower pavement away from ground
+                const t = (h - pavementFadeStart) / (pavementFadeEnd - pavementFadeStart);
+                pavPos.setY(i, h + 0.005 - t * 10);
+            } else {
+                pavPos.setY(i, h + 0.005);
+            }
         }
         pavPos.needsUpdate = true;
         pavGeo.computeVertexNormals();
@@ -746,6 +839,7 @@ export class World {
         const pavement = new THREE.Mesh(pavGeo, pavMat);
         pavement.receiveShadow = true;
         this.game.scene.add(pavement);
+        this.pavementMesh = pavement;
     }
 
     _generateWaterTexture() {

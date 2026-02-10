@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVG Orthographic Preview — San Claudio Character Lofting</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.3px;
+  }
+
+  header .subtitle {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 16px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  button:hover {
+    background: #f0f0f0;
+    border-color: #aaa;
+  }
+
+  button.primary {
+    background: #2a6fdb;
+    color: #fff;
+    border-color: #2a6fdb;
+  }
+
+  button.primary:hover {
+    background: #1f5bb8;
+    border-color: #1f5bb8;
+  }
+
+  .panels-container {
+    display: flex;
+    gap: 20px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    justify-content: center;
+  }
+
+  .panel {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    width: 440px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    background: #fafafa;
+  }
+
+  .panel-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #555;
+  }
+
+  .panel-label span {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #999;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .panel-actions label,
+  .panel-actions button {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .panel-actions input[type="file"] {
+    display: none;
+  }
+
+  .svg-viewport {
+    position: relative;
+    width: 400px;
+    height: 500px;
+    margin: 20px auto;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  .svg-viewport canvas.grid-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .svg-viewport .reference-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .svg-viewport .reference-layer img {
+    max-width: 100%;
+    max-height: 100%;
+    opacity: 0.3;
+  }
+
+  .svg-viewport .svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .svg-viewport .svg-layer svg {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .svg-viewport .height-markers {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .panel-path-section {
+    border-top: 1px solid #eee;
+    padding: 10px 14px;
+  }
+
+  .panel-path-section .path-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .panel-path-section textarea {
+    width: 100%;
+    height: 80px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    resize: vertical;
+    color: #444;
+    background: #fafafa;
+  }
+
+  .panel-path-section textarea:focus {
+    outline: none;
+    border-color: #2a6fdb;
+    background: #fff;
+  }
+
+  /* Reference image section */
+  .reference-section {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin: 0 24px 20px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .reference-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    min-width: 120px;
+  }
+
+  .reference-section label {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .reference-section input[type="file"] {
+    font-size: 12px;
+  }
+
+  .reference-section select,
+  .reference-section input[type="range"] {
+    font-size: 12px;
+  }
+
+  .ref-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ref-control label {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+  }
+
+  .ref-control select {
+    padding: 3px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+
+  .ref-control input[type="range"] {
+    width: 100px;
+    accent-color: #2a6fdb;
+  }
+
+  .opacity-value {
+    font-size: 11px;
+    color: #999;
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Coordinate readout */
+  .coord-readout {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #aaa;
+    z-index: 10;
+    pointer-events: none;
+    background: rgba(255,255,255,0.85);
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+
+  /* Save output modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.visible {
+    display: flex;
+  }
+
+  .modal {
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+
+  .modal h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #222;
+  }
+
+  .modal textarea {
+    width: 100%;
+    height: 300px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    background: #f8f8f8;
+    color: #333;
+  }
+
+  .modal .modal-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* Paste target overlay */
+  .paste-hint {
+    font-size: 11px;
+    color: #999;
+    margin-left: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SVG Orthographic Preview</h1>
+    <div class="subtitle">Character cross-section views for lofting tool</div>
+  </div>
+  <div class="header-actions">
+    <button id="btn-clear-all" title="Clear all panels">Clear All</button>
+    <button id="btn-save" class="primary">Save All</button>
+  </div>
+</header>
+
+<!-- Reference image controls -->
+<div class="reference-section">
+  <h3>Reference Image</h3>
+  <div class="ref-control">
+    <label for="ref-file">Load:</label>
+    <input type="file" id="ref-file" accept="image/*">
+  </div>
+  <span class="paste-hint">or paste from clipboard</span>
+  <div class="ref-control">
+    <label for="ref-target">Panel:</label>
+    <select id="ref-target">
+      <option value="none">None</option>
+      <option value="front">Front</option>
+      <option value="side">Side</option>
+      <option value="top">Top</option>
+    </select>
+  </div>
+  <div class="ref-control">
+    <label for="ref-opacity">Opacity:</label>
+    <input type="range" id="ref-opacity" min="0" max="100" value="30">
+    <span class="opacity-value" id="ref-opacity-value">30%</span>
+  </div>
+  <button id="btn-clear-ref" title="Remove reference image">Clear Ref</button>
+</div>
+
+<!-- Three panels -->
+<div class="panels-container">
+  <!-- FRONT -->
+  <div class="panel" data-view="front">
+    <div class="panel-header">
+      <div class="panel-label">Front <span>Y=up, X=left-right</span></div>
+      <div class="panel-actions">
+        <label class="load-btn">
+          <button onclick="this.parentElement.querySelector('input').click()">Load SVG</button>
+          <input type="file" accept=".svg,image/svg+xml" onchange="loadSVG('front', this)">
+        </label>
+        <button onclick="clearPanel('front')">Clear</button>
+      </div>
+    </div>
+    <div class="svg-viewport" id="viewport-front" data-view="front">
+      <canvas class="grid-canvas" id="grid-front" width="400" height="500"></canvas>
+      <div class="reference-layer" id="ref-layer-front"></div>
+      <div class="svg-layer" id="svg-layer-front"></div>
+      <div class="height-markers" id="markers-front"></div>
+      <div class="coord-readout" id="coords-front">--</div>
+    </div>
+    <div class="panel-path-section">
+      <div class="path-label">SVG Path Data</div>
+      <textarea id="path-front" placeholder="Paste SVG path data here, or load an SVG file above..." spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- SIDE -->
+  <div class="panel" data-view="side">
+    <div class="panel-header">
+      <div class="panel-label">Side <span>Y=up, X=depth (front-to-back)</span></div>
+      <div class="panel-actions">
+        <label class="load-btn">
+          <button onclick="this.parentElement.querySelector('input').click()">Load SVG</button>
+          <input type="file" accept=".svg,image/svg+xml" onchange="loadSVG('side', this)">
+        </label>
+        <button onclick="clearPanel('side')">Clear</button>
+      </div>
+    </div>
+    <div class="svg-viewport" id="viewport-side" data-view="side">
+      <canvas class="grid-canvas" id="grid-side" width="400" height="500"></canvas>
+      <div class="reference-layer" id="ref-layer-side"></div>
+      <div class="svg-layer" id="svg-layer-side"></div>
+      <div class="height-markers" id="markers-side"></div>
+      <div class="coord-readout" id="coords-side">--</div>
+    </div>
+    <div class="panel-path-section">
+      <div class="path-label">SVG Path Data</div>
+      <textarea id="path-side" placeholder="Paste SVG path data here, or load an SVG file above..." spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- TOP -->
+  <div class="panel" data-view="top">
+    <div class="panel-header">
+      <div class="panel-label">Top <span>X=left-right, Y=depth (nose up)</span></div>
+      <div class="panel-actions">
+        <label class="load-btn">
+          <button onclick="this.parentElement.querySelector('input').click()">Load SVG</button>
+          <input type="file" accept=".svg,image/svg+xml" onchange="loadSVG('top', this)">
+        </label>
+        <button onclick="clearPanel('top')">Clear</button>
+      </div>
+    </div>
+    <div class="svg-viewport" id="viewport-top" data-view="top">
+      <canvas class="grid-canvas" id="grid-top" width="400" height="500"></canvas>
+      <div class="reference-layer" id="ref-layer-top"></div>
+      <div class="svg-layer" id="svg-layer-top"></div>
+      <div class="height-markers" id="markers-top"></div>
+      <div class="coord-readout" id="coords-top">--</div>
+    </div>
+    <div class="panel-path-section">
+      <div class="path-label">SVG Path Data</div>
+      <textarea id="path-top" placeholder="Paste SVG path data here, or load an SVG file above..." spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Save modal -->
+<div class="modal-overlay" id="save-modal">
+  <div class="modal">
+    <h2>Exported SVG Data</h2>
+    <textarea id="save-output" readonly spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button onclick="copyOutput()">Copy to Clipboard</button>
+      <button onclick="downloadOutput()">Download JSON</button>
+      <button onclick="closeSaveModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+// Constants
+// ──────────────────────────────────────────────
+
+const VIEWS = ['front', 'side', 'top'];
+const VIEWPORT_W = 400;
+const VIEWPORT_H = 500;
+const GRID_STEP = 20; // px per grid cell (~5cm at character scale)
+
+// Height markers in meters (character height ~1.98m)
+// We map 1.98m to the usable viewport height.
+// Let's use a scale: 1m = 240px, so 1.98m = ~475px, fits nicely in 500px viewport.
+const METERS_TO_PX = 240;
+const CHARACTER_HEIGHT_M = 1.98;
+
+const HEIGHT_MARKERS = [
+  { y: 0.00, label: 'Feet' },
+  { y: 0.42, label: 'Knees' },
+  { y: 0.88, label: 'Hips' },
+  { y: 1.10, label: 'Waist' },
+  { y: 1.35, label: 'Chest' },
+  { y: 1.48, label: 'Shoulders' },
+  { y: 1.62, label: 'Chin' },
+  { y: 1.98, label: 'Head Top' },
+];
+
+// Origin: center-bottom of viewport
+// X origin = VIEWPORT_W / 2 = 200
+// Y origin (feet) = VIEWPORT_H - 20 (leave small margin at bottom)
+const ORIGIN_X = VIEWPORT_W / 2;
+const ORIGIN_Y = VIEWPORT_H - 16;
+
+// State
+const state = {
+  svgContent: { front: '', side: '', top: '' },
+  svgRawPaths: { front: '', side: '', top: '' },
+  referenceImage: null,
+  referenceTarget: 'none',
+  referenceOpacity: 0.3,
+};
+
+// ──────────────────────────────────────────────
+// Grid Drawing
+// ──────────────────────────────────────────────
+
+function drawGrid(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = VIEWPORT_W * dpr;
+  canvas.height = VIEWPORT_H * dpr;
+  canvas.style.width = VIEWPORT_W + 'px';
+  canvas.style.height = VIEWPORT_H + 'px';
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, VIEWPORT_W, VIEWPORT_H);
+
+  // Minor grid lines
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= VIEWPORT_W; x += GRID_STEP) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, VIEWPORT_H);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= VIEWPORT_H; y += GRID_STEP) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(VIEWPORT_W, y);
+    ctx.stroke();
+  }
+
+  // Major grid lines every 5 cells (100px = ~25cm)
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 0.8;
+  for (let x = 0; x <= VIEWPORT_W; x += GRID_STEP * 5) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, VIEWPORT_H);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= VIEWPORT_H; y += GRID_STEP * 5) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(VIEWPORT_W, y);
+    ctx.stroke();
+  }
+
+  // Center vertical axis
+  ctx.strokeStyle = 'rgba(42, 111, 219, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(ORIGIN_X, 0);
+  ctx.lineTo(ORIGIN_X, VIEWPORT_H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(42, 111, 219, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, ORIGIN_Y);
+  ctx.lineTo(VIEWPORT_W, ORIGIN_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ──────────────────────────────────────────────
+// Height Markers
+// ──────────────────────────────────────────────
+
+function drawHeightMarkers(containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', VIEWPORT_W);
+  svg.setAttribute('height', VIEWPORT_H);
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+
+  HEIGHT_MARKERS.forEach(marker => {
+    const py = ORIGIN_Y - marker.y * METERS_TO_PX;
+    if (py < 0 || py > VIEWPORT_H) return;
+
+    // Dashed line
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', 0);
+    line.setAttribute('y1', py);
+    line.setAttribute('x2', VIEWPORT_W);
+    line.setAttribute('y2', py);
+    line.setAttribute('stroke', '#c0c0c0');
+    line.setAttribute('stroke-width', '0.5');
+    line.setAttribute('stroke-dasharray', '3,3');
+    svg.appendChild(line);
+
+    // Tick on left edge
+    const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tick.setAttribute('x1', 0);
+    tick.setAttribute('y1', py);
+    tick.setAttribute('x2', 6);
+    tick.setAttribute('y2', py);
+    tick.setAttribute('stroke', '#999');
+    tick.setAttribute('stroke-width', '1');
+    svg.appendChild(tick);
+
+    // Label
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', 8);
+    text.setAttribute('y', py - 3);
+    text.setAttribute('font-size', '9');
+    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, sans-serif');
+    text.setAttribute('fill', '#999');
+    text.textContent = `${marker.y.toFixed(2)}m ${marker.label}`;
+    svg.appendChild(text);
+  });
+
+  container.appendChild(svg);
+}
+
+// ──────────────────────────────────────────────
+// SVG Loading
+// ──────────────────────────────────────────────
+
+function loadSVG(view, inputEl) {
+  const file = inputEl.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const svgText = e.target.result;
+    displaySVG(view, svgText);
+    extractPaths(view, svgText);
+  };
+  reader.readAsText(file);
+
+  // Reset input so the same file can be re-loaded
+  inputEl.value = '';
+}
+
+function displaySVG(view, svgText) {
+  state.svgContent[view] = svgText;
+  const layer = document.getElementById('svg-layer-' + view);
+  layer.innerHTML = svgText;
+
+  // Style the inserted SVG to fit viewport
+  const svgEl = layer.querySelector('svg');
+  if (svgEl) {
+    svgEl.style.width = '100%';
+    svgEl.style.height = '100%';
+    svgEl.style.position = 'absolute';
+    svgEl.style.top = '0';
+    svgEl.style.left = '0';
+  }
+}
+
+function extractPaths(view, svgText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, 'image/svg+xml');
+  const paths = doc.querySelectorAll('path');
+  const pathData = [];
+
+  paths.forEach(p => {
+    const d = p.getAttribute('d');
+    if (d) pathData.push(d);
+  });
+
+  // Also extract polyline/polygon points
+  doc.querySelectorAll('polyline, polygon').forEach(p => {
+    const pts = p.getAttribute('points');
+    if (pts) pathData.push('/* points: */ ' + pts);
+  });
+
+  // Also extract circles, ellipses, rects as notes
+  doc.querySelectorAll('circle').forEach(c => {
+    pathData.push(`/* circle cx=${c.getAttribute('cx')} cy=${c.getAttribute('cy')} r=${c.getAttribute('r')} */`);
+  });
+  doc.querySelectorAll('ellipse').forEach(el => {
+    pathData.push(`/* ellipse cx=${el.getAttribute('cx')} cy=${el.getAttribute('cy')} rx=${el.getAttribute('rx')} ry=${el.getAttribute('ry')} */`);
+  });
+  doc.querySelectorAll('rect').forEach(r => {
+    pathData.push(`/* rect x=${r.getAttribute('x')} y=${r.getAttribute('y')} w=${r.getAttribute('width')} h=${r.getAttribute('height')} */`);
+  });
+
+  const textarea = document.getElementById('path-' + view);
+  const text = pathData.join('\n\n');
+  textarea.value = text;
+  state.svgRawPaths[view] = text;
+}
+
+function clearPanel(view) {
+  state.svgContent[view] = '';
+  state.svgRawPaths[view] = '';
+  document.getElementById('svg-layer-' + view).innerHTML = '';
+  document.getElementById('path-' + view).value = '';
+}
+
+// ──────────────────────────────────────────────
+// Path textarea live update
+// ──────────────────────────────────────────────
+
+VIEWS.forEach(view => {
+  const textarea = document.getElementById('path-' + view);
+  textarea.addEventListener('input', () => {
+    const val = textarea.value.trim();
+    state.svgRawPaths[view] = val;
+
+    // If it looks like SVG path data, render it in a basic SVG
+    if (val && !val.startsWith('<')) {
+      // Extract only actual path d= data (skip comments)
+      const lines = val.split('\n').filter(l => l.trim() && !l.trim().startsWith('/*'));
+      if (lines.length > 0) {
+        const pathEls = lines.map(d => `<path d="${d}" fill="none" stroke="#333" stroke-width="1.5"/>`).join('');
+        const svgText = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWPORT_W} ${VIEWPORT_H}">${pathEls}</svg>`;
+        displaySVG(view, svgText);
+      }
+    } else if (val.startsWith('<')) {
+      displaySVG(view, val);
+    }
+  });
+});
+
+// ──────────────────────────────────────────────
+// Reference Image
+// ──────────────────────────────────────────────
+
+function setReferenceImage(dataUrl) {
+  state.referenceImage = dataUrl;
+  updateReferenceDisplay();
+}
+
+function updateReferenceDisplay() {
+  // Clear all reference layers
+  VIEWS.forEach(v => {
+    document.getElementById('ref-layer-' + v).innerHTML = '';
+  });
+
+  if (!state.referenceImage || state.referenceTarget === 'none') return;
+
+  const layer = document.getElementById('ref-layer-' + state.referenceTarget);
+  const img = document.createElement('img');
+  img.src = state.referenceImage;
+  img.style.opacity = state.referenceOpacity;
+  img.style.maxWidth = '100%';
+  img.style.maxHeight = '100%';
+  img.style.objectFit = 'contain';
+  layer.appendChild(img);
+}
+
+// File input for reference
+document.getElementById('ref-file').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => setReferenceImage(e.target.result);
+  reader.readAsDataURL(file);
+  this.value = '';
+});
+
+// Paste from clipboard
+document.addEventListener('paste', function(e) {
+  const items = e.clipboardData.items;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = items[i].getAsFile();
+      const reader = new FileReader();
+      reader.onload = ev => setReferenceImage(ev.target.result);
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+});
+
+// Target panel select
+document.getElementById('ref-target').addEventListener('change', function() {
+  state.referenceTarget = this.value;
+  updateReferenceDisplay();
+});
+
+// Opacity slider
+document.getElementById('ref-opacity').addEventListener('input', function() {
+  state.referenceOpacity = this.value / 100;
+  document.getElementById('ref-opacity-value').textContent = this.value + '%';
+  updateReferenceDisplay();
+});
+
+// Clear reference
+document.getElementById('btn-clear-ref').addEventListener('click', () => {
+  state.referenceImage = null;
+  VIEWS.forEach(v => {
+    document.getElementById('ref-layer-' + v).innerHTML = '';
+  });
+});
+
+// ──────────────────────────────────────────────
+// Coordinate Readout on Mouse Move
+// ──────────────────────────────────────────────
+
+VIEWS.forEach(view => {
+  const viewport = document.getElementById('viewport-' + view);
+  const readout = document.getElementById('coords-' + view);
+
+  viewport.addEventListener('mousemove', e => {
+    const rect = viewport.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    // Convert to meters relative to origin
+    const mx = ((px - ORIGIN_X) / METERS_TO_PX).toFixed(3);
+    const my = ((ORIGIN_Y - py) / METERS_TO_PX).toFixed(3);
+
+    readout.textContent = `${mx}m, ${my}m`;
+  });
+
+  viewport.addEventListener('mouseleave', () => {
+    readout.textContent = '--';
+  });
+});
+
+// ──────────────────────────────────────────────
+// Save / Export
+// ──────────────────────────────────────────────
+
+document.getElementById('btn-save').addEventListener('click', () => {
+  const output = {
+    format: 'svg-orthographic-views',
+    version: 1,
+    scale: {
+      metersToPixels: METERS_TO_PX,
+      gridStepPx: GRID_STEP,
+      gridStepMeters: (GRID_STEP / METERS_TO_PX).toFixed(4),
+      viewportWidth: VIEWPORT_W,
+      viewportHeight: VIEWPORT_H,
+      originX: ORIGIN_X,
+      originY: ORIGIN_Y,
+    },
+    heightMarkers: HEIGHT_MARKERS,
+    views: {},
+  };
+
+  VIEWS.forEach(view => {
+    output.views[view] = {
+      svgContent: state.svgContent[view] || null,
+      pathData: document.getElementById('path-' + view).value || null,
+    };
+  });
+
+  const json = JSON.stringify(output, null, 2);
+  document.getElementById('save-output').value = json;
+  document.getElementById('save-modal').classList.add('visible');
+});
+
+function closeSaveModal() {
+  document.getElementById('save-modal').classList.remove('visible');
+}
+
+function copyOutput() {
+  const textarea = document.getElementById('save-output');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    // Brief visual feedback
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => btn.textContent = orig, 1200);
+  });
+}
+
+function downloadOutput() {
+  const text = document.getElementById('save-output').value;
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'character-svg-views.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Close modal on overlay click
+document.getElementById('save-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSaveModal();
+});
+
+// Escape to close modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSaveModal();
+});
+
+// ──────────────────────────────────────────────
+// Clear All
+// ──────────────────────────────────────────────
+
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  VIEWS.forEach(v => clearPanel(v));
+});
+
+// ──────────────────────────────────────────────
+// Init
+// ──────────────────────────────────────────────
+
+function init() {
+  VIEWS.forEach(view => {
+    drawGrid('grid-' + view);
+    drawHeightMarkers('markers-' + view);
+  });
+}
+
+// Redraw grids on resize (for DPR changes)
+window.addEventListener('resize', init);
+
+init();
+</script>
+</body>
+</html>

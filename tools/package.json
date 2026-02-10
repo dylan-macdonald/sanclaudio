@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "canvas": "^3.2.1",
     "three": "0.128.0"
   }
 }

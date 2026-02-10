@@ -79,9 +79,9 @@ export class Player {
 
         // Custom appearance (clothing shop)
         this.appearance = {
-            shirtColor: 0x4466aa,
-            pantsColor: 0x333344,
-            shoesColor: 0x222222,
+            shirtColor: 0x3366cc,
+            pantsColor: 0x3d3024,
+            shoesColor: 0x1a1a1a,
             hasHat: false,
             hasSunglasses: false,
             hasBandana: false,
@@ -101,7 +101,7 @@ export class Player {
 
         // Outfits — expanded to 14 with jacket/shorts variants
         this.outfits = [
-            { name: 'Default', shirt: 0x4466aa, pants: 0x333344, shoes: 0x222222 },
+            { name: 'Default', shirt: 0x3366cc, pants: 0x3d3024, shoes: 0x1a1a1a },
             { name: 'Street', shirt: 0xcc2222, pants: 0x222222, shoes: 0x111111 },
             { name: 'Business', shirt: 0xeeeeee, pants: 0x222233, shoes: 0x332211 },
             { name: 'Casual', shirt: 0x44aa44, pants: 0x556644, shoes: 0x553322 },
@@ -206,9 +206,9 @@ export class Player {
         this.model = new THREE.Group();
 
         const skinColor = 0xd4a574;
-        const shirtColor = 0x4466aa;
-        const pantsColor = 0x333344;
-        const shoeColor = 0x222222;
+        const shirtColor = 0x3366cc;
+        const pantsColor = 0x3d3024;
+        const shoeColor = 0x1a1a1a;
         const hairColor = 0x221100;
 
         const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.7 });
@@ -1458,10 +1458,10 @@ export class Player {
         // Hat: small cylinder on top of head
         if (a.hasHat) {
             if (!this._hatMesh) {
-                const hatGeo = new THREE.CylinderGeometry(0.25, 0.28, 0.12, 10);
+                const hatGeo = new THREE.CylinderGeometry(0.27, 0.30, 0.12, 10);
                 const hatMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
                 this._hatMesh = new THREE.Mesh(hatGeo, hatMat);
-                this._hatMesh.position.set(0, 1.95, 0);
+                this._hatMesh.position.set(0, 1.97, 0);
                 this.model.add(this._hatMesh);
             }
             this._hatMesh.visible = true;
@@ -1472,10 +1472,10 @@ export class Player {
         // Sunglasses: dark bar across eyes
         if (a.hasSunglasses) {
             if (!this._sunglassesMesh) {
-                const glassGeo = new THREE.BoxGeometry(0.3, 0.06, 0.08);
+                const glassGeo = new THREE.BoxGeometry(0.33, 0.06, 0.08);
                 const glassMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.6 });
                 this._sunglassesMesh = new THREE.Mesh(glassGeo, glassMat);
-                this._sunglassesMesh.position.set(0, 1.78, 0.18);
+                this._sunglassesMesh.position.set(0, 1.78, 0.20);
                 this.model.add(this._sunglassesMesh);
             }
             this._sunglassesMesh.visible = true;
@@ -1572,9 +1572,9 @@ export class Player {
         if (!colorAttr || !skinIdxAttr) return;
 
         // Original colors from the model
-        const SHIRT = 0x4466aa;
-        const PANTS = 0x333344;
-        const SHOE  = 0x222222;
+        const SHIRT = 0x3366cc;
+        const PANTS = 0x3d3024;
+        const SHOE  = 0x1a1a1a;
 
         const shirtR = ((SHIRT >> 16) & 0xff) / 255;
         const shirtG = ((SHIRT >> 8) & 0xff) / 255;
@@ -1651,7 +1651,7 @@ export class Player {
         }
 
         // Apply shoes color
-        const shoeColor = a.shoesColor || 0x222222;
+        const shoeColor = a.shoesColor || 0x1a1a1a;
         const shr = ((shoeColor >> 16) & 0xff) / 255;
         const shg = ((shoeColor >> 8) & 0xff) / 255;
         const shb = (shoeColor & 0xff) / 255;
@@ -1683,17 +1683,17 @@ export class Player {
         // Hat: attach to Head bone for GLTF model
         if (a.hasHat) {
             if (!this._hatMesh) {
-                const hatGeo = new THREE.CylinderGeometry(0.25, 0.28, 0.12, 10);
+                const hatGeo = new THREE.CylinderGeometry(0.27, 0.30, 0.12, 10);
                 const hatMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
                 this._hatMesh = new THREE.Mesh(hatGeo, hatMat);
                 // Find Head bone for GLTF, else use model direct
                 let headBone;
                 this.model.traverse(c => { if (c.isBone && c.name === 'Head') headBone = c; });
                 if (headBone) {
-                    this._hatMesh.position.set(0, 0.28, 0);
+                    this._hatMesh.position.set(0, 0.30, 0);
                     headBone.add(this._hatMesh);
                 } else {
-                    this._hatMesh.position.set(0, 1.95, 0);
+                    this._hatMesh.position.set(0, 1.97, 0);
                     this.model.add(this._hatMesh);
                 }
             }
@@ -1705,16 +1705,16 @@ export class Player {
         // Sunglasses: attach to Head bone for GLTF model
         if (a.hasSunglasses) {
             if (!this._sunglassesMesh) {
-                const glassGeo = new THREE.BoxGeometry(0.3, 0.06, 0.08);
+                const glassGeo = new THREE.BoxGeometry(0.33, 0.06, 0.08);
                 const glassMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.6 });
                 this._sunglassesMesh = new THREE.Mesh(glassGeo, glassMat);
                 let headBone;
                 this.model.traverse(c => { if (c.isBone && c.name === 'Head') headBone = c; });
                 if (headBone) {
-                    this._sunglassesMesh.position.set(0, 0.12, 0.18);
+                    this._sunglassesMesh.position.set(0, 0.12, 0.20);
                     headBone.add(this._sunglassesMesh);
                 } else {
-                    this._sunglassesMesh.position.set(0, 1.78, 0.18);
+                    this._sunglassesMesh.position.set(0, 1.78, 0.20);
                     this.model.add(this._sunglassesMesh);
                 }
             }

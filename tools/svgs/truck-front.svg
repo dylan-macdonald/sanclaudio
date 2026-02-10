@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 440">
+  <!-- Truck FRONT view. Canvas: 440x440, centerX=220, scale=0.005 -->
+  <!-- 2.2m wide x 2.2m tall. Tall, boxy profile -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 220 30
+    L 290 36
+    L 340 50
+    L 376 74
+    L 400 108
+    L 416 148
+    L 424 196
+    L 428 250
+    L 428 300
+    L 424 340
+    L 414 372
+    L 394 396
+    L 364 414
+    L 320 428
+    L 260 436
+    L 220 438
+    L 180 436
+    L 120 428
+    L 76 414
+    L 46 396
+    L 26 372
+    L 16 340
+    L 12 300
+    L 12 250
+    L 16 196
+    L 24 148
+    L 40 108
+    L 64 74
+    L 100 50
+    L 150 36
+    Z"/>
+</svg>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
+  <!-- Boat TOP view (looking down). Canvas: 400x600 -->
+  <!-- SVG X = boat left-right (world X), SVG Y = boat front-back (world Z) -->
+  <!-- Y=0 = bow (front), Y=600 = stern (rear) -->
+  <!-- centerX=200, centerY=300 -->
+
+  <!-- BODY: pointed bow tapering to a point, wide stern -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 200 20
+    L 230 40
+    L 260 70
+    L 286 110
+    L 310 160
+    L 330 220
+    L 346 290
+    L 354 360
+    L 358 430
+    L 360 490
+    L 358 530
+    L 352 556
+    L 340 572
+    L 320 582
+    L 280 588
+    L 240 592
+    L 200 594
+    L 160 592
+    L 120 588
+    L 80 582
+    L 60 572
+    L 48 556
+    L 42 530
+    L 40 490
+    L 42 430
+    L 46 360
+    L 54 290
+    L 70 220
+    L 90 160
+    L 114 110
+    L 140 70
+    L 170 40
+    Z"/>
+</svg>

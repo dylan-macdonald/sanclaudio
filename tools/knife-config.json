@@ -1,0 +1,26 @@
+{
+    "name": "WeaponKnife",
+    "svgFront": "svgs/knife-front.svg",
+    "svgSide": "svgs/knife-side.svg",
+    "svgTop": "svgs/knife-top.svg",
+    "svgHeight": 6,
+    "svgCenterX": 2,
+    "sideCenterX": 15,
+    "topCenterX": 2,
+    "topCenterY": 15,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 120,
+    "roughness": 0.2,
+    "metalness": 0.8,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x888888"
+        }
+    ],
+    "output": "../assets/models/weapon_knife.glb"
+}

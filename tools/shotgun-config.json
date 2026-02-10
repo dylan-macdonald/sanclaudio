@@ -1,0 +1,49 @@
+{
+    "name": "WeaponShotgun",
+    "svgFront": "svgs/shotgun-front.svg",
+    "svgSide": "svgs/shotgun-side.svg",
+    "svgTop": "svgs/shotgun-top.svg",
+    "svgHeight": 18,
+    "svgCenterX": 5,
+    "sideCenterX": 50,
+    "topCenterX": 5,
+    "topCenterY": 50,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x333333"
+        }
+    ],
+    "children": [
+        {
+            "name": "pump",
+            "type": "cylinder",
+            "radius": 0.018,
+            "height": 0.18,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.06, 0.15],
+            "color": "0x2a2a2a",
+            "roughness": 0.4,
+            "metalness": 0.6
+        },
+        {
+            "name": "trigger",
+            "type": "box",
+            "size": [0.008, 0.02, 0.005],
+            "position": [0, 0.04, -0.02],
+            "color": "0x222222",
+            "roughness": 0.3,
+            "metalness": 0.8
+        }
+    ],
+    "output": "../assets/models/weapon_shotgun.glb"
+}

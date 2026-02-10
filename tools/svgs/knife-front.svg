@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 6">
+  <!-- Knife FRONT view. Canvas: 4x6, scale=0.01 -->
+  <!-- Thin blade cross-section -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 2 0
+    L 3 1
+    L 3.5 2.5
+    L 3 4
+    L 2.5 5
+    L 2 6
+    L 1.5 5
+    L 1 4
+    L 0.5 2.5
+    L 1 1
+    Z"/>
+</svg>

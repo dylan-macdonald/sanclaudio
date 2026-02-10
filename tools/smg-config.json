@@ -1,0 +1,46 @@
+{
+    "name": "WeaponSMG",
+    "svgFront": "svgs/smg-front.svg",
+    "svgSide": "svgs/smg-side.svg",
+    "svgTop": "svgs/smg-top.svg",
+    "svgHeight": 22,
+    "svgCenterX": 5,
+    "sideCenterX": 20,
+    "topCenterX": 5,
+    "topCenterY": 20,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x333333"
+        }
+    ],
+    "children": [
+        {
+            "name": "magazine",
+            "type": "box",
+            "size": [0.025, 0.1, 0.04],
+            "position": [0, -0.02, -0.02],
+            "color": "0x2a2a2a",
+            "roughness": 0.4,
+            "metalness": 0.6
+        },
+        {
+            "name": "foregrip",
+            "type": "box",
+            "size": [0.02, 0.035, 0.02],
+            "position": [0, 0.04, 0.06],
+            "color": "0x2a2a2a",
+            "roughness": 0.5,
+            "metalness": 0.5
+        }
+    ],
+    "output": "../assets/models/weapon_smg.glb"
+}

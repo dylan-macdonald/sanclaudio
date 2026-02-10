@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 100">
+  <!-- Shotgun TOP view (looking down). Canvas: 10x100 (cm) -->
+  <!-- X = left-right (width), Y = front-back (barrel toward Y=0) -->
+  <!-- centerX=5, centerY=50 -->
+  <!-- Narrow barrel at top, slightly wider receiver, stock widens at bottom -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 5.0 2.0
+    L 5.8 2.5
+    L 6.0 3.5
+    L 6.0 5.0
+    L 5.8 8.0
+    L 5.6 12.0
+    L 5.5 18.0
+    L 5.4 25.0
+    L 5.5 32.0
+    L 5.6 38.0
+    L 5.8 42.0
+    L 6.2 46.0
+    L 6.8 50.0
+    L 7.0 54.0
+    L 7.0 58.0
+    L 6.8 62.0
+    L 6.5 66.0
+    L 6.8 70.0
+    L 7.2 74.0
+    L 7.5 78.0
+    L 7.5 82.0
+    L 7.2 86.0
+    L 6.8 90.0
+    L 6.2 93.0
+    L 5.5 95.5
+    L 5.0 96.5
+    L 4.5 95.5
+    L 3.8 93.0
+    L 3.2 90.0
+    L 2.8 86.0
+    L 2.5 82.0
+    L 2.5 78.0
+    L 2.8 74.0
+    L 3.2 70.0
+    L 3.5 66.0
+    L 3.2 62.0
+    L 3.0 58.0
+    L 3.0 54.0
+    L 3.2 50.0
+    L 3.8 46.0
+    L 4.2 42.0
+    L 4.4 38.0
+    L 4.5 32.0
+    L 4.6 25.0
+    L 4.5 18.0
+    L 4.4 12.0
+    L 4.2 8.0
+    L 4.0 5.0
+    L 4.0 3.5
+    L 4.2 2.5
+    Z"/>
+</svg>

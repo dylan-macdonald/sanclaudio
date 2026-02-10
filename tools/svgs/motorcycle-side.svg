@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- Motorcycle SIDE view. Canvas: 400x300, centerX=200, scale=0.005 -->
+  <!-- 2.0m long x 1.5m tall. Profile showing frame, tank, seat, forks -->
+  <!-- Faces RIGHT (+X = front). Y=0=top, Y=300=ground -->
+
+  <!-- BODY: motorcycle side silhouette - headlight area, tank, seat, tail -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 310 70
+    L 320 64
+    L 332 60
+    L 340 62
+    L 344 70
+    L 342 82
+    L 336 92
+    L 326 100
+    L 312 108
+    L 300 118
+    L 290 130
+    L 276 140
+    L 260 146
+    L 244 148
+    L 228 146
+    L 214 144
+    L 200 146
+    L 186 152
+    L 174 162
+    L 166 174
+    L 160 188
+    L 156 200
+    L 148 210
+    L 136 218
+    L 120 224
+    L 104 230
+    L 88 238
+    L 76 248
+    L 68 260
+    L 64 274
+    L 66 286
+    L 72 294
+    L 84 296
+    L 100 294
+    L 114 286
+    L 124 274
+    L 130 260
+    L 134 248
+    L 140 238
+    L 152 232
+    L 168 228
+    L 186 226
+    L 206 226
+    L 228 228
+    L 248 232
+    L 264 238
+    L 274 248
+    L 280 260
+    L 286 274
+    L 294 286
+    L 306 294
+    L 322 296
+    L 336 294
+    L 344 286
+    L 346 274
+    L 342 260
+    L 334 248
+    L 322 238
+    L 314 228
+    L 310 216
+    L 308 200
+    L 308 184
+    L 310 168
+    L 314 152
+    L 318 138
+    L 322 124
+    L 322 110
+    L 318 96
+    L 314 84
+    Z"/>
+</svg>

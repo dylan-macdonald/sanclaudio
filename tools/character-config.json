@@ -1,0 +1,142 @@
+{
+    "name": "CharacterMesh",
+    "skeleton": true,
+    "svgFront": "svgs/character-front.svg",
+    "svgSide": "svgs/character-side.svg",
+    "svgTop": "svgs/character-top.svg",
+    "svgHeight": 400,
+    "svgCenterX": 100,
+    "topCenterX": 100,
+    "topCenterY": 100,
+    "scale": 0.005,
+    "vertsPerRing": 12,
+    "samplesPerUnit": 50,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 14
+        },
+        {
+            "id": "arm_R",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 10,
+            "yRanges": [
+                { "yMin": 1.10, "yMax": 1.60, "color": "0x3366cc" },
+                { "yMin": 0.50, "yMax": 1.10, "color": "0xd4a574" }
+            ]
+        },
+        {
+            "id": "arm_L",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 10,
+            "yRanges": [
+                { "yMin": 1.10, "yMax": 1.60, "color": "0x3366cc" },
+                { "yMin": 0.50, "yMax": 1.10, "color": "0xd4a574" }
+            ]
+        },
+        {
+            "id": "leg_R",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 10,
+            "yRanges": [
+                { "yMin": 0.06, "yMax": 0.90, "color": "0x3d3024" },
+                { "yMin": 0.00, "yMax": 0.06, "color": "0x1a1a1a" }
+            ]
+        },
+        {
+            "id": "leg_L",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 10,
+            "yRanges": [
+                { "yMin": 0.06, "yMax": 0.90, "color": "0x3d3024" },
+                { "yMin": 0.00, "yMax": 0.06, "color": "0x1a1a1a" }
+            ]
+        }
+    ],
+    "addons": [
+        {
+            "id": "eye_R",
+            "type": "box",
+            "size": [0.13, 0.08, 0.05],
+            "position": [0.075, 1.84, 0.11],
+            "color": "0x0a0a0a"
+        },
+        {
+            "id": "eye_L",
+            "type": "box",
+            "size": [0.13, 0.08, 0.05],
+            "position": [-0.075, 1.84, 0.11],
+            "color": "0x0a0a0a"
+        },
+        {
+            "id": "eye_highlight_R",
+            "type": "box",
+            "size": [0.04, 0.04, 0.015],
+            "position": [0.06, 1.855, 0.14],
+            "color": "0xffffff"
+        },
+        {
+            "id": "eye_highlight_L",
+            "type": "box",
+            "size": [0.04, 0.04, 0.015],
+            "position": [-0.06, 1.855, 0.14],
+            "color": "0xffffff"
+        },
+        {
+            "id": "brow_ridge",
+            "type": "box",
+            "size": [0.24, 0.05, 0.08],
+            "position": [0, 1.89, 0.12],
+            "color": "0xb8844e"
+        },
+        {
+            "id": "nose",
+            "type": "box",
+            "size": [0.08, 0.12, 0.10],
+            "position": [0, 1.79, 0.18],
+            "color": "0xd4a574"
+        },
+        {
+            "id": "mouth",
+            "type": "box",
+            "size": [0.15, 0.025, 0.025],
+            "position": [0, 1.75, 0.14],
+            "color": "0x884433"
+        },
+        {
+            "id": "chin",
+            "type": "box",
+            "size": [0.17, 0.07, 0.10],
+            "position": [0, 1.71, 0.09],
+            "color": "0xd4a574"
+        },
+        {
+            "id": "ear_R",
+            "type": "box",
+            "size": [0.05, 0.10, 0.07],
+            "position": [0.14, 1.82, 0],
+            "color": "0xd4a574"
+        },
+        {
+            "id": "ear_L",
+            "type": "box",
+            "size": [0.05, 0.10, 0.07],
+            "position": [-0.14, 1.82, 0],
+            "color": "0xd4a574"
+        }
+    ],
+    "yRanges": [
+        { "yMin": 0.00, "yMax": 0.08, "color": "0x1a1a1a" },
+        { "yMin": 0.08, "yMax": 0.95, "color": "0x3d3024" },
+        { "yMin": 0.95, "yMax": 1.52, "color": "0x3366cc" },
+        { "yMin": 1.52, "yMax": 1.88, "color": "0xd4a574" },
+        { "yMin": 1.88, "yMax": 2.10, "color": "0x221100" }
+    ],
+    "output": "../assets/models/character_svgloft.glb"
+}

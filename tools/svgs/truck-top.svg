@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 1100">
+  <!-- Truck TOP view. Canvas: 440x1100, centerX=220, centerY=550 -->
+  <!-- Boxy plan shape, wider rear cargo bed -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 220 40
+    L 290 55
+    L 340 85
+    L 370 130
+    L 390 200
+    L 402 300
+    L 408 420
+    L 410 550
+    L 408 680
+    L 402 800
+    L 390 900
+    L 370 970
+    L 340 1015
+    L 290 1045
+    L 220 1060
+    L 150 1045
+    L 100 1015
+    L 70 970
+    L 50 900
+    L 38 800
+    L 32 680
+    L 30 550
+    L 32 420
+    L 38 300
+    L 50 200
+    L 70 130
+    L 100 85
+    L 150 55
+    Z"/>
+</svg>

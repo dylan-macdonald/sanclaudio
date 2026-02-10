@@ -1,0 +1,55 @@
+{
+    "name": "WeaponPistol",
+    "svgFront": "svgs/pistol-front.svg",
+    "svgSide": "svgs/pistol-side.svg",
+    "svgTop": "svgs/pistol-top.svg",
+    "svgHeight": 14,
+    "svgCenterX": 3.5,
+    "sideCenterX": 11,
+    "topCenterX": 3.5,
+    "topCenterY": 11,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.3,
+    "metalness": 0.7,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x333333"
+        }
+    ],
+    "children": [
+        {
+            "name": "trigger",
+            "type": "box",
+            "size": [0.008, 0.02, 0.005],
+            "position": [0, 0.05, -0.01],
+            "color": "0x222222",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "front_sight",
+            "type": "box",
+            "size": [0.008, 0.006, 0.005],
+            "position": [0, 0.135, 0.08],
+            "color": "0x1a1a1a",
+            "roughness": 0.2,
+            "metalness": 0.8
+        },
+        {
+            "name": "rear_sight",
+            "type": "box",
+            "size": [0.014, 0.006, 0.005],
+            "position": [0, 0.135, -0.03],
+            "color": "0x1a1a1a",
+            "roughness": 0.2,
+            "metalness": 0.8
+        }
+    ],
+    "output": "../assets/models/weapon_pistol.glb"
+}

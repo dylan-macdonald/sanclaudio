@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 35">
+  <!-- Atomizer TOP view. Canvas: 8x35, scale=0.01 -->
+  <!-- Emitter at top (small Y), grip at bottom -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 4 0
+    L 6 2
+    L 7 5
+    L 6.5 8
+    L 6 12
+    L 5.5 16
+    L 5 20
+    L 4.5 24
+    L 4 28
+    L 3.5 32
+    L 3.5 35
+    L 4.5 35
+    L 4.5 32
+    L 4 28
+    L 3.5 24
+    L 3 20
+    L 2.5 16
+    L 2 12
+    L 1.5 8
+    L 1 5
+    L 2 2
+    Z"/>
+</svg>

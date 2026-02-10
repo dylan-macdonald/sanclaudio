@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 30">
+  <!-- Knife TOP view. Canvas: 4x30, scale=0.01 -->
+  <!-- Blade at top (small Y=tip), handle at bottom -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 2 0
+    L 2.8 3
+    L 3 6
+    L 3 10
+    L 2.8 14
+    L 2.5 17
+    L 3.2 19
+    L 3.5 22
+    L 3 26
+    L 2.5 29
+    L 2 30
+    L 1.5 29
+    L 1 26
+    L 0.5 22
+    L 0.8 19
+    L 1.5 17
+    L 1.2 14
+    L 1 10
+    L 1 6
+    L 1.2 3
+    Z"/>
+</svg>

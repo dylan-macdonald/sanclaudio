@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7 14">
+  <!-- Pistol FRONT view. Canvas: 7x14 (cm), centerX=3.5, scale=0.01 -->
+  <!-- Y=0=top (top of slide), Y=14=bottom (base of magazine). X centered at 3.5 -->
+  <!-- Looking at the muzzle end: narrow slide on top, wider grip below -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 3.5 0.2
+    L 4.6 0.3
+    L 5.0 0.6
+    L 5.1 1.2
+    L 5.0 2.0
+    L 4.9 3.0
+    L 4.8 3.8
+    L 5.0 4.2
+    L 5.2 4.6
+    L 5.3 5.2
+    L 5.4 6.0
+    L 5.5 7.0
+    L 5.5 8.0
+    L 5.4 9.0
+    L 5.3 10.0
+    L 5.2 11.0
+    L 5.0 12.0
+    L 4.8 12.8
+    L 4.5 13.4
+    L 4.0 13.7
+    L 3.5 13.8
+    L 3.0 13.7
+    L 2.5 13.4
+    L 2.2 12.8
+    L 2.0 12.0
+    L 1.8 11.0
+    L 1.7 10.0
+    L 1.6 9.0
+    L 1.5 8.0
+    L 1.5 7.0
+    L 1.6 6.0
+    L 1.7 5.2
+    L 1.8 4.6
+    L 2.0 4.2
+    L 2.2 3.8
+    L 2.1 3.0
+    L 2.0 2.0
+    L 1.9 1.2
+    L 2.0 0.6
+    L 2.4 0.3
+    Z"/>
+</svg>

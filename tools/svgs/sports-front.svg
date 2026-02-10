@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 220">
+  <!-- Sports car FRONT view. Canvas: 420x220, centerX=210, scale=0.005 -->
+  <!-- 2.1m wide x 1.1m tall. Wide, low stance -->
+
+  <path id="body" fill="none" stroke="#333" d="
+    M 210 24
+    L 270 28
+    L 320 38
+    L 360 56
+    L 386 80
+    L 400 108
+    L 408 140
+    L 410 168
+    L 404 192
+    L 388 208
+    L 360 216
+    L 310 220
+    L 210 220
+    L 110 220
+    L 60 216
+    L 32 208
+    L 16 192
+    L 10 168
+    L 12 140
+    L 20 108
+    L 34 80
+    L 60 56
+    L 100 38
+    L 150 28
+    Z"/>
+</svg>

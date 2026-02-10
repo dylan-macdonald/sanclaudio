@@ -1,0 +1,64 @@
+{
+    "name": "WeaponAtomizer",
+    "svgFront": "svgs/atomizer-front.svg",
+    "svgSide": "svgs/atomizer-side.svg",
+    "svgTop": "svgs/atomizer-top.svg",
+    "svgHeight": 18,
+    "svgCenterX": 4,
+    "sideCenterX": 17,
+    "topCenterX": 4,
+    "topCenterY": 17,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 80,
+    "roughness": 0.2,
+    "metalness": 0.8,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x444455"
+        }
+    ],
+    "children": [
+        {
+            "name": "emitter_sphere",
+            "type": "cylinder",
+            "radius": 0.025,
+            "height": 0.03,
+            "segments": 10,
+            "rotateX": 1.5708,
+            "position": [0, 0.035, 0.18],
+            "color": "0x44aaff",
+            "emissive": "0x2266cc",
+            "emissiveIntensity": 0.6
+        },
+        {
+            "name": "energy_coil_1",
+            "type": "cylinder",
+            "radius": 0.022,
+            "height": 0.005,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.035, 0.12],
+            "color": "0x66ccff",
+            "emissive": "0x3388dd",
+            "emissiveIntensity": 0.3
+        },
+        {
+            "name": "energy_coil_2",
+            "type": "cylinder",
+            "radius": 0.022,
+            "height": 0.005,
+            "segments": 8,
+            "rotateX": 1.5708,
+            "position": [0, 0.035, 0.06],
+            "color": "0x66ccff",
+            "emissive": "0x3388dd",
+            "emissiveIntensity": 0.3
+        }
+    ],
+    "output": "../assets/models/weapon_atomizer.glb"
+}

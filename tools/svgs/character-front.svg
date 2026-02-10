@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">
+  <!-- Male character FRONT view v3. Canvas: 200x400, center X=100, scale=0.005 -->
+  <!-- CHUNKIER: thicker everything, bigger feet, stockier build, GTA 3 proportions -->
+
+  <!-- BODY: head with facial detail + neck + stocky torso + wider hips -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 100 4
+    L 112 5
+    L 118 12
+    L 120 20
+    L 118 26
+    L 115 30
+    L 118 34
+    L 114 36
+    L 108 38
+    L 118 40
+    L 117 44
+    L 113 48
+    L 107 56
+    L 110 64
+    L 114 74
+    L 130 84
+    L 148 94
+    L 150 102
+    L 150 110
+    L 136 118
+    L 142 134
+    L 140 156
+    L 134 176
+    L 130 188
+    L 134 204
+    L 142 220
+    L 138 236
+    L 120 246
+    L 100 254
+    L 80 246
+    L 62 236
+    L 58 220
+    L 66 204
+    L 70 188
+    L 66 176
+    L 60 156
+    L 58 134
+    L 64 118
+    L 50 110
+    L 50 102
+    L 52 94
+    L 70 84
+    L 86 74
+    L 90 64
+    L 93 56
+    L 87 48
+    L 83 44
+    L 82 40
+    L 92 38
+    L 86 36
+    L 82 34
+    L 85 30
+    L 82 26
+    L 80 20
+    L 82 12
+    L 88 5
+    Z"/>
+
+  <!-- RIGHT ARM: THICK, ~36 units at deltoid, ~22 elbow, ~18 wrist, ~20 hand -->
+  <path id="arm_R" fill="none" stroke="#555" d="
+    M 178 94
+    L 182 110
+    L 180 130
+    L 178 154
+    L 176 170
+    L 172 190
+    L 168 210
+    L 164 230
+    L 162 250
+    L 160 265
+    L 160 282
+    L 140 282
+    L 142 265
+    L 144 250
+    L 148 230
+    L 150 210
+    L 152 190
+    L 154 170
+    L 152 154
+    L 150 130
+    L 146 110
+    L 148 94
+    Z"/>
+
+  <!-- LEFT ARM: mirror of RIGHT -->
+  <path id="arm_L" fill="none" stroke="#555" d="
+    M 22 94
+    L 18 110
+    L 20 130
+    L 22 154
+    L 24 170
+    L 28 190
+    L 32 210
+    L 36 230
+    L 38 250
+    L 40 265
+    L 40 282
+    L 60 282
+    L 58 265
+    L 56 250
+    L 52 230
+    L 50 210
+    L 48 190
+    L 46 170
+    L 48 154
+    L 50 130
+    L 54 110
+    L 52 94
+    Z"/>
+
+  <!-- RIGHT LEG: MUCH thicker, 40 units at thigh, 32 at knee, 24 at ankle, big foot -->
+  <path id="leg_R" fill="none" stroke="#777" d="
+    M 142 232
+    L 144 254
+    L 142 276
+    L 140 296
+    L 138 310
+    L 136 326
+    L 134 344
+    L 132 360
+    L 130 374
+    L 128 382
+    L 140 392
+    L 140 400
+    L 102 400
+    L 102 392
+    L 108 382
+    L 108 374
+    L 108 360
+    L 108 344
+    L 108 326
+    L 106 310
+    L 106 296
+    L 104 276
+    L 102 254
+    L 102 240
+    Z"/>
+
+  <!-- LEFT LEG: mirror -->
+  <path id="leg_L" fill="none" stroke="#777" d="
+    M 58 232
+    L 56 254
+    L 58 276
+    L 60 296
+    L 62 310
+    L 64 326
+    L 66 344
+    L 68 360
+    L 70 374
+    L 72 382
+    L 60 392
+    L 60 400
+    L 98 400
+    L 98 392
+    L 92 382
+    L 92 374
+    L 92 360
+    L 92 344
+    L 92 326
+    L 94 310
+    L 94 296
+    L 96 276
+    L 98 254
+    L 98 240
+    Z"/>
+</svg>

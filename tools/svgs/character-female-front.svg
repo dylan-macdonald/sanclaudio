@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">
+  <!-- Female character FRONT view. Canvas: 200x400, center X=100, scale=0.005 -->
+  <!-- Narrower shoulders, wider hips, nipped waist, softer curves -->
+
+  <!-- BODY: head + neck + torso with female proportions -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 100 6
+    L 111 8
+    L 116 14
+    L 118 22
+    L 116 28
+    L 113 32
+    L 116 35
+    L 112 37
+    L 106 39
+    L 114 42
+    L 112 46
+    L 108 50
+    L 104 58
+    L 108 66
+    L 112 76
+    L 124 86
+    L 140 94
+    L 142 102
+    L 142 110
+    L 132 118
+    L 134 130
+    L 128 146
+    L 122 162
+    L 118 176
+    L 122 190
+    L 132 206
+    L 140 220
+    L 138 236
+    L 122 246
+    L 100 254
+    L 78 246
+    L 62 236
+    L 60 220
+    L 68 206
+    L 78 190
+    L 82 176
+    L 78 162
+    L 72 146
+    L 66 130
+    L 68 118
+    L 58 110
+    L 58 102
+    L 60 94
+    L 76 86
+    L 88 76
+    L 92 66
+    L 96 58
+    L 92 50
+    L 88 46
+    L 86 42
+    L 94 39
+    L 88 37
+    L 84 35
+    L 87 32
+    L 84 28
+    L 82 22
+    L 84 14
+    L 89 8
+    Z"/>
+
+  <!-- RIGHT ARM: thinner than male, ~30 units at deltoid -->
+  <path id="arm_R" fill="none" stroke="#555" d="
+    M 172 94
+    L 174 110
+    L 173 130
+    L 172 150
+    L 170 170
+    L 168 190
+    L 166 210
+    L 164 230
+    L 162 248
+    L 160 264
+    L 158 280
+    L 140 280
+    L 142 264
+    L 144 248
+    L 146 230
+    L 148 210
+    L 150 190
+    L 152 170
+    L 152 150
+    L 151 130
+    L 150 110
+    L 150 94
+    Z"/>
+
+  <!-- LEFT ARM: mirror of RIGHT -->
+  <path id="arm_L" fill="none" stroke="#555" d="
+    M 28 94
+    L 26 110
+    L 27 130
+    L 28 150
+    L 30 170
+    L 32 190
+    L 34 210
+    L 36 230
+    L 38 248
+    L 40 264
+    L 42 280
+    L 60 280
+    L 58 264
+    L 56 248
+    L 54 230
+    L 52 210
+    L 50 190
+    L 48 170
+    L 48 150
+    L 49 130
+    L 50 110
+    L 50 94
+    Z"/>
+
+  <!-- RIGHT LEG: wider thighs, tapering more to ankle -->
+  <path id="leg_R" fill="none" stroke="#777" d="
+    M 144 232
+    L 146 254
+    L 144 276
+    L 140 296
+    L 136 310
+    L 134 326
+    L 132 344
+    L 130 360
+    L 128 374
+    L 126 382
+    L 136 392
+    L 136 400
+    L 102 400
+    L 102 392
+    L 108 382
+    L 108 374
+    L 108 360
+    L 108 344
+    L 108 326
+    L 108 310
+    L 106 296
+    L 104 276
+    L 102 254
+    L 102 240
+    Z"/>
+
+  <!-- LEFT LEG: mirror -->
+  <path id="leg_L" fill="none" stroke="#777" d="
+    M 56 232
+    L 54 254
+    L 56 276
+    L 60 296
+    L 64 310
+    L 66 326
+    L 68 344
+    L 70 360
+    L 72 374
+    L 74 382
+    L 64 392
+    L 64 400
+    L 98 400
+    L 98 392
+    L 92 382
+    L 92 374
+    L 92 360
+    L 92 344
+    L 92 326
+    L 92 310
+    L 94 296
+    L 96 276
+    L 98 254
+    L 98 240
+    Z"/>
+</svg>

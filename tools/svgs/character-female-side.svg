@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">
+  <!-- Female character SIDE view. Canvas: 200x400, center X=100, scale=0.005 -->
+  <!-- More pronounced chest/bust, nipped waist, fuller hips/butt -->
+  <!-- Character faces RIGHT (positive X = front/face) -->
+
+  <!-- BODY: head + torso with female proportions -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 104 6
+    L 112 8
+    L 118 14
+    L 124 22
+    L 126 28
+    L 120 32
+    L 126 36
+    L 122 40
+    L 114 44
+    L 110 52
+    L 106 60
+    L 108 68
+    L 112 78
+    L 116 88
+    L 124 98
+    L 132 108
+    L 134 120
+    L 130 136
+    L 124 150
+    L 120 164
+    L 124 180
+    L 120 196
+    L 126 212
+    L 128 228
+    L 124 242
+    L 112 252
+    L 100 258
+    L 88 252
+    L 78 242
+    L 70 228
+    L 72 212
+    L 82 196
+    L 78 180
+    L 76 164
+    L 72 150
+    L 68 136
+    L 66 120
+    L 70 108
+    L 76 98
+    L 82 88
+    L 86 78
+    L 90 68
+    L 92 60
+    L 88 52
+    L 82 44
+    L 76 36
+    L 74 28
+    L 76 22
+    L 80 14
+    L 88 8
+    L 96 6
+    Z"/>
+
+  <!-- ARM side view: thinner, smoother -->
+  <path id="arm_R" fill="none" stroke="#555" d="
+    M 118 98
+    L 120 118
+    L 122 138
+    L 120 158
+    L 124 174
+    L 122 194
+    L 118 214
+    L 116 234
+    L 114 248
+    L 118 258
+    L 120 268
+    L 116 280
+    L 88 280
+    L 86 268
+    L 84 258
+    L 88 248
+    L 88 234
+    L 86 214
+    L 84 194
+    L 82 174
+    L 84 158
+    L 82 138
+    L 80 118
+    L 84 102
+    Z"/>
+
+  <path id="arm_L" fill="none" stroke="#555" d="
+    M 118 98
+    L 120 118
+    L 122 138
+    L 120 158
+    L 124 174
+    L 122 194
+    L 118 214
+    L 116 234
+    L 114 248
+    L 118 258
+    L 120 268
+    L 116 280
+    L 88 280
+    L 86 268
+    L 84 258
+    L 88 248
+    L 88 234
+    L 86 214
+    L 84 194
+    L 82 174
+    L 84 158
+    L 82 138
+    L 80 118
+    L 84 102
+    Z"/>
+
+  <!-- LEG side view: thicker thighs, tapering calf -->
+  <path id="leg_R" fill="none" stroke="#777" d="
+    M 130 234
+    L 134 256
+    L 134 278
+    L 130 298
+    L 126 312
+    L 120 328
+    L 114 344
+    L 110 360
+    L 108 374
+    L 108 384
+    L 114 392
+    L 132 398
+    L 132 402
+    L 82 402
+    L 80 398
+    L 86 384
+    L 88 374
+    L 90 360
+    L 94 344
+    L 102 328
+    L 90 312
+    L 82 298
+    L 76 278
+    L 74 256
+    L 76 240
+    Z"/>
+
+  <path id="leg_L" fill="none" stroke="#777" d="
+    M 130 234
+    L 134 256
+    L 134 278
+    L 130 298
+    L 126 312
+    L 120 328
+    L 114 344
+    L 110 360
+    L 108 374
+    L 108 384
+    L 114 392
+    L 132 398
+    L 132 402
+    L 82 402
+    L 80 398
+    L 86 384
+    L 88 374
+    L 90 360
+    L 94 344
+    L 102 328
+    L 90 312
+    L 82 298
+    L 76 278
+    L 74 256
+    L 76 240
+    Z"/>
+</svg>

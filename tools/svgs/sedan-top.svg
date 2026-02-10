@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 900">
+  <!-- Sedan TOP view (looking down). Canvas: 400x900 -->
+  <!-- SVG X = car left-right (world X), SVG Y = car front-back (world Z) -->
+  <!-- Y=0 = front of car, Y=900 = rear of car -->
+  <!-- centerX=200, centerY=450 -->
+
+  <!-- BODY plan-view outline: rounded rectangle, narrower at nose and tail -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 200 30
+    L 260 40
+    L 310 60
+    L 340 90
+    L 360 140
+    L 374 200
+    L 380 300
+    L 382 400
+    L 382 500
+    L 380 600
+    L 374 700
+    L 360 760
+    L 340 810
+    L 310 840
+    L 260 860
+    L 200 870
+    L 140 860
+    L 90 840
+    L 60 810
+    L 40 760
+    L 26 700
+    L 20 600
+    L 18 500
+    L 18 400
+    L 20 300
+    L 26 200
+    L 40 140
+    L 60 90
+    L 90 60
+    L 140 40
+    Z"/>
+</svg>

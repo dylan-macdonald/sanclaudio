@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260">
+  <!-- Sedan SIDE view. Canvas: 900x260, centerX=450, scale=0.005 -->
+  <!-- Car faces RIGHT (+X = front). Y=0=top, Y=260=ground -->
+  <!-- At scale 0.005: 900 units = 4.5m length, 260 units = 1.3m height -->
+
+  <!-- BODY: full side profile of sedan -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 260 38
+    L 320 34
+    L 400 32
+    L 500 32
+    L 580 34
+    L 610 44
+    L 640 70
+    L 660 100
+    L 700 108
+    L 780 112
+    L 830 118
+    L 860 130
+    L 875 150
+    L 882 170
+    L 885 190
+    L 882 210
+    L 870 230
+    L 830 238
+    L 790 242
+    L 740 248
+    L 700 252
+    L 660 248
+    L 620 238
+    L 580 236
+    L 500 236
+    L 420 236
+    L 360 238
+    L 320 248
+    L 280 252
+    L 220 248
+    L 170 242
+    L 120 238
+    L 70 230
+    L 40 210
+    L 30 190
+    L 28 170
+    L 32 150
+    L 44 130
+    L 60 118
+    L 100 112
+    L 160 108
+    L 200 100
+    L 220 70
+    L 240 50
+    Z"/>
+</svg>

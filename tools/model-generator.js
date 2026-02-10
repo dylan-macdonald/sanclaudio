@@ -108,10 +108,10 @@ function buildSkeleton() {
         [0, 0.2, 0],        // Spine (relative to Root)
         [0, 0.2, 0],        // Chest (relative to Spine)
         [0, 0.3, 0],        // Head (relative to Chest)
-        [-0.35, 0, 0],      // L_Shoulder (relative to Chest)
+        [-0.38, 0, 0],      // L_Shoulder (relative to Chest)
         [0, -0.3, 0],       // L_Elbow (relative to L_Shoulder)
         [0, -0.3, 0],       // L_Hand (relative to L_Elbow)
-        [0.35, 0, 0],       // R_Shoulder (relative to Chest)
+        [0.38, 0, 0],       // R_Shoulder (relative to Chest)
         [0, -0.3, 0],       // R_Elbow (relative to R_Shoulder)
         [0, -0.3, 0],       // R_Hand (relative to R_Elbow)
         [-0.12, 0, 0],      // L_Hip (relative to Root)
@@ -146,12 +146,12 @@ const BONE_WORLD_POS = [
     [0, 1.15, 0],       // Spine
     [0, 1.35, 0],       // Chest
     [0, 1.65, 0],       // Head
-    [-0.35, 1.35, 0],   // L_Shoulder
-    [-0.35, 1.05, 0],   // L_Elbow
-    [-0.35, 0.75, 0],   // L_Hand
-    [0.35, 1.35, 0],    // R_Shoulder
-    [0.35, 1.05, 0],    // R_Elbow
-    [0.35, 0.75, 0],    // R_Hand
+    [-0.38, 1.35, 0],   // L_Shoulder
+    [-0.38, 1.05, 0],   // L_Elbow
+    [-0.38, 0.75, 0],   // L_Hand
+    [0.38, 1.35, 0],    // R_Shoulder
+    [0.38, 1.05, 0],    // R_Elbow
+    [0.38, 0.75, 0],    // R_Hand
     [-0.12, 0.95, 0],   // L_Hip
     [-0.12, 0.55, 0],   // L_Knee
     [-0.12, 0.15, 0],   // L_Foot
@@ -162,9 +162,9 @@ const BONE_WORLD_POS = [
 
 // Vertex color constants
 const SKIN = 0xd4a574;
-const SHIRT = 0x4466aa;
-const PANTS = 0x333344;
-const SHOE = 0x222222;
+const SHIRT = 0x3366cc;
+const PANTS = 0x3d3024;
+const SHOE = 0x1a1a1a;
 const HAIR = 0x221100;
 const JACKET = 0x556677;
 const SHORTS = 0x445566;
@@ -225,15 +225,17 @@ function assembleCharacterMesh(parts, morphSets, bones, skeleton) {
             }
         }
 
-        // Vertex colors
-        const colors = new Float32Array(vertCount * 3);
-        const c = new THREE.Color(part.color);
-        for (let v = 0; v < vertCount; v++) {
-            colors[v * 3] = c.r;
-            colors[v * 3 + 1] = c.g;
-            colors[v * 3 + 2] = c.b;
+        // Vertex colors — preserve if already baked (hand-crafted meshes)
+        if (!geo.getAttribute('color')) {
+            const colors = new Float32Array(vertCount * 3);
+            const c = new THREE.Color(part.color);
+            for (let v = 0; v < vertCount; v++) {
+                colors[v * 3] = c.r;
+                colors[v * 3 + 1] = c.g;
+                colors[v * 3 + 2] = c.b;
+            }
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         }
-        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
         mergedGeometries.push(geo);
     }
@@ -400,6 +402,318 @@ function assembleCharacterMesh(parts, morphSets, bones, skeleton) {
     return skinnedMesh;
 }
 
+// ============================================================
+// HAND-CRAFTED HEAD — BufferGeometry with intentional vertices
+// ============================================================
+// Every vertex placed to form human facial anatomy.
+// No primitives (Box/Cylinder/Sphere/Lathe). Pure topology.
+//
+// Structure: 10 vertices per ring, 9 rings neck-to-crown, 1 cap.
+// Ring vertex order (viewed from above, Z = face direction):
+//   0: front-center (nose/chin)
+//   1: front-right inner (inner eye R / nose wing R)
+//   2: front-right outer (outer eye R / cheekbone R)
+//   3: right side (temple R / ear R)
+//   4: right-back
+//   5: back center
+//   6: left-back
+//   7: left side (temple L / ear L)
+//   8: front-left outer (outer eye L / cheekbone L)
+//   9: front-left inner (inner eye L / nose wing L)
+
+function buildHandCraftedHead(isFemale, morphType) {
+    morphType = morphType || 'base';
+    const headY = 1.70; // World Y center of head
+
+    // Gender shape modifiers — females: narrower jaw, softer brow, smaller nose
+    const jw = isFemale ? 0.85 : 1.0;  // jaw width
+    const cw = isFemale ? 0.80 : 1.0;  // chin width
+    const bf = isFemale ? 0.90 : 1.0;  // brow forward
+    const ns = isFemale ? 0.85 : 1.0;  // nose scale
+
+    const VPR = 10; // vertices per ring
+
+    // GTA 3 style: ANGULAR planes, deep eye sockets, strong jaw, big nose.
+    // Key depth values (Z axis, face-forward = positive Z):
+    //   Brow:       0.20  — furthest forward besides nose
+    //   Eye socket: 0.06  — deeply recessed (14cm behind brow!)
+    //   Nose tip:   0.28  — most forward point
+    //   Cheekbone:  0.12  — between eye and brow depth
+    //   Jaw:        0.10  — flat angular planes
+    //   Back head:  -0.16 — back of skull
+    const ringDefs = [
+        // Ring 0: Neck base — small cylinder
+        { y: -0.22, morph: 'neck', v: [
+            [0.00, 0.06],  [0.03, 0.05],  [0.05, 0.02],  [0.06, -0.01],
+            [0.04, -0.05], [0.00, -0.06], [-0.04, -0.05], [-0.06, -0.01],
+            [-0.05, 0.02], [-0.03, 0.05]
+        ]},
+        // Ring 1: Upper neck — starts widening
+        { y: -0.17, morph: 'neck', v: [
+            [0.00, 0.08],  [0.04, 0.07],  [0.08, 0.03],  [0.09, -0.01],
+            [0.06, -0.06], [0.00, -0.08], [-0.06, -0.06], [-0.09, -0.01],
+            [-0.08, 0.03], [-0.04, 0.07]
+        ]},
+        // Ring 2: Chin point — ANGULAR, projects forward
+        { y: -0.12, morph: 'jaw', v: [
+            [0.00, 0.16*cw],  [0.06*cw, 0.12*cw], [0.11, 0.04],  [0.13*jw, -0.02],
+            [0.09, -0.08],    [0.00, -0.12],       [-0.09, -0.08], [-0.13*jw, -0.02],
+            [-0.11, 0.04],    [-0.06*cw, 0.12*cw]
+        ]},
+        // Ring 3: Mouth / Jaw line — WIDE and ANGULAR, flat side planes
+        { y: -0.04, morph: 'jaw', v: [
+            [0.00, 0.16],  [0.07, 0.14],  [0.15*jw, 0.08], [0.18*jw, -0.01],
+            [0.14, -0.09], [0.00, -0.14], [-0.14, -0.09],  [-0.18*jw, -0.01],
+            [-0.15*jw, 0.08], [-0.07, 0.14]
+        ]},
+        // Ring 4: Nose / Upper cheek — NOSE PROJECTS WAY OUT
+        { y: 0.02, morph: 'face', v: [
+            [0.00, 0.28*ns],  [0.05, 0.16*ns],  [0.16, 0.12], [0.19, 0.01],
+            [0.15, -0.09],    [0.00, -0.16],     [-0.15, -0.09], [-0.19, 0.01],
+            [-0.16, 0.12],    [-0.05, 0.16*ns]
+        ]},
+        // Ring 5: Eye level — DEEPLY RECESSED sockets
+        // Eyes (verts 1,2,8,9) at z=0.06 while brow above at z=0.20
+        // That's 14cm of overhang — massive shadow-catching depth
+        { y: 0.07, morph: 'face', v: [
+            [0.00, 0.18],  [0.075, 0.06], [0.14, 0.06],  [0.20, 0.01],
+            [0.17, -0.09], [0.00, -0.16], [-0.17, -0.09], [-0.20, 0.01],
+            [-0.14, 0.06], [-0.075, 0.06]
+        ]},
+        // Ring 6: Brow ridge — PROJECTS FORWARD, overhanging eyes dramatically
+        { y: 0.12, morph: 'face', v: [
+            [0.00, 0.21*bf],  [0.07, 0.20*bf],  [0.14, 0.18*bf], [0.19, 0.03],
+            [0.16, -0.09],    [0.00, -0.15],     [-0.16, -0.09],  [-0.19, 0.03],
+            [-0.14, 0.18*bf], [-0.07, 0.20*bf]
+        ]},
+        // Ring 7: Forehead — wide, flat, angular
+        { y: 0.18, morph: 'skull', v: [
+            [0.00, 0.15],  [0.07, 0.14],  [0.13, 0.10], [0.16, 0.01],
+            [0.14, -0.08], [0.00, -0.14], [-0.14, -0.08], [-0.16, 0.01],
+            [-0.13, 0.10], [-0.07, 0.14]
+        ]},
+        // Ring 8: Crown — narrows to top, slightly back
+        { y: 0.24, morph: 'skull', v: [
+            [0.00, 0.09],  [0.04, 0.08],  [0.08, 0.05], [0.10, 0.00],
+            [0.08, -0.06], [0.00, -0.10], [-0.08, -0.06], [-0.10, 0.00],
+            [-0.08, 0.05], [-0.04, 0.08]
+        ]}
+    ];
+
+    // Apply morph deformation
+    const morphScales = {
+        base:   { neck: 1.0,  jaw: 1.0,  face: 1.0,  skull: 1.0  },
+        fat:    { neck: 1.15, jaw: 1.10, face: 1.06, skull: 1.04 },
+        muscle: { neck: 1.12, jaw: 1.05, face: 1.02, skull: 1.01 }
+    };
+    const ms = morphScales[morphType];
+
+    // Build vertex positions and colors
+    const NR = ringDefs.length;
+    const totalVerts = NR * VPR + 1; // +1 cap
+    const positions = new Float32Array(totalVerts * 3);
+    const colors = new Float32Array(totalVerts * 3);
+
+    const skinC = new THREE.Color(SKIN);
+    const eyeC = new THREE.Color(0x0a0a0a);
+    const mouthC = new THREE.Color(isFemale ? 0xcc5555 : 0x884433);
+
+    let vi = 0;
+    for (let r = 0; r < NR; r++) {
+        const ring = ringDefs[r];
+        const mScale = ms[ring.morph] || 1.0;
+        for (let v = 0; v < VPR; v++) {
+            const [rx, rz] = ring.v[v];
+            positions[vi * 3]     = rx * mScale; // X scaled by morph
+            positions[vi * 3 + 1] = headY + ring.y;
+            positions[vi * 3 + 2] = rz;
+
+            // Per-vertex color
+            let c = skinC;
+            // Eye sockets: ring 5, verts 1,2 (right) and 8,9 (left)
+            // Also darken ring 4 verts 1,9 (under-eye) for deeper socket shadow
+            if (r === 5 && (v === 1 || v === 2 || v === 8 || v === 9)) c = eyeC;
+            if (r === 4 && (v === 1 || v === 9)) c = new THREE.Color(0x1a1208);
+            // Mouth: ring 3, verts 0,1,9 for width (center + corners)
+            if (r === 3 && (v === 0 || v === 1 || v === 9)) c = mouthC;
+
+            colors[vi * 3]     = c.r;
+            colors[vi * 3 + 1] = c.g;
+            colors[vi * 3 + 2] = c.b;
+            vi++;
+        }
+    }
+
+    // Cap vertex (top of head)
+    positions[vi * 3]     = 0;
+    positions[vi * 3 + 1] = headY + 0.28;
+    positions[vi * 3 + 2] = 0;
+    colors[vi * 3]     = skinC.r;
+    colors[vi * 3 + 1] = skinC.g;
+    colors[vi * 3 + 2] = skinC.b;
+    const capIdx = vi;
+
+    // Build triangle indices: ring-to-ring strips + cap fan
+    const indices = [];
+    for (let r = 0; r < NR - 1; r++) {
+        for (let v = 0; v < VPR; v++) {
+            const a = r * VPR + v;
+            const b = r * VPR + (v + 1) % VPR;
+            const c = (r + 1) * VPR + v;
+            const d = (r + 1) * VPR + (v + 1) % VPR;
+            indices.push(a, c, b);
+            indices.push(b, c, d);
+        }
+    }
+    // Cap fan
+    const lastR = (NR - 1) * VPR;
+    for (let v = 0; v < VPR; v++) {
+        indices.push(lastR + v, capIdx, lastR + (v + 1) % VPR);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // Dummy UVs — real UVs assigned after merge in assembleCharacterMesh
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(totalVerts * 2), 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+// Hand-crafted ear — flat shape protruding from head side
+function buildEarGeo(side, headY) {
+    headY = headY || 1.70;
+    const x = side * 0.21;  // At temple width (wider head)
+    const cx = side * 0.05; // How far ear sticks out (bigger ears)
+    const y = headY + 0.06; // Eye level (slightly higher for new head)
+    const z = -0.01;
+
+    // 6 vertices forming a tapered ear shape
+    const positions = new Float32Array([
+        x,      y + 0.05, z + 0.02,   // 0: top inner
+        x + cx, y + 0.04, z + 0.02,   // 1: top outer
+        x + cx, y + 0.01, z + 0.03,   // 2: mid outer (widest)
+        x + cx, y - 0.04, z + 0.01,   // 3: lower outer
+        x,      y - 0.06, z + 0.01,   // 4: bottom inner (lobe)
+        x,      y,        z + 0.02,   // 5: center inner
+    ]);
+
+    // 4 triangles
+    const idx = side > 0
+        ? [0,5,1, 1,5,2, 5,4,2, 2,4,3]
+        : [0,1,5, 1,2,5, 5,2,4, 2,3,4];
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(6 * 2), 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+// Hand-crafted eye highlight — tiny quad inside eye socket
+function buildEyeHighlightGeo(side, headY) {
+    headY = headY || 1.70;
+    const x = side * 0.10;  // Between inner and outer eye verts
+    const y = headY + 0.075; // At eye ring level (ring 5 y=0.07)
+    const z = 0.09;          // Slightly forward of deep socket (0.06), still recessed
+    const s = 0.018;         // Half-size of highlight (bigger for readability)
+
+    const positions = new Float32Array([
+        x - s, y + s, z,  // 0: top-left
+        x + s, y + s, z,  // 1: top-right
+        x + s, y - s, z,  // 2: bottom-right
+        x - s, y - s, z,  // 3: bottom-left
+    ]);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(4 * 2), 2));
+    geo.setIndex([0, 1, 2, 0, 2, 3]);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+// =====================================================================
+// GENERIC RING MESH BUILDER
+// Builds a BufferGeometry from ring definitions — used for ALL body parts.
+// Each ring: { y, v: [[x,z], [x,z], ...] }
+// Options: { capTop: bool, capBottom: bool, morphScale: float }
+// =====================================================================
+function buildRingGeo(ringDefs, opts = {}) {
+    const VPR = ringDefs[0].v.length;
+    const NR = ringDefs.length;
+    const ms = opts.morphScale || 1.0;
+    let capCount = 0;
+    if (opts.capTop) capCount++;
+    if (opts.capBottom) capCount++;
+    const totalVerts = NR * VPR + capCount;
+
+    const positions = new Float32Array(totalVerts * 3);
+    let vi = 0;
+    for (let r = 0; r < NR; r++) {
+        const ring = ringDefs[r];
+        for (let v = 0; v < VPR; v++) {
+            const [rx, rz] = ring.v[v];
+            positions[vi * 3]     = rx * ms;
+            positions[vi * 3 + 1] = ring.y;
+            positions[vi * 3 + 2] = rz * ms;
+            vi++;
+        }
+    }
+
+    const indices = [];
+    // Ring-to-ring strips
+    for (let r = 0; r < NR - 1; r++) {
+        for (let v = 0; v < VPR; v++) {
+            const a = r * VPR + v;
+            const b = r * VPR + (v + 1) % VPR;
+            const c = (r + 1) * VPR + v;
+            const d = (r + 1) * VPR + (v + 1) % VPR;
+            indices.push(a, c, b);
+            indices.push(b, c, d);
+        }
+    }
+
+    // Bottom cap fan
+    if (opts.capBottom) {
+        const capBIdx = vi;
+        const r0 = ringDefs[0];
+        let cx = 0, cz = 0;
+        for (const [rx, rz] of r0.v) { cx += rx; cz += rz; }
+        cx /= VPR; cz /= VPR;
+        positions[vi * 3] = cx * ms; positions[vi * 3 + 1] = r0.y; positions[vi * 3 + 2] = cz * ms;
+        vi++;
+        for (let v = 0; v < VPR; v++) {
+            indices.push(v, capBIdx, (v + 1) % VPR);
+        }
+    }
+
+    // Top cap fan
+    if (opts.capTop) {
+        const capTIdx = vi;
+        const rN = ringDefs[NR - 1];
+        let cx = 0, cz = 0;
+        for (const [rx, rz] of rN.v) { cx += rx; cz += rz; }
+        cx /= VPR; cz /= VPR;
+        positions[vi * 3] = cx * ms; positions[vi * 3 + 1] = rN.y; positions[vi * 3 + 2] = cz * ms;
+        vi++;
+        const lastR = (NR - 1) * VPR;
+        for (let v = 0; v < VPR; v++) {
+            indices.push(lastR + v, capTIdx, lastR + (v + 1) % VPR);
+        }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(totalVerts * 2), 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+
 // Build character body parts for a given gender config
 // gender: 'male' or 'female'
 // Returns { baseParts, fatParts, muscleParts } — arrays of { geo, boneIdx, color }
@@ -415,157 +729,158 @@ function buildCharacterParts(gender = 'male') {
         muscleParts.push({ geo: muscleGeo || geo.clone(), boneIdx, color });
     }
 
-    // Helper: create geo and optionally inflated/sculpted morph variants
-    function addBox(w, h, d, posX, posY, posZ, boneIdx, color, fatScale, muscleScale) {
-        const geo = new THREE.BoxGeometry(w, h, d);
-        geo.translate(posX, posY, posZ);
-        const fGeo = new THREE.BoxGeometry(w * (fatScale || 1), h * (fatScale ? 1.05 : 1), d * (fatScale || 1));
-        fGeo.translate(posX, posY, posZ);
-        const mGeo = new THREE.BoxGeometry(w * (muscleScale || 1), h, d * (muscleScale || 1));
-        mGeo.translate(posX, posY, posZ);
-        addPart(geo, boneIdx, color, fGeo, mGeo);
+    // Add a ring-mesh body part with base/fat/muscle morph variants
+    function addRingPart(ringDefs, boneIdx, color, opts, fatMS, muscleMS) {
+        const base = buildRingGeo(ringDefs, opts);
+        const fat = buildRingGeo(ringDefs, { ...opts, morphScale: fatMS || 1.0 });
+        const muscle = buildRingGeo(ringDefs, { ...opts, morphScale: muscleMS || 1.0 });
+        addPart(base, boneIdx, color, fat, muscle);
     }
 
-    function addCylinder(rt, rb, h, posX, posY, posZ, boneIdx, color, segments, fatMult, muscleMult) {
-        segments = segments || 8;
-        const geo = new THREE.CylinderGeometry(rt, rb, h, segments);
-        geo.translate(posX, posY, posZ);
-        const fm = fatMult || 1;
-        const mm = muscleMult || 1;
-        const fGeo = new THREE.CylinderGeometry(rt * fm, rb * fm, h * 1.02, segments);
-        fGeo.translate(posX, posY, posZ);
-        const mGeo = new THREE.CylinderGeometry(rt * mm, rb * mm, h, segments);
-        mGeo.translate(posX, posY, posZ);
-        addPart(geo, boneIdx, color, fGeo, mGeo);
-    }
-
-    // Proportions differ by gender
-    const shoulderW = isFemale ? 0.30 : 0.35;
-    const hipW = isFemale ? 0.25 : 0.22;
-    const chestR = isFemale ? 0.24 : 0.28;
-    const waistR = isFemale ? 0.20 : 0.22;
-    const hipBoxW = isFemale ? 0.44 : 0.42;
-    const armX = isFemale ? 0.32 : 0.36;
+    // Gender proportions
+    const sw = isFemale ? 0.85 : 1.0;   // shoulder width
+    const hw = isFemale ? 1.12 : 1.0;   // hip width (females wider)
+    const cd = isFemale ? 0.92 : 1.0;   // chest depth
+    const armX = isFemale ? 0.32 : 0.39;
 
     // ===== HEAD =====
-    // Lathe-revolved skull shape: chin → jaw → cheek → temple → crown
+    // Hand-crafted BufferGeometry — every vertex intentionally placed.
     {
-        const headProfile = isFemale
-            ? [[0, -0.17], [0.14, -0.14], [0.16, -0.06], [0.17, 0.02], [0.16, 0.10], [0.14, 0.15], [0.08, 0.18], [0, 0.19]]
-            : [[0, -0.18], [0.15, -0.15], [0.17, -0.06], [0.18, 0.02], [0.17, 0.10], [0.15, 0.15], [0.09, 0.19], [0, 0.20]];
-        const headGeo = createLatheSection(headProfile, 1.70, 10);
-        const fHeadGeo = createLatheSection(headProfile.map(p => [p[0] * 1.08, p[1]]), 1.70, 10);
-        const mHeadGeo = createLatheSection(headProfile.map(p => [p[0] * 1.02, p[1]]), 1.70, 10);
+        const headGeo = buildHandCraftedHead(isFemale, 'base');
+        const fHeadGeo = buildHandCraftedHead(isFemale, 'fat');
+        const mHeadGeo = buildHandCraftedHead(isFemale, 'muscle');
         addPart(headGeo, 3, SKIN, fHeadGeo, mHeadGeo);
-
-        // Brow ridge
-        const browGeo = new THREE.BoxGeometry(isFemale ? 0.30 : 0.34, isFemale ? 0.035 : 0.05, 0.10);
-        browGeo.translate(0, 1.82, 0.13);
-        addPart(browGeo, 3, SKIN);
-
-        // Nose — wedge pointing forward
-        const noseGeo = new THREE.CylinderGeometry(0, isFemale ? 0.03 : 0.04, isFemale ? 0.08 : 0.10, 4);
-        noseGeo.rotateX(-Math.PI / 2);
-        noseGeo.translate(0, 1.68, isFemale ? 0.18 : 0.20);
-        addPart(noseGeo, 3, SKIN);
-
-        // Jaw/chin — angular box, wider for male
-        const chinGeo = new THREE.BoxGeometry(isFemale ? 0.10 : 0.14, 0.06, 0.08);
-        chinGeo.translate(0, 1.52, 0.08);
-        addPart(chinGeo, 3, SKIN);
-
-        // Eyes — dark inset boxes with white highlight dot
         for (const side of [-1, 1]) {
-            // Dark eye socket
-            const eyeGeo = new THREE.BoxGeometry(0.065, 0.04, 0.035);
-            eyeGeo.translate(side * 0.07, 1.73, 0.16);
-            addPart(eyeGeo, 3, 0x111111);
-            // White eye highlight
-            const hlGeo = new THREE.BoxGeometry(0.02, 0.02, 0.01);
-            hlGeo.translate(side * 0.06, 1.735, 0.185);
-            addPart(hlGeo, 3, 0xeeeeee);
+            addPart(buildEyeHighlightGeo(side), 3, 0xffffff);
+            addPart(buildEarGeo(side), 3, SKIN);
         }
-
-        // Ears — small extruded shapes
-        for (const side of [-1, 1]) {
-            const earGeo = new THREE.BoxGeometry(0.04, 0.09, 0.06);
-            earGeo.translate(side * 0.19, 1.70, -0.01);
-            addPart(earGeo, 3, SKIN);
-        }
-
-        // Mouth line
-        const mouthGeo = new THREE.BoxGeometry(isFemale ? 0.08 : 0.10, 0.012, 0.01);
-        mouthGeo.translate(0, 1.58, 0.16);
-        addPart(mouthGeo, 3, isFemale ? 0xcc6666 : 0x995544);
     }
 
     // ===== HAIR =====
+    // Hand-crafted ring meshes — angular volumes, not primitive shapes
     {
         if (isFemale) {
-            // Longer hair — main volume with back drape
-            const hairMainGeo = new THREE.CylinderGeometry(0.18, 0.16, 0.10, 10);
-            hairMainGeo.translate(0, 1.91, -0.01);
-            addPart(hairMainGeo, 3, HAIR);
-            // Side volume
-            for (const side of [-1, 1]) {
-                const sideGeo = new THREE.BoxGeometry(0.08, 0.22, 0.14);
-                sideGeo.translate(side * 0.16, 1.74, -0.04);
-                addPart(sideGeo, 3, HAIR);
+            // Main cap
+            addRingPart([
+                { y: 1.88, v: [[0,0.13],[0.09,0.09],[0.14,0],[0.09,-0.09],[0,-0.13],[-0.09,-0.09],[-0.14,0],[-0.09,0.09]] },
+                { y: 1.94, v: [[0,0.14],[0.10,0.10],[0.16,0],[0.10,-0.10],[0,-0.14],[-0.10,-0.10],[-0.16,0],[-0.10,0.10]] },
+                { y: 1.98, v: [[0,0.11],[0.08,0.08],[0.12,0],[0.08,-0.08],[0,-0.12],[-0.08,-0.08],[-0.12,0],[-0.08,0.08]] },
+            ], 3, HAIR, { capTop: true });
+            // Side drape left+right
+            for (const s of [-1, 1]) {
+                addRingPart([
+                    { y: 1.90, v: [[s*0.14,0.04],[s*0.18,0.02],[s*0.20,0],[s*0.18,-0.04],[s*0.14,-0.06],[s*0.10,-0.04],[s*0.10,0],[s*0.10,0.02]] },
+                    { y: 1.76, v: [[s*0.13,0.05],[s*0.18,0.03],[s*0.22,0],[s*0.18,-0.05],[s*0.13,-0.08],[s*0.08,-0.05],[s*0.08,0],[s*0.08,0.03]] },
+                    { y: 1.60, v: [[s*0.10,0.04],[s*0.14,0.02],[s*0.17,0],[s*0.14,-0.04],[s*0.10,-0.06],[s*0.07,-0.04],[s*0.07,0],[s*0.07,0.02]] },
+                ], 3, HAIR, { capBottom: true });
             }
             // Back drape
-            const backGeo = new THREE.BoxGeometry(0.28, 0.28, 0.08);
-            backGeo.translate(0, 1.74, -0.14);
-            addPart(backGeo, 3, HAIR);
+            addRingPart([
+                { y: 1.90, v: [[0,-0.10],[0.12,-0.12],[0.16,-0.14],[0.12,-0.16],[0,-0.17],[-0.12,-0.16],[-0.16,-0.14],[-0.12,-0.12]] },
+                { y: 1.72, v: [[0,-0.10],[0.14,-0.12],[0.18,-0.16],[0.14,-0.20],[0,-0.22],[-0.14,-0.20],[-0.18,-0.16],[-0.14,-0.12]] },
+                { y: 1.56, v: [[0,-0.08],[0.10,-0.10],[0.14,-0.13],[0.10,-0.16],[0,-0.18],[-0.10,-0.16],[-0.14,-0.13],[-0.10,-0.10]] },
+            ], 3, HAIR, { capBottom: true });
         } else {
-            // Short cropped — angular chunks
-            const hairMainGeo = new THREE.CylinderGeometry(0.19, 0.17, 0.08, 10);
-            hairMainGeo.translate(0, 1.91, -0.01);
-            addPart(hairMainGeo, 3, HAIR);
-            // Top tuft
-            const tuftGeo = new THREE.BoxGeometry(0.22, 0.05, 0.18);
-            tuftGeo.rotateZ(0.08);
-            tuftGeo.translate(0.02, 1.96, 0);
-            addPart(tuftGeo, 3, HAIR);
-            // Back
-            const backHairGeo = new THREE.BoxGeometry(0.28, 0.10, 0.08);
-            backHairGeo.translate(0, 1.85, -0.13);
-            addPart(backHairGeo, 3, HAIR);
+            // Male: short angular hair cap with slight texture
+            addRingPart([
+                { y: 1.88, v: [[0,0.12],[0.09,0.09],[0.15,0],[0.09,-0.10],[0,-0.14],[-0.09,-0.10],[-0.15,0],[-0.09,0.09]] },
+                { y: 1.95, v: [[0,0.14],[0.10,0.10],[0.17,0],[0.10,-0.11],[0,-0.15],[-0.10,-0.11],[-0.17,0],[-0.10,0.10]] },
+                { y: 1.99, v: [[0,0.10],[0.07,0.07],[0.12,0],[0.07,-0.08],[0,-0.11],[-0.07,-0.08],[-0.12,0],[-0.07,0.07]] },
+            ], 3, HAIR, { capTop: true });
+            // Back volume
+            addRingPart([
+                { y: 1.92, v: [[0,-0.10],[0.12,-0.11],[0.16,-0.14],[0.12,-0.16],[0,-0.18],[-0.12,-0.16],[-0.16,-0.14],[-0.12,-0.11]] },
+                { y: 1.82, v: [[0,-0.08],[0.10,-0.10],[0.14,-0.13],[0.10,-0.14],[0,-0.16],[-0.10,-0.14],[-0.14,-0.13],[-0.10,-0.10]] },
+            ], 3, HAIR, {});
         }
     }
 
     // ===== NECK =====
-    addCylinder(0.07, 0.09, 0.12, 0, 1.56, 0, 2, SKIN, 8, 1.15, 1.1);
+    // 6-vert rings, slight taper — NOT a cylinder
+    addRingPart([
+        { y: 1.50, v: [[0,0.07],[0.06,0.04],[0.07,0],[0.06,-0.05],[0,-0.07],[-0.06,-0.05],[-0.07,0],[-0.06,0.04]] },
+        { y: 1.56, v: [[0,0.06],[0.05,0.03],[0.06,0],[0.05,-0.04],[0,-0.06],[-0.05,-0.04],[-0.06,0],[-0.05,0.03]] },
+        { y: 1.62, v: [[0,0.06],[0.05,0.03],[0.06,0],[0.05,-0.04],[0,-0.06],[-0.05,-0.04],[-0.06,0],[-0.05,0.03]] },
+    ], 2, SKIN, {}, 1.15, 1.10);
 
-    // ===== TORSO =====
-    // Chest — broad shoulders, tapers to waist
-    addCylinder(chestR, waistR, 0.32, 0, 1.35, 0, 2, SHIRT, 10, 1.25, 1.15);
-
-    // Shoulder caps — rounded for better silhouette
-    for (const side of [-1, 1]) {
-        const capGeo = new THREE.SphereGeometry(isFemale ? 0.065 : 0.08, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2);
-        capGeo.rotateZ(side > 0 ? -Math.PI / 2 : Math.PI / 2);
-        capGeo.translate(side * shoulderW, 1.42, 0);
-        const fCapGeo = capGeo.clone();
-        const mCapGeo = new THREE.SphereGeometry(isFemale ? 0.07 : 0.095, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2);
-        mCapGeo.rotateZ(side > 0 ? -Math.PI / 2 : Math.PI / 2);
-        mCapGeo.translate(side * shoulderW, 1.42, 0);
-        addPart(capGeo, side < 0 ? 4 : 7, SHIRT, fCapGeo, mCapGeo);
+    // ===== TORSO (Chest) — bone 2 =====
+    // Wide angular shoulders, V-taper to waist, chest projects forward
+    // 8 verts/ring: FC(0), FR(1), R(2), BR(3), BC(4), BL(5), L(6), FL(7)
+    {
+        const chestRings = [
+            // Bottom: waist — narrow
+            { y: 1.19, v: [
+                [0, 0.13*cd],  [0.12*sw, 0.11*cd],  [0.18*sw, 0],  [0.14*sw, -0.10],
+                [0, -0.12],    [-0.14*sw, -0.10],    [-0.18*sw, 0], [-0.12*sw, 0.11*cd]
+            ]},
+            // Lower chest
+            { y: 1.28, v: [
+                [0, 0.16*cd],  [0.16*sw, 0.13*cd],  [0.24*sw, 0],  [0.18*sw, -0.12],
+                [0, -0.14],    [-0.18*sw, -0.12],    [-0.24*sw, 0], [-0.16*sw, 0.13*cd]
+            ]},
+            // Mid chest — widest, chest forward
+            { y: 1.35, v: [
+                [0, 0.18*cd],  [0.20*sw, 0.15*cd],  [0.28*sw, 0.02],  [0.20*sw, -0.12],
+                [0, -0.15],    [-0.20*sw, -0.12],    [-0.28*sw, 0.02], [-0.20*sw, 0.15*cd]
+            ]},
+            // Upper chest
+            { y: 1.42, v: [
+                [0, 0.15*cd],  [0.22*sw, 0.12*cd],  [0.32*sw, 0.01],  [0.22*sw, -0.10],
+                [0, -0.13],    [-0.22*sw, -0.10],    [-0.32*sw, 0.01], [-0.22*sw, 0.12*cd]
+            ]},
+            // Shoulder line — widest point
+            { y: 1.48, v: [
+                [0, 0.12*cd],  [0.20*sw, 0.10*cd],  [0.34*sw, 0.00],  [0.22*sw, -0.08],
+                [0, -0.11],    [-0.22*sw, -0.08],    [-0.34*sw, 0.00], [-0.20*sw, 0.10*cd]
+            ]},
+        ];
+        addRingPart(chestRings, 2, SHIRT, { capTop: true }, 1.22, 1.15);
     }
 
-    // Abdomen/waist
-    addCylinder(waistR, hipW * 0.9, 0.18, 0, 1.10, 0, 1, SHIRT, 10, 1.35, 1.0);
-
-    // Hips
-    addBox(hipBoxW, 0.14, 0.24, 0, 0.95, 0, 0, SHIRT, 1.2, 1.0);
-
-    // Female chest detail
+    // Female chest detail — small rounded bumps
     if (isFemale) {
         for (const side of [-1, 1]) {
-            const bustGeo = new THREE.SphereGeometry(0.06, 6, 4);
-            bustGeo.translate(side * 0.08, 1.32, 0.12);
-            addPart(bustGeo, 2, SHIRT);
+            addRingPart([
+                { y: 1.30, v: [[side*0.06,0.12],[side*0.09,0.10],[side*0.10,0.08],[side*0.09,0.06],[side*0.06,0.05],[side*0.03,0.06],[side*0.02,0.08],[side*0.03,0.10]] },
+                { y: 1.33, v: [[side*0.06,0.15],[side*0.10,0.13],[side*0.11,0.10],[side*0.10,0.07],[side*0.06,0.06],[side*0.02,0.07],[side*0.01,0.10],[side*0.02,0.13]] },
+                { y: 1.36, v: [[side*0.06,0.12],[side*0.09,0.10],[side*0.10,0.08],[side*0.09,0.06],[side*0.06,0.05],[side*0.03,0.06],[side*0.02,0.08],[side*0.03,0.10]] },
+            ], 2, SHIRT, {});
         }
     }
+
+    // ===== ABDOMEN — bone 1 =====
+    // Connects waist to hips, slight taper
+    addRingPart([
+        { y: 1.02, v: [
+            [0, 0.12*hw],  [0.10*hw, 0.10*hw],  [0.17*hw, 0],  [0.12*hw, -0.09],
+            [0, -0.11],    [-0.12*hw, -0.09],    [-0.17*hw, 0], [-0.10*hw, 0.10*hw]
+        ]},
+        { y: 1.10, v: [
+            [0, 0.13],  [0.11, 0.11],  [0.18, 0],  [0.13, -0.10],
+            [0, -0.12], [-0.13, -0.10], [-0.18, 0], [-0.11, 0.11]
+        ]},
+        { y: 1.19, v: [
+            [0, 0.13*cd],  [0.12*sw, 0.11*cd],  [0.18*sw, 0],  [0.14*sw, -0.10],
+            [0, -0.12],    [-0.14*sw, -0.10],    [-0.18*sw, 0], [-0.12*sw, 0.11*cd]
+        ]},
+    ], 1, SHIRT, {}, 1.30, 1.0);
+
+    // ===== HIPS — bone 0 =====
+    // Wide angular box shape
+    addRingPart([
+        { y: 0.88, v: [
+            [0, 0.10*hw],  [0.13*hw, 0.08*hw],  [0.20*hw, 0],  [0.14*hw, -0.08],
+            [0, -0.10],    [-0.14*hw, -0.08],    [-0.20*hw, 0], [-0.13*hw, 0.08*hw]
+        ]},
+        { y: 0.95, v: [
+            [0, 0.12*hw],  [0.14*hw, 0.10*hw],  [0.22*hw, 0],  [0.15*hw, -0.09],
+            [0, -0.11],    [-0.15*hw, -0.09],    [-0.22*hw, 0], [-0.14*hw, 0.10*hw]
+        ]},
+        { y: 1.02, v: [
+            [0, 0.12*hw],  [0.10*hw, 0.10*hw],  [0.17*hw, 0],  [0.12*hw, -0.09],
+            [0, -0.11],    [-0.12*hw, -0.09],    [-0.17*hw, 0], [-0.10*hw, 0.10*hw]
+        ]},
+    ], 0, PANTS, { capBottom: true }, 1.20, 1.0);
 
     // ===== ARMS =====
     for (const side of [-1, 1]) {
@@ -573,34 +888,88 @@ function buildCharacterParts(gender = 'male') {
         const eIdx = side < 0 ? 5 : 8; // elbow bone
         const hIdx = side < 0 ? 6 : 9; // hand bone
         const x = side * armX;
+        const s = side;
 
-        // Upper arm — tapered, shirt color
-        const uaRT = isFemale ? 0.06 : 0.07;
-        const uaRB = isFemale ? 0.048 : 0.055;
-        addCylinder(uaRT, uaRB, 0.28, x, 1.25, 0, sIdx, SHIRT, 8, 1.2, 1.25);
+        // Shoulder cap — angular rounded shape
+        addRingPart([
+            { y: 1.42, v: [
+                [x, 0.06],[x+s*0.04, 0.05],[x+s*0.07, 0],[x+s*0.04, -0.05],
+                [x, -0.06],[x-s*0.04, -0.05],[x-s*0.07, 0],[x-s*0.04, 0.05]
+            ]},
+            { y: 1.47, v: [
+                [x, 0.07],[x+s*0.05, 0.05],[x+s*0.08, 0],[x+s*0.05, -0.06],
+                [x, -0.07],[x-s*0.04, -0.06],[x-s*0.06, 0],[x-s*0.04, 0.05]
+            ]},
+        ], sIdx, SHIRT, { capTop: true }, 1.0, 1.18);
 
-        // Forearm — skin color
-        const faRT = isFemale ? 0.048 : 0.055;
-        const faRB = isFemale ? 0.035 : 0.04;
-        addCylinder(faRT, faRB, 0.26, x, 0.97, 0, eIdx, SKIN, 8, 1.1, 1.15);
+        // Upper arm — tapered from shoulder to elbow, angular cross-section
+        {
+            const rt = isFemale ? 0.065 : 0.075; // top radius
+            const rb = isFemale ? 0.050 : 0.060;  // bottom radius
+            addRingPart([
+                { y: 1.11, v: [
+                    [x, rb*1.1],[x+s*rb*0.7, rb*0.7],[x+s*rb, 0],[x+s*rb*0.7, -rb*0.8],
+                    [x, -rb],[x-s*rb*0.7, -rb*0.8],[x-s*rb, 0],[x-s*rb*0.7, rb*0.7]
+                ]},
+                { y: 1.20, v: [
+                    [x, rb*1.2],[x+s*rb*0.8, rb*0.8],[x+s*rb*1.05, 0],[x+s*rb*0.8, -rb*0.9],
+                    [x, -rb*1.1],[x-s*rb*0.8, -rb*0.9],[x-s*rb*1.05, 0],[x-s*rb*0.8, rb*0.8]
+                ]},
+                { y: 1.30, v: [
+                    [x, rt*1.2],[x+s*rt*0.8, rt*0.8],[x+s*rt*1.1, 0],[x+s*rt*0.8, -rt*0.9],
+                    [x, -rt*1.1],[x-s*rt*0.8, -rt*0.9],[x-s*rt*1.1, 0],[x-s*rt*0.8, rt*0.8]
+                ]},
+                { y: 1.39, v: [
+                    [x, rt*1.1],[x+s*rt*0.7, rt*0.7],[x+s*rt, 0],[x+s*rt*0.7, -rt*0.8],
+                    [x, -rt*0.9],[x-s*rt*0.7, -rt*0.8],[x-s*rt, 0],[x-s*rt*0.7, rt*0.7]
+                ]},
+            ], sIdx, SHIRT, {}, 1.18, 1.22);
+        }
 
-        // Hand — mitten with finger groove (GTA 3 style), 15% oversized
-        const handW = 0.09;
-        const handH = 0.12;
-        const handD = 0.07;
-        const handGeo = new THREE.BoxGeometry(handW, handH, handD);
-        handGeo.translate(x, 0.79, 0);
-        addPart(handGeo, hIdx, SKIN);
+        // Forearm — skin color, elbow wider than wrist
+        {
+            const ft = isFemale ? 0.052 : 0.062; // top (elbow)
+            const fb = isFemale ? 0.040 : 0.048;  // bottom (wrist)
+            addRingPart([
+                { y: 0.84, v: [
+                    [x, fb*1.1],[x+s*fb*0.7, fb*0.7],[x+s*fb, 0],[x+s*fb*0.7, -fb*0.8],
+                    [x, -fb],[x-s*fb*0.7, -fb*0.8],[x-s*fb, 0],[x-s*fb*0.7, fb*0.7]
+                ]},
+                { y: 0.92, v: [
+                    [x, fb*1.15],[x+s*fb*0.75, fb*0.8],[x+s*fb*1.05, 0],[x+s*fb*0.75, -fb*0.85],
+                    [x, -fb*1.05],[x-s*fb*0.75, -fb*0.85],[x-s*fb*1.05, 0],[x-s*fb*0.75, fb*0.8]
+                ]},
+                { y: 1.02, v: [
+                    [x, ft*1.2],[x+s*ft*0.8, ft*0.8],[x+s*ft*1.1, 0],[x+s*ft*0.8, -ft*0.9],
+                    [x, -ft*1.1],[x-s*ft*0.8, -ft*0.9],[x-s*ft*1.1, 0],[x-s*ft*0.8, ft*0.8]
+                ]},
+                { y: 1.11, v: [
+                    [x, ft*1.15],[x+s*ft*0.75, ft*0.75],[x+s*ft*1.05, 0],[x+s*ft*0.75, -ft*0.85],
+                    [x, -ft*1.05],[x-s*ft*0.75, -ft*0.85],[x-s*ft*1.05, 0],[x-s*ft*0.75, ft*0.75]
+                ]},
+            ], eIdx, SKIN, {}, 1.10, 1.15);
+        }
 
-        // Finger groove — thin dark line down middle of hand
-        const grooveGeo = new THREE.BoxGeometry(0.005, handH * 0.7, handD * 0.3);
-        grooveGeo.translate(x, 0.77, handD * 0.15);
-        addPart(grooveGeo, hIdx, 0xbb8866);
-
-        // Thumb nub
-        const thumbGeo = new THREE.BoxGeometry(0.035, 0.04, 0.04);
-        thumbGeo.translate(x + side * 0.055, 0.81, 0.02);
-        addPart(thumbGeo, hIdx, SKIN);
+        // Hand — angular mitten shape, not a box
+        {
+            const hx = x;
+            const hw2 = 0.045; // half-width
+            const hd = 0.035;  // half-depth
+            addRingPart([
+                { y: 0.73, v: [
+                    [hx, hd*1.2],[hx+s*hw2*0.8, hd*0.8],[hx+s*hw2, 0],[hx+s*hw2*0.8, -hd*0.8],
+                    [hx, -hd],[hx-s*hw2*0.8, -hd*0.8],[hx-s*hw2, 0],[hx-s*hw2*0.8, hd*0.8]
+                ]},
+                { y: 0.77, v: [
+                    [hx, hd*1.3],[hx+s*hw2, hd*0.9],[hx+s*hw2*1.1, 0],[hx+s*hw2, -hd*0.9],
+                    [hx, -hd*1.1],[hx-s*hw2, -hd*0.9],[hx-s*hw2*1.1, 0],[hx-s*hw2, hd*0.9]
+                ]},
+                { y: 0.82, v: [
+                    [hx, hd*1.2],[hx+s*hw2*0.9, hd*0.8],[hx+s*hw2*1.05, 0],[hx+s*hw2*0.9, -hd*0.8],
+                    [hx, -hd*1.0],[hx-s*hw2*0.9, -hd*0.8],[hx-s*hw2*1.05, 0],[hx-s*hw2*0.9, hd*0.8]
+                ]},
+            ], hIdx, SKIN, { capBottom: true, capTop: true });
+        }
     }
 
     // ===== LEGS =====
@@ -610,32 +979,92 @@ function buildCharacterParts(gender = 'male') {
         const footIdx = side < 0 ? 12 : 15;
         const lx = side * 0.12;
 
-        // Thigh — wider at hip
-        const thRT = isFemale ? 0.085 : 0.08;
-        const thRB = isFemale ? 0.07 : 0.065;
-        addCylinder(thRT, thRB, 0.36, lx, 0.59, 0, hipIdx, PANTS, 8, 1.25, 1.1);
+        // Thigh — wider at hip, angular cross-section, tapers to knee
+        {
+            const tt = isFemale ? 0.090 : 0.085; // top radius
+            const tb = isFemale ? 0.075 : 0.070;  // bottom radius
+            addRingPart([
+                { y: 0.41, v: [
+                    [lx, tb*1.1],[lx+tb*0.8, tb*0.7],[lx+tb, 0],[lx+tb*0.8, -tb*0.8],
+                    [lx, -tb*1.0],[lx-tb*0.8, -tb*0.8],[lx-tb, 0],[lx-tb*0.8, tb*0.7]
+                ]},
+                { y: 0.52, v: [
+                    [lx, tb*1.15],[lx+tb*0.85, tb*0.8],[lx+tb*1.05, 0],[lx+tb*0.85, -tb*0.9],
+                    [lx, -tb*1.1],[lx-tb*0.85, -tb*0.9],[lx-tb*1.05, 0],[lx-tb*0.85, tb*0.8]
+                ]},
+                { y: 0.63, v: [
+                    [lx, tt*1.2],[lx+tt*0.85, tt*0.85],[lx+tt*1.1, 0],[lx+tt*0.85, -tt*0.9],
+                    [lx, -tt*1.1],[lx-tt*0.85, -tt*0.9],[lx-tt*1.1, 0],[lx-tt*0.85, tt*0.85]
+                ]},
+                { y: 0.77, v: [
+                    [lx, tt*1.15],[lx+tt*0.8, tt*0.8],[lx+tt*1.05, 0],[lx+tt*0.8, -tt*0.85],
+                    [lx, -tt*1.05],[lx-tt*0.8, -tt*0.85],[lx-tt*1.05, 0],[lx-tt*0.8, tt*0.8]
+                ]},
+            ], hipIdx, PANTS, {}, 1.22, 1.10);
+        }
 
-        // Shin — slight calf bulge (wider near knee, tapers to ankle)
-        const shRT = isFemale ? 0.065 : 0.065;
-        const shRB = isFemale ? 0.045 : 0.05;
-        addCylinder(shRT, shRB, 0.34, lx, 0.25, 0, kneeIdx, PANTS, 8, 1.15, 1.05);
+        // Shin — calf wider near knee, tapers to ankle
+        {
+            const st = isFemale ? 0.068 : 0.072; // top (knee)
+            const sb = isFemale ? 0.050 : 0.055;  // bottom (ankle)
+            addRingPart([
+                { y: 0.08, v: [
+                    [lx, sb*1.1],[lx+sb*0.7, sb*0.7],[lx+sb, 0],[lx+sb*0.7, -sb*0.8],
+                    [lx, -sb],[lx-sb*0.7, -sb*0.8],[lx-sb, 0],[lx-sb*0.7, sb*0.7]
+                ]},
+                { y: 0.18, v: [
+                    [lx, sb*1.2],[lx+sb*0.8, sb*0.85],[lx+sb*1.05, 0],[lx+sb*0.8, -sb*0.9],
+                    [lx, -sb*1.1],[lx-sb*0.8, -sb*0.9],[lx-sb*1.05, 0],[lx-sb*0.8, sb*0.85]
+                ]},
+                { y: 0.28, v: [
+                    [lx, st*1.2],[lx+st*0.85, st*0.85],[lx+st*1.1, 0.01],[lx+st*0.85, -st*0.9],
+                    [lx, -st*1.1],[lx-st*0.85, -st*0.9],[lx-st*1.1, 0.01],[lx-st*0.85, st*0.85]
+                ]},
+                { y: 0.41, v: [
+                    [lx, st*1.15],[lx+st*0.8, st*0.8],[lx+st*1.0, 0],[lx+st*0.8, -st*0.85],
+                    [lx, -st*1.05],[lx-st*0.8, -st*0.85],[lx-st*1.0, 0],[lx-st*0.8, st*0.8]
+                ]},
+            ], kneeIdx, PANTS, {}, 1.12, 1.05);
+        }
 
-        // Foot — angled shoe with sole thickness, slightly oversized
-        const footGeo = new THREE.BoxGeometry(0.13, 0.08, 0.25);
-        footGeo.translate(lx, 0.04, 0.04);
-        const fFootGeo = new THREE.BoxGeometry(0.15, 0.09, 0.27);
-        fFootGeo.translate(lx, 0.04, 0.04);
-        addPart(footGeo, footIdx, SHOE, fFootGeo, footGeo.clone());
+        // Foot — angular shoe shape, not a box
+        {
+            const fw = 0.07;  // half-width
+            addRingPart([
+                // Heel
+                { y: 0.01, v: [
+                    [lx, -0.04],[lx+fw*0.8, -0.035],[lx+fw, 0],[lx+fw*0.8, 0.035],
+                    [lx, 0.04],[lx-fw*0.8, 0.035],[lx-fw, 0],[lx-fw*0.8, -0.035]
+                ]},
+                // Mid foot — widest, highest
+                { y: 0.06, v: [
+                    [lx, -0.05],[lx+fw*0.9, -0.04],[lx+fw, 0],[lx+fw*0.9, 0.05],
+                    [lx, 0.06],[lx-fw*0.9, 0.05],[lx-fw, 0],[lx-fw*0.9, -0.04]
+                ]},
+                // Ball of foot
+                { y: 0.05, v: [
+                    [lx, -0.02],[lx+fw*0.8, -0.01],[lx+fw*0.85, 0.02],[lx+fw*0.7, 0.10],
+                    [lx, 0.12],[lx-fw*0.7, 0.10],[lx-fw*0.85, 0.02],[lx-fw*0.8, -0.01]
+                ]},
+                // Toe tip
+                { y: 0.03, v: [
+                    [lx, 0.05],[lx+fw*0.6, 0.06],[lx+fw*0.7, 0.10],[lx+fw*0.5, 0.16],
+                    [lx, 0.18],[lx-fw*0.5, 0.16],[lx-fw*0.7, 0.10],[lx-fw*0.6, 0.06]
+                ]},
+            ], footIdx, SHOE, { capBottom: true, capTop: true });
 
-        // Toe cap
-        const toeGeo = new THREE.BoxGeometry(0.11, 0.05, 0.06);
-        toeGeo.translate(lx, 0.035, 0.19);
-        addPart(toeGeo, footIdx, SHOE);
-
-        // Sole — thin dark strip under foot
-        const soleGeo = new THREE.BoxGeometry(0.13, 0.02, 0.26);
-        soleGeo.translate(lx, -0.01, 0.04);
-        addPart(soleGeo, footIdx, 0x111111);
+            // Sole — thin dark strip
+            addRingPart([
+                { y: -0.01, v: [
+                    [lx, -0.04],[lx+fw*0.9, -0.03],[lx+fw, 0],[lx+fw*0.8, 0.10],
+                    [lx, 0.16],[lx-fw*0.8, 0.10],[lx-fw, 0],[lx-fw*0.9, -0.03]
+                ]},
+                { y: 0.01, v: [
+                    [lx, -0.04],[lx+fw*0.9, -0.03],[lx+fw, 0],[lx+fw*0.8, 0.10],
+                    [lx, 0.16],[lx-fw*0.8, 0.10],[lx-fw, 0],[lx-fw*0.9, -0.03]
+                ]},
+            ], footIdx, 0x111111, {});
+        }
     }
 
     return { baseParts: parts, fatParts, muscleParts };

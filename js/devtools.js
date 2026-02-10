@@ -1025,6 +1025,43 @@ export class DevTools {
                 break;
             }
 
+            case 'terrain': {
+                const sub = args[0];
+                const world = this.game.systems.world;
+                if (sub === 'off') {
+                    if (world.groundMesh) {
+                        world.groundMesh.material.vertexColors = false;
+                        world.groundMesh.material.color.setHex(0x4a4a48);
+                        world.groundMesh.material.needsUpdate = true;
+                        this.log('Terrain vertex colors: OFF', '#ff0');
+                    }
+                } else if (sub === 'on') {
+                    if (world.groundMesh) {
+                        world.groundMesh.material.vertexColors = true;
+                        world.groundMesh.material.color.setHex(0xffffff);
+                        world.groundMesh.material.needsUpdate = true;
+                        this.log('Terrain vertex colors: ON', '#0f0');
+                    }
+                } else if (sub === 'pavement') {
+                    if (world.pavementMesh) {
+                        world.pavementMesh.visible = !world.pavementMesh.visible;
+                        this.log(`Pavement layer: ${world.pavementMesh.visible ? 'ON' : 'OFF'}`, '#ff0');
+                    } else {
+                        this.log('Pavement mesh not found', '#f44');
+                    }
+                } else {
+                    // Show terrain stats
+                    const pos = this.game.systems.player.position;
+                    const h = world.getTerrainHeight(pos.x, pos.z);
+                    const vc = world.groundMesh && world.groundMesh.material.vertexColors;
+                    const pav = world.pavementMesh ? world.pavementMesh.visible : false;
+                    this.log(`Terrain at (${pos.x.toFixed(0)}, ${pos.z.toFixed(0)}): height=${h.toFixed(1)}`, '#0ff');
+                    this.log(`Vertex colors: ${vc ? 'ON' : 'OFF'} | Pavement: ${pav ? 'ON' : 'OFF'}`, '#0ff');
+                    this.log('Usage: terrain [on/off/pavement]', '#aaa');
+                }
+                break;
+            }
+
             case 'help':
                 const cmds = [
                     '--- GAMEPLAY ---',
@@ -1054,6 +1091,10 @@ export class DevTools {
                     'pp on/off - Toggle post-processing pipeline',
                     'pp ssao/bloom/fog/vignette - Toggle individual passes',
                     'pp bloom_str N / bloom_thr N / ssao_radius N - Adjust parameters',
+                    '--- TERRAIN ---',
+                    'terrain - Show terrain info at current position',
+                    'terrain on/off - Toggle terrain vertex colors',
+                    'terrain pavement - Toggle pavement layer visibility',
                     '--- DEBUG ---',
                     'ragdoll / explode / killall / wireframe / fps / stats / reset',
                     '--- SHOWROOM ---',

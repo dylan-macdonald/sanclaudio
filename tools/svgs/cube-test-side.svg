@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Cube test SIDE view: 100x100 square centered at (100,50)...(100,150) -->
+  <!-- With scale=0.01, this should produce 1m deep x 1m tall -->
+  <path id="body" fill="none" stroke="#333" d="
+    M 50 50
+    L 150 50
+    L 150 150
+    L 50 150
+    Z"/>
+</svg>

@@ -1,0 +1,48 @@
+{
+    "name": "WeaponGrenade",
+    "svgFront": "svgs/grenade-front.svg",
+    "svgSide": "svgs/grenade-side.svg",
+    "svgTop": "svgs/grenade-top.svg",
+    "svgHeight": 12,
+    "svgCenterX": 5,
+    "sideCenterX": 6,
+    "topCenterX": 5,
+    "topCenterY": 6,
+    "scale": 0.01,
+    "vertsPerRing": 8,
+    "samplesPerUnit": 120,
+    "roughness": 0.6,
+    "metalness": 0.4,
+    "components": [
+        {
+            "id": "body",
+            "capTop": true,
+            "capBottom": true,
+            "vertsPerRing": 8,
+            "color": "0x3a4a2a"
+        }
+    ],
+    "children": [
+        {
+            "name": "spoon",
+            "type": "box",
+            "size": [0.015, 0.005, 0.06],
+            "position": [0.01, 0.06, 0],
+            "color": "0x888888",
+            "roughness": 0.3,
+            "metalness": 0.8
+        },
+        {
+            "name": "pin_ring",
+            "type": "cylinder",
+            "radius": 0.008,
+            "height": 0.005,
+            "segments": 8,
+            "position": [0, 0.065, 0.01],
+            "color": "0xcccc44",
+            "roughness": 0.3,
+            "metalness": 0.7
+        }
+    ],
+    "output": "../assets/models/weapon_grenade.glb"
+}
