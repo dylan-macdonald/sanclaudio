@@ -464,10 +464,22 @@ export class DevTools {
             // Debug shortcuts
             if (e.code === 'F1') { e.preventDefault(); this.toggleDebugOverlay(); }
             if (e.code === 'F2') { e.preventDefault(); this.toggleCollisionBoxes(); }
+            if (e.code === 'F3') { e.preventDefault(); this.toggleDevCam(); }
             if (e.code === 'F4') { e.preventDefault(); this.cycleWeather(); }
             if (e.code === 'F5') { e.preventDefault(); this.quickSave(); }
             if (e.code === 'F9') { e.preventDefault(); this.quickLoad(); }
         });
+
+        // Dev cam scroll speed adjustment
+        document.addEventListener('wheel', (e) => {
+            const cam = this.game.systems.camera;
+            if (cam && cam.devCamActive) {
+                e.preventDefault();
+                const factor = e.deltaY > 0 ? 0.8 : 1.25;
+                cam.devCamSpeed = Math.max(cam.devCamSpeedMin,
+                    Math.min(cam.devCamSpeedMax, cam.devCamSpeed * factor));
+            }
+        }, { passive: false });
 
         // Console input
         this.consoleInput.addEventListener('keydown', (e) => {
@@ -612,24 +624,53 @@ export class DevTools {
 
             case 'tp': {
                 const dest = args[0];
-                const districts = {
-                    downtown: { x: 0, z: 0 },
-                    docks: { x: -200, z: 200 },
-                    hillside: { x: -200, z: -200 },
-                    strip: { x: 200, z: -200 },
-                    industrial: { x: 200, z: 200 }
+                const tpLocations = {
+                    downtown:   { x: 0, z: 0 },
+                    docks:      { x: -200, z: 200 },
+                    hillside:   { x: -275, z: -275 },
+                    strip:      { x: 275, z: -275 },
+                    industrial: { x: 200, z: 200 },
+                    northshore: { x: 0, z: -300 },
+                    westend:    { x: -275, z: 0 },
+                    eastgate:   { x: 275, z: 0 },
+                    portside:   { x: 0, z: 275 },
+                    // Landmarks
+                    cityhall:   { x: 0, z: -50 },
+                    clocktower: { x: -50, z: 50 },
+                    stadium:    { x: 250, z: -250 },
+                    bridge:     { x: -300, z: 300 },
+                    pier:       { x: 0, z: 350 },
+                    sign:       { x: -275, z: -275 }, // SAN CLAUDIO sign (Hillside peak)
+                    // Showroom (for model inspection)
+                    showroom:   { x: 0, z: 0, y: -200 }
                 };
                 const interiors = ['safehouse', 'bank', 'warehouse', 'club', 'garage'];
 
-                if (districts[dest]) {
-                    player.position.set(districts[dest].x, 0, districts[dest].z);
-                    player.model.position.copy(player.position);
-                    this.log(`Teleported to ${dest}`, '#ff0');
+                // Exact coordinates: tp X Y Z  or  tp X Z
+                if (dest && !isNaN(parseFloat(dest))) {
+                    const tx = parseFloat(args[0]) || 0;
+                    const ty = args.length >= 3 ? parseFloat(args[1]) : null;
+                    const tz = args.length >= 3 ? parseFloat(args[2]) : (parseFloat(args[1]) || 0);
+                    const world = this.game.systems.world;
+                    const finalY = ty !== null ? ty : (world ? world.getTerrainHeight(tx, tz) + 2 : 2);
+                    player.position.set(tx, finalY, tz);
+                    if (player.model) player.model.position.copy(player.position);
+                    this.log(`Teleported to (${tx.toFixed(1)}, ${finalY.toFixed(1)}, ${tz.toFixed(1)})`, '#ff0');
+                } else if (tpLocations[dest]) {
+                    const loc = tpLocations[dest];
+                    const world = this.game.systems.world;
+                    const y = loc.y !== undefined ? loc.y : (world ? world.getTerrainHeight(loc.x, loc.z) + 2 : 2);
+                    player.position.set(loc.x, y, loc.z);
+                    if (player.model) player.model.position.copy(player.position);
+                    this.log(`Teleported to ${dest} (${loc.x}, ${y.toFixed(1)}, ${loc.z})`, '#ff0');
                 } else if (interiors.includes(dest)) {
                     this.game.systems.interiors.teleportToInterior(dest);
                     this.log(`Teleported to ${dest} interior`, '#ff0');
                 } else {
-                    this.log(`Unknown location: ${dest}. Try: downtown, docks, hillside, strip, industrial, safehouse, bank, warehouse, club, garage`, '#f44');
+                    this.log('Usage: tp <location> or tp <x> <z> or tp <x> <y> <z>', '#f44');
+                    this.log('Locations: downtown, docks, hillside, strip, industrial, northshore, westend, eastgate, portside', '#aaa');
+                    this.log('Landmarks: cityhall, clocktower, stadium, bridge, pier, sign, showroom', '#aaa');
+                    this.log('Interiors: safehouse, bank, warehouse, club, garage', '#aaa');
                 }
                 break;
             }
@@ -809,34 +850,218 @@ export class DevTools {
                 this.copyResultsToClipboard();
                 break;
 
+            case 'pp':
+            case 'postfx': {
+                const pp = this.game.postProcessing;
+                if (!pp) {
+                    this.log('Post-processing not initialized', '#f44');
+                    break;
+                }
+                const sub = args[0];
+                if (!sub) {
+                    // Status
+                    this.log(`Post-Processing: ${pp.enabled ? 'ON' : 'OFF'} (${pp.quality})`, '#0ff');
+                    this.log(`  SSAO: ${pp.ssaoEnabled ? 'ON' : 'OFF'}`, '#aaa');
+                    this.log(`  Bloom: ${pp.bloomEnabled ? 'ON' : 'OFF'}${this.game.bloomPass ? ' (str=' + this.game.bloomPass.strength.toFixed(2) + ' thr=' + this.game.bloomPass.threshold.toFixed(2) + ')' : ''}`, '#aaa');
+                    this.log(`  Height Fog: ${pp.heightFogEnabled ? 'ON' : 'OFF'}`, '#aaa');
+                    this.log(`  Vignette: ${pp.vignetteEnabled ? 'ON' : 'OFF'}`, '#aaa');
+                } else if (sub === 'on') {
+                    pp.enabled = true;
+                    // Re-enable height fog and disable built-in fog
+                    if (pp.heightFogEnabled && this.game._originalFog && this.game.scene.fog) {
+                        this.game.scene.fog = null;
+                    }
+                    this.log('Post-processing: ON', '#0f0');
+                } else if (sub === 'off') {
+                    pp.enabled = false;
+                    // Restore built-in scene fog
+                    if (this.game._originalFog && !this.game.scene.fog) {
+                        this.game.scene.fog = this.game._originalFog;
+                    }
+                    this.log('Post-processing: OFF', '#f80');
+                } else if (sub === 'ssao') {
+                    pp.ssaoEnabled = !pp.ssaoEnabled;
+                    if (this.game.ssaoPass) this.game.ssaoPass.enabled = pp.ssaoEnabled;
+                    this.log(`SSAO: ${pp.ssaoEnabled ? 'ON' : 'OFF'}`, '#ff0');
+                } else if (sub === 'bloom') {
+                    pp.bloomEnabled = !pp.bloomEnabled;
+                    if (this.game.bloomPass) this.game.bloomPass.enabled = pp.bloomEnabled;
+                    this.log(`Bloom: ${pp.bloomEnabled ? 'ON' : 'OFF'}`, '#ff0');
+                } else if (sub === 'fog') {
+                    pp.heightFogEnabled = !pp.heightFogEnabled;
+                    if (!pp.heightFogEnabled && this.game._originalFog && !this.game.scene.fog) {
+                        this.game.scene.fog = this.game._originalFog;
+                    } else if (pp.heightFogEnabled && this.game.scene.fog) {
+                        this.game.scene.fog = null;
+                    }
+                    this.log(`Height Fog: ${pp.heightFogEnabled ? 'ON' : 'OFF'}`, '#ff0');
+                } else if (sub === 'vignette') {
+                    pp.vignetteEnabled = !pp.vignetteEnabled;
+                    this.log(`Vignette: ${pp.vignetteEnabled ? 'ON' : 'OFF'}`, '#ff0');
+                } else if (sub === 'bloom_str') {
+                    const val = parseFloat(args[1]);
+                    if (!isNaN(val) && this.game.bloomPass) {
+                        this.game.bloomPass.strength = val;
+                        this.log(`Bloom strength: ${val}`, '#ff0');
+                    } else {
+                        this.log('Usage: pp bloom_str <0.0-2.0>', '#f44');
+                    }
+                } else if (sub === 'bloom_thr') {
+                    const val = parseFloat(args[1]);
+                    if (!isNaN(val) && this.game.bloomPass) {
+                        this.game.bloomPass.threshold = val;
+                        this.log(`Bloom threshold: ${val}`, '#ff0');
+                    } else {
+                        this.log('Usage: pp bloom_thr <0.0-1.0>', '#f44');
+                    }
+                } else if (sub === 'ssao_radius') {
+                    const val = parseFloat(args[1]);
+                    if (!isNaN(val) && this.game.ssaoPass) {
+                        this.game.ssaoPass.kernelRadius = val;
+                        this.log(`SSAO radius: ${val}`, '#ff0');
+                    } else {
+                        this.log('Usage: pp ssao_radius <1-32>', '#f44');
+                    }
+                } else {
+                    this.log('Usage: pp [on/off/ssao/bloom/fog/vignette/bloom_str N/bloom_thr N/ssao_radius N]', '#f44');
+                }
+                break;
+            }
+
+            case 'devcam':
+            case 'freecam': {
+                this.toggleDevCam();
+                break;
+            }
+
+            case 'showroom': {
+                this.buildShowroom();
+                break;
+            }
+
+            case 'cam': {
+                const sub = args[0];
+                const cam = this.game.systems.camera;
+                if (sub === 'save') {
+                    const slot = args[1] || '1';
+                    const p = cam.savePreset(slot);
+                    this.log(`Camera preset ${slot} saved at (${p.pos.x.toFixed(1)}, ${p.pos.y.toFixed(1)}, ${p.pos.z.toFixed(1)})`, '#0ff');
+                } else if (sub === 'load') {
+                    const slot = args[1] || '1';
+                    const p = cam.loadPreset(slot);
+                    if (p) {
+                        this.log(`Camera preset ${slot} loaded`, '#0ff');
+                    } else {
+                        this.log(`No preset in slot ${slot}`, '#f44');
+                    }
+                } else if (sub === 'pos') {
+                    // Set exact camera position: cam pos X Y Z
+                    if (args.length >= 4) {
+                        const x = parseFloat(args[1]);
+                        const y = parseFloat(args[2]);
+                        const z = parseFloat(args[3]);
+                        if (!cam.devCamActive) cam.toggleDevCam();
+                        cam.devCamPos.set(x, y, z);
+                        this.log(`Dev cam moved to (${x}, ${y}, ${z})`, '#0ff');
+                    } else {
+                        const p = cam.camera.position;
+                        this.log(`Camera at (${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`, '#0ff');
+                    }
+                } else if (sub === 'speed') {
+                    const spd = parseFloat(args[1]);
+                    if (!isNaN(spd)) {
+                        cam.devCamSpeed = spd;
+                        this.log(`Dev cam speed: ${spd}`, '#0ff');
+                    }
+                } else if (sub === 'look') {
+                    // Look at specific coords: cam look X Y Z
+                    if (args.length >= 4 && cam.devCamActive) {
+                        const tx = parseFloat(args[1]);
+                        const ty = parseFloat(args[2]);
+                        const tz = parseFloat(args[3]);
+                        const dir = new THREE.Vector3(tx, ty, tz).sub(cam.devCamPos).normalize();
+                        cam.devCamYaw = Math.atan2(-dir.x, -dir.z);
+                        cam.devCamPitch = -Math.asin(dir.y);
+                        this.log(`Looking at (${tx}, ${ty}, ${tz})`, '#0ff');
+                    }
+                } else if (sub === 'street') {
+                    // Preset: street level view
+                    if (!cam.devCamActive) cam.toggleDevCam();
+                    const p = this.game.systems.player.position;
+                    cam.devCamPos.set(p.x + 5, 2.5, p.z + 5);
+                    cam.devCamYaw = Math.atan2(-(p.x - cam.devCamPos.x), -(p.z - cam.devCamPos.z));
+                    cam.devCamPitch = 0;
+                    this.log('Camera: street level', '#0ff');
+                } else if (sub === 'aerial') {
+                    // Preset: aerial/bird's eye
+                    if (!cam.devCamActive) cam.toggleDevCam();
+                    const p = this.game.systems.player.position;
+                    cam.devCamPos.set(p.x, 100, p.z + 20);
+                    cam.devCamPitch = 1.2;
+                    cam.devCamYaw = 0;
+                    this.log('Camera: aerial view', '#0ff');
+                } else if (sub === 'front') {
+                    // Preset: front close-up (for character/model inspection)
+                    if (!cam.devCamActive) cam.toggleDevCam();
+                    const p = this.game.systems.player.position;
+                    const fwd = cam.getForwardDirection();
+                    cam.devCamPos.set(p.x + fwd.x * 4, p.y + 1.5, p.z + fwd.z * 4);
+                    cam.devCamYaw = Math.atan2(fwd.x, fwd.z);
+                    cam.devCamPitch = 0;
+                    this.log('Camera: front close-up', '#0ff');
+                } else if (sub === 'side') {
+                    // Preset: side view
+                    if (!cam.devCamActive) cam.toggleDevCam();
+                    const p = this.game.systems.player.position;
+                    const right = cam.getRightDirection();
+                    cam.devCamPos.set(p.x + right.x * 5, p.y + 1.5, p.z + right.z * 5);
+                    cam.devCamYaw = Math.atan2(-right.x, -right.z);
+                    cam.devCamPitch = 0;
+                    this.log('Camera: side view', '#0ff');
+                } else {
+                    this.log('cam save [slot] / cam load [slot] / cam pos X Y Z / cam speed N', '#aaa');
+                    this.log('cam look X Y Z / cam street / cam aerial / cam front / cam side', '#aaa');
+                }
+                break;
+            }
+
             case 'help':
                 const cmds = [
+                    '--- GAMEPLAY ---',
                     'god - Toggle god mode',
                     'give weapons - All weapons + ammo',
                     'give money [amt] - Add cash',
                     'spawn [type] - Spawn vehicle',
                     'wanted [0-5] - Set wanted level',
-                    'tp [place] - Teleport',
+                    'tp [place/x z/x y z] - Teleport (9 districts + landmarks + coords)',
                     'time [0-24] - Set time',
                     'weather [type] - Set weather',
                     'speed [x] - Speed multiplier',
+                    'noclip - Fly through walls',
+                    'heal / hesoyam - Restore health / God + $250K',
+                    '--- DEV CAMERA (F3) ---',
+                    'devcam - Toggle free-fly dev camera',
+                    'cam save/load [slot] - Save/recall camera position',
+                    'cam pos X Y Z - Move dev cam to exact position',
+                    'cam look X Y Z - Point dev cam at position',
+                    'cam speed N - Set dev cam speed',
+                    'cam street/aerial/front/side - Camera angle presets',
+                    '--- MISSIONS ---',
                     'mission [1-15] - Skip to mission',
                     'complete - Complete current mission',
-                    'ragdoll - Ragdoll player',
-                    'explode - Explosion ahead',
-                    'noclip - Fly through walls',
-                    'fps - Toggle FPS counter',
-                    'wireframe - Toggle wireframe',
-                    'stats - Show stats',
-                    'killall - Remove NPCs',
-                    'heal - Full health/armor',
-                    'hesoyam - God + $250K (SA cheat)',
-                    'reset - Wipe save + reload',
+                    '--- POST-PROCESSING ---',
+                    'pp - Show post-processing status',
+                    'pp on/off - Toggle post-processing pipeline',
+                    'pp ssao/bloom/fog/vignette - Toggle individual passes',
+                    'pp bloom_str N / bloom_thr N / ssao_radius N - Adjust parameters',
+                    '--- DEBUG ---',
+                    'ragdoll / explode / killall / wireframe / fps / stats / reset',
+                    '--- SHOWROOM ---',
+                    'showroom - Build & teleport to model showroom (y=-200)',
                     '--- QA / TESTING ---',
-                    'testsuite [id] - Start test suite (physics/trees/map/general/all)',
-                    'reportbug [desc] - Report a bug with context',
-                    'endtest - End current test suite early',
-                    'copyresults - Copy all results to clipboard'
+                    'testsuite [id] - Start test suite',
+                    'reportbug [desc] - Report bug with context',
+                    'endtest / copyresults'
                 ];
                 for (const c of cmds) this.log('  ' + c, '#aaa');
                 break;
@@ -854,6 +1079,43 @@ export class DevTools {
             player.armor = player.maxArmor;
         }
 
+        // Showroom mode: override fog, sky, and background when camera is below y=-100
+        const cam = this.game.systems.camera;
+        const inShowroom = cam.devCamActive && cam.devCamPos.y < -100 && this._showroomGroup;
+        if (inShowroom) {
+            // Flag prevents updateDayNight from overwriting background/fog
+            this.game._showroomOverride = true;
+            this.game.scene.background = new THREE.Color(0x222222);
+            if (this.game.scene.fog) this.game.scene.fog.density = 0;
+            // Hide sky objects
+            if (this.game.skyDome && this.game.skyDome.visible) {
+                this._skyWasVisible = true;
+                this.game.skyDome.visible = false;
+                if (this.game.sunMesh) this.game.sunMesh.visible = false;
+                if (this.game.moonMesh) this.game.moonMesh.visible = false;
+                if (this.game.clouds) this.game.clouds.forEach(c => c.visible = false);
+                if (this.game.stars) this.game.stars.visible = false;
+            }
+            // Suppress global scene lights
+            if (this.game.sunLight) this.game.sunLight.intensity = 0;
+            if (this.game.hemiLight) this.game.hemiLight.intensity = 0;
+            if (this.game.fillLight) this.game.fillLight.intensity = 0;
+            if (this.game.rimLight) this.game.rimLight.intensity = 0;
+            if (this.game.ambientLight) this.game.ambientLight.intensity = 0;
+            // Lower tone mapping exposure for neutral showroom look
+            if (this.game.renderer) this.game.renderer.toneMappingExposure = 0.8;
+        } else if (this._skyWasVisible) {
+            this.game._showroomOverride = false;
+            this._skyWasVisible = false;
+            if (this.game.skyDome) this.game.skyDome.visible = true;
+            if (this.game.sunMesh) this.game.sunMesh.visible = true;
+            if (this.game.moonMesh) this.game.moonMesh.visible = true;
+            if (this.game.clouds) this.game.clouds.forEach(c => c.visible = true);
+            if (this.game.stars) this.game.stars.visible = true;
+            // Restore renderer exposure (lights restored by updateDayNight next frame)
+            if (this.game.renderer) this.game.renderer.toneMappingExposure = 1.2;
+        }
+
         // Update debug overlay
         this.updateDebugOverlay();
     }
@@ -865,7 +1127,13 @@ export class DevTools {
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'debug-overlay';
-            overlay.style.cssText = 'position:fixed;top:40px;left:16px;font-family:"Space Mono",monospace;font-size:0.7rem;color:rgba(255,255,255,0.6);z-index:12;pointer-events:none;line-height:1.6;';
+            overlay.style.cssText = `
+                position:fixed; top:40px; left:16px;
+                font-family:"Space Mono",monospace; font-size:14px;
+                color:#fff; z-index:12; pointer-events:none; line-height:1.8;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.5);
+                background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 4px;
+            `.replace(/\s+/g, ' ');
             document.body.appendChild(overlay);
         }
 
@@ -878,23 +1146,38 @@ export class DevTools {
         const overlay = document.getElementById('debug-overlay');
         if (!overlay) return;
 
+        const cam = this.game.systems.camera;
         const player = this.game.systems.player;
-        const pos = player.position;
-        const district = this.game.systems.world.getDistrictName(pos.x, pos.z);
+        const world = this.game.systems.world;
+        const pos = cam.devCamActive ? cam.devCamPos : player.position;
+        const district = world.getDistrictName(pos.x, pos.z);
+        const districtKey = world.getDistrict ? world.getDistrict(pos.x, pos.z) : '';
+        const terrainH = world.getTerrainHeight(pos.x, pos.z);
+        const camPos = cam.camera.position;
+
+        const devCamInfo = cam.devCamActive
+            ? `<span style="color:#0ff">DEV CAM ON</span> (F3 toggle, scroll=speed)<br>` +
+              `Cam Speed: ${cam.devCamSpeed.toFixed(0)} u/s<br>`
+            : '';
 
         overlay.innerHTML = `
-            Pos: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
-            District: ${district}<br>
-            FPS: ${this.game.fps}<br>
-            Draw calls: ${this.game.renderer.info.render.calls}<br>
-            Triangles: ${this.game.renderer.info.render.triangles}<br>
+            ${devCamInfo}
+            <span style="color:#ff0">Pos:</span> ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
+            <span style="color:#ff0">Cam:</span> ${camPos.x.toFixed(1)}, ${camPos.y.toFixed(1)}, ${camPos.z.toFixed(1)}<br>
+            <span style="color:#ff0">District:</span> ${district}${districtKey ? ' (' + districtKey + ')' : ''}<br>
+            <span style="color:#ff0">Terrain H:</span> ${terrainH.toFixed(2)}<br>
+            <span style="color:#0f0">FPS:</span> ${this.game.fps}<br>
+            <span style="color:#0f0">Draw calls:</span> ${this.game.renderer.info.render.calls}<br>
+            <span style="color:#0f0">Triangles:</span> ${this.game.renderer.info.render.triangles.toLocaleString()}<br>
+            <span style="color:#0f0">Textures:</span> ${this.game.renderer.info.memory.textures}<br>
+            <span style="color:#0f0">Geometries:</span> ${this.game.renderer.info.memory.geometries}<br>
             NPCs: ${this.game.systems.npcs.pedestrians.filter(n => n.alive).length}<br>
             Weather: ${this.game.currentWeather}<br>
             Time: ${(this.game.timeOfDay * 24).toFixed(1)}h<br>
-            Wanted: ${this.game.systems.wanted.level} stars<br>
+            Wanted: ${this.game.systems.wanted.level} ★<br>
             Vehicle: ${player.inVehicle ? player.currentVehicle?.type : 'none'}<br>
-            God: ${this.godMode ? 'ON' : 'OFF'}<br>
-            Noclip: ${player.noclip ? 'ON' : 'OFF'}
+            God: ${this.godMode ? 'ON' : 'OFF'}${player.noclip ? ' | Noclip: ON' : ''}<br>
+            PP: ${this.game.postProcessing ? (this.game.postProcessing.enabled ? '<span style="color:#0f0">ON</span>' : 'OFF') + ' [' + (this.game.postProcessing.ssaoEnabled ? 'SSAO ' : '') + (this.game.postProcessing.bloomEnabled ? 'Bloom ' : '') + (this.game.postProcessing.heightFogEnabled ? 'Fog ' : '') + (this.game.postProcessing.vignetteEnabled ? 'Vig' : '') + ']' : 'N/A'}
         `;
     }
 
@@ -935,6 +1218,223 @@ export class DevTools {
         }
 
         this.log(`Collision boxes: ${this.collisionBoxesVisible ? 'ON' : 'OFF'}`, '#ff0');
+    }
+
+    toggleDevCam() {
+        const cam = this.game.systems.camera;
+        const active = cam.toggleDevCam();
+        this.log(`Dev camera: ${active ? 'ON — WASD/QE move, mouse look, scroll speed, Shift=fast' : 'OFF'}`, '#0ff');
+        if (active) {
+            // Force debug overlay on when dev cam is active
+            if (!this.debugOverlayVisible) this.toggleDebugOverlay();
+        }
+    }
+
+    // ─── Model Showroom ─────────────────────────────────────────
+    buildShowroom() {
+        const scene = this.game.scene;
+        const models = this.game.systems.models;
+
+        // Clean up previous showroom if it exists
+        if (this._showroomGroup) {
+            scene.remove(this._showroomGroup);
+            this._showroomGroup.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+            });
+        }
+        // Fog/background override handled in update() loop
+
+        const group = new THREE.Group();
+        group.name = 'showroom';
+        this._showroomGroup = group;
+
+        const FLOOR_Y = -200;
+        const ROOM_SIZE = 120;
+
+        // ─── Room: floor, walls, ceiling ─────────────────────────
+        const floorGeo = new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE);
+        floorGeo.rotateX(-Math.PI / 2);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.position.y = FLOOR_Y;
+        floor.receiveShadow = true;
+        group.add(floor);
+
+        // No ceiling — allows unobstructed aerial views
+
+        // No walls — dark scene background provides the backdrop
+
+        // ─── Showroom Lighting ───────────────────────────────────
+        // Soft overhead point lights (3 along center line)
+        for (const z of [-30, 0, 30]) {
+            const light = new THREE.PointLight(0xffeedd, 0.6, 40, 2);
+            light.position.set(0, FLOOR_Y + 17, z);
+            group.add(light);
+        }
+
+        // Ambient fill — gentle, neutral
+        const showroomAmbient = new THREE.AmbientLight(0x888888, 0.3);
+        group.add(showroomAmbient);
+
+        // ─── Place Models on Grid ────────────────────────────────
+        const items = [];
+        let col = 0;
+        let row = 0;
+        const spacing = 8;
+        const startX = -48;
+        const startZ = -48;
+        const maxCols = 12;
+
+        const placeItem = (mesh, label, scale) => {
+            if (!mesh) return;
+            const x = startX + col * spacing;
+            const z = startZ + row * spacing;
+            mesh.position.set(x, FLOOR_Y + 0.01, z);
+            if (scale) mesh.scale.setScalar(scale);
+            group.add(mesh);
+
+            // Label
+            this._addShowroomLabel(group, label, x, FLOOR_Y + 0.05, z + 2.5);
+
+            // Pedestal
+            const pedGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.1, 16);
+            const pedMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const ped = new THREE.Mesh(pedGeo, pedMat);
+            ped.position.set(x, FLOOR_Y + 0.05, z);
+            ped.receiveShadow = true;
+            group.add(ped);
+
+            items.push({ label, x, z });
+            col++;
+            if (col >= maxCols) { col = 0; row++; }
+        };
+
+        // ─── Characters ──────────────────────────────────────────
+        this.log('Building showroom: characters...', '#0ff');
+        if (models.hasModel('character')) {
+            const male = models.cloneCharacter('male');
+            if (male) placeItem(male, 'Male Character', 1);
+        }
+        if (models.hasModel('character_female')) {
+            const female = models.cloneCharacter('female');
+            if (female) placeItem(female, 'Female Character', 1);
+        }
+
+        // ─── Vehicles ────────────────────────────────────────────
+        this.log('Building showroom: vehicles...', '#0ff');
+        const vehicleTypes = ['sedan', 'sports', 'truck', 'motorcycle', 'boat', 'helicopter', 'police'];
+        for (const vType of vehicleTypes) {
+            if (models.hasModel(vType)) {
+                const clone = models.cloneVehicle(vType);
+                if (clone) placeItem(clone, vType.toUpperCase(), 0.5);
+            }
+        }
+
+        // ─── Weapons ─────────────────────────────────────────────
+        this.log('Building showroom: weapons...', '#0ff');
+        const weaponTypes = ['bat', 'knife', 'pistol', 'smg', 'shotgun', 'rifle', 'sniper', 'grenade', 'atomizer'];
+        for (const wType of weaponTypes) {
+            const modelName = 'weapon_' + wType;
+            if (models.hasModel(modelName) && models.models[modelName]) {
+                const clone = models.models[modelName].clone();
+                if (clone) {
+                    clone.scale.setScalar(3);
+                    clone.position.y = FLOOR_Y + 1.5;
+                    placeItem(clone, wType.toUpperCase(), null);
+                }
+            }
+        }
+
+        // ─── Props (procedural) ──────────────────────────────────
+        this.log('Building showroom: props...', '#0ff');
+        // Create simple representative props
+        const propDefs = [
+            { name: 'LAMP POST', geo: () => { const g = new THREE.CylinderGeometry(0.1, 0.15, 5, 8); return g; }, color: 0x666666, yOff: 2.5 },
+            { name: 'BENCH', geo: () => new THREE.BoxGeometry(2, 0.5, 0.8), color: 0x8B6914, yOff: 0.25 },
+            { name: 'DUMPSTER', geo: () => new THREE.BoxGeometry(1.5, 1.2, 1), color: 0x336633, yOff: 0.6 },
+            { name: 'TRAFFIC LIGHT', geo: () => { const g = new THREE.CylinderGeometry(0.08, 0.08, 4, 8); return g; }, color: 0x555555, yOff: 2 },
+        ];
+        for (const pd of propDefs) {
+            const geo = pd.geo();
+            const mat = new THREE.MeshStandardMaterial({ color: pd.color, roughness: 0.7 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = FLOOR_Y + pd.yOff;
+            placeItem(mesh, pd.name, 1);
+        }
+
+        // ─── Trees ───────────────────────────────────────────────
+        this.log('Building showroom: trees...', '#0ff');
+        // Evergreen
+        const evGeo = new THREE.ConeGeometry(1.5, 4, 6);
+        const evMat = new THREE.MeshStandardMaterial({ color: 0x2d5a1e, roughness: 0.8 });
+        const evTree = new THREE.Mesh(evGeo, evMat);
+        evTree.position.y = FLOOR_Y + 2;
+        // Brown trunk
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.5, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.9 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = FLOOR_Y + 0.75;
+        const evGroup = new THREE.Group();
+        evGroup.add(evTree);
+        evGroup.add(trunk);
+        placeItem(evGroup, 'EVERGREEN', 1);
+
+        // Deciduous
+        const decGeo = new THREE.SphereGeometry(2, 8, 6);
+        const decMat = new THREE.MeshStandardMaterial({ color: 0x3a7a2a, roughness: 0.8 });
+        const decTree = new THREE.Mesh(decGeo, decMat);
+        decTree.position.y = FLOOR_Y + 4;
+        const dTrunk = new THREE.Mesh(trunkGeo.clone(), trunkMat);
+        dTrunk.position.y = FLOOR_Y + 0.75;
+        const decGroup = new THREE.Group();
+        decGroup.add(decTree);
+        decGroup.add(dTrunk);
+        placeItem(decGroup, 'DECIDUOUS', 1);
+
+        // ─── Add to scene ────────────────────────────────────────
+        scene.add(group);
+
+        // ─── Teleport dev cam to showroom ────────────────────────
+        const cam = this.game.systems.camera;
+        if (!cam.devCamActive) cam.toggleDevCam();
+        // Position camera looking down the rows of models
+        cam.devCamPos.set(0, FLOOR_Y + 8, 30);
+        cam.devCamPitch = 0.15; // Slight downward look
+        cam.devCamYaw = 0; // Facing -Z (toward models at negative Z)
+        cam.devCamSpeed = 20;
+
+        // Fog/background override handled automatically in update() loop
+
+        // Also enable debug overlay
+        if (!this.debugOverlayVisible) this.toggleDebugOverlay();
+
+        this.log(`Showroom built at y=${FLOOR_Y} with ${items.length} models. Dev cam activated.`, '#0ff');
+        this.log('Use WASD to fly around. Scroll to adjust speed.', '#aaa');
+    }
+
+    _addShowroomLabel(parent, text, x, y, z) {
+        // Create a text sprite label
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.font = 'bold 20px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, 128, 40);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.set(x, y + 3, z);
+        sprite.scale.set(4, 1, 1);
+        parent.add(sprite);
     }
 
     cycleWeather() {

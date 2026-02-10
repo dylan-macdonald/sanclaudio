@@ -20,6 +20,111 @@ import { SaveManager } from './save.js';
 import { DevTools } from './devtools.js';
 import { PhysicsManager } from './physics.js';
 
+// Height Fog + Vignette + Color Grading custom shader
+const HeightFogVignetteShader = {
+    uniforms: {
+        tDiffuse: { value: null },
+        tDepth: { value: null },
+        cameraNear: { value: 0.1 },
+        cameraFar: { value: 1000 },
+        fogCameraPosition: { value: new THREE.Vector3() },
+        inverseProjectionMatrix: { value: new THREE.Matrix4() },
+        inverseViewMatrix: { value: new THREE.Matrix4() },
+        fogColor: { value: new THREE.Color(0xb0c8e0) },
+        fogDensity: { value: 0.002 },
+        fogHeightFalloff: { value: 0.04 },
+        fogBaseHeight: { value: 20.0 },
+        fogMaxOpacity: { value: 0.85 },
+        vignetteIntensity: { value: 0.3 },
+        vignetteRadius: { value: 0.75 },
+        colorTint: { value: new THREE.Vector3(1.0, 0.98, 0.95) },
+        colorSaturation: { value: 1.1 },
+        resolution: { value: new THREE.Vector2(1, 1) }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform sampler2D tDepth;
+        uniform float cameraNear;
+        uniform float cameraFar;
+        uniform vec3 fogCameraPosition;
+        uniform mat4 inverseProjectionMatrix;
+        uniform mat4 inverseViewMatrix;
+        uniform vec3 fogColor;
+        uniform float fogDensity;
+        uniform float fogHeightFalloff;
+        uniform float fogBaseHeight;
+        uniform float fogMaxOpacity;
+        uniform float vignetteIntensity;
+        uniform float vignetteRadius;
+        uniform vec3 colorTint;
+        uniform float colorSaturation;
+        uniform vec2 resolution;
+        varying vec2 vUv;
+
+        float getDepth(vec2 uv) {
+            return texture2D(tDepth, uv).x;
+        }
+
+        float linearizeDepth(float d) {
+            return cameraNear * cameraFar / (cameraFar - d * (cameraFar - cameraNear));
+        }
+
+        vec3 getWorldPosition(vec2 uv, float depth) {
+            vec4 clipPos = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+            vec4 viewPos = inverseProjectionMatrix * clipPos;
+            viewPos /= viewPos.w;
+            vec4 worldPos = inverseViewMatrix * viewPos;
+            return worldPos.xyz;
+        }
+
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float depth = getDepth(vUv);
+
+            // Height fog (skip sky pixels where depth ~ 1.0)
+            if (depth < 0.9999) {
+                vec3 worldPos = getWorldPosition(vUv, depth);
+                float dist = length(worldPos - fogCameraPosition);
+
+                // Height-attenuated density: thick in valleys, thin at peaks
+                float heightAboveBase = max(worldPos.y - fogBaseHeight, 0.0);
+                float heightFactor = exp(-heightAboveBase * fogHeightFalloff);
+
+                // Extra density boost for low areas (below base height)
+                float valleyBoost = max(fogBaseHeight - worldPos.y, 0.0) * 0.01;
+                heightFactor = min(heightFactor + valleyBoost, 1.5);
+
+                float fogAmount = 1.0 - exp(-dist * fogDensity * heightFactor);
+                fogAmount = min(fogAmount, fogMaxOpacity);
+
+                color.rgb = mix(color.rgb, fogColor, fogAmount);
+            }
+
+            // Color grading: saturation
+            float luminance = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+            color.rgb = mix(vec3(luminance), color.rgb, colorSaturation);
+
+            // Color tint
+            color.rgb *= colorTint;
+
+            // Vignette
+            vec2 uv = vUv * 2.0 - 1.0;
+            uv.x *= resolution.x / resolution.y; // Correct aspect ratio
+            float vignette = smoothstep(vignetteRadius, vignetteRadius + 0.5, length(uv));
+            color.rgb *= 1.0 - vignette * vignetteIntensity;
+
+            gl_FragColor = color;
+        }
+    `
+};
+
 // Game States
 const GameState = {
     LOADING: 'loading',
@@ -111,6 +216,9 @@ class Game {
         this.systems.save = new SaveManager(this);
         this.systems.devtools = new DevTools(this);
 
+        // Setup post-processing pipeline
+        this.setupPostProcessing();
+
         // Build the world (progress 30-100)
         this.updateLoadProgress(35);
         this.systems.world.init();
@@ -167,6 +275,7 @@ class Game {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.2;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.isMobile = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
         window.addEventListener('resize', () => this.onResize());
     }
@@ -449,6 +558,213 @@ class Game {
             this.systems.camera.camera.aspect = w / h;
             this.systems.camera.camera.updateProjectionMatrix();
         }
+        // Resize post-processing passes
+        if (this.composer) {
+            this.composer.setSize(w, h);
+            if (this.ssaoPass) this.ssaoPass.setSize(w, h);
+            if (this.bloomPass) {
+                const bloomScale = this.isMobile ? 0.5 : 1;
+                this.bloomPass.setSize(w * bloomScale, h * bloomScale);
+            }
+            if (this.heightFogPass) {
+                this.heightFogPass.uniforms.resolution.value.set(w, h);
+            }
+            // Rebuild depth render target at new size
+            if (this._depthRenderTarget) {
+                this._depthRenderTarget.setSize(w, h);
+            }
+        }
+    }
+
+    setupPostProcessing() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Post-processing state
+        this.postProcessing = {
+            enabled: true,
+            quality: this.isMobile ? 'low' : 'high',
+            ssaoEnabled: !this.isMobile,
+            bloomEnabled: true,
+            heightFogEnabled: true,
+            vignetteEnabled: true
+        };
+
+        // Check for required Three.js postprocessing globals
+        if (typeof THREE.EffectComposer === 'undefined' ||
+            typeof THREE.RenderPass === 'undefined') {
+            console.warn('Post-processing modules not loaded, falling back to direct render');
+            this.postProcessing.enabled = false;
+            return;
+        }
+
+        // Create render target with depth texture for height fog
+        const hasDepthTexture = this.renderer.extensions.get('WEBGL_depth_texture');
+        this._depthRenderTarget = new THREE.WebGLRenderTarget(w, h, {
+            minFilter: THREE.NearestFilter,
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBAFormat
+        });
+        if (hasDepthTexture) {
+            this._depthRenderTarget.depthTexture = new THREE.DepthTexture();
+            this._depthRenderTarget.depthTexture.type = THREE.UnsignedIntType;
+        } else {
+            // No depth texture support — disable height fog, keep built-in FogExp2
+            this.postProcessing.heightFogEnabled = false;
+        }
+
+        // Effect Composer
+        this.composer = new THREE.EffectComposer(this.renderer, this._depthRenderTarget);
+
+        // Pass 1: Render scene
+        const camera = this.systems.camera.camera;
+        this.renderPass = new THREE.RenderPass(this.scene, camera);
+        this.composer.addPass(this.renderPass);
+
+        // Pass 2: SSAO (skip on mobile)
+        this.ssaoPass = null;
+        if (!this.isMobile && typeof THREE.SSAOPass !== 'undefined') {
+            try {
+                this.ssaoPass = new THREE.SSAOPass(this.scene, camera, w, h);
+                this.ssaoPass.kernelRadius = 8;
+                this.ssaoPass.minDistance = 0.005;
+                this.ssaoPass.maxDistance = 0.1;
+                this.ssaoPass.enabled = this.postProcessing.ssaoEnabled;
+                this.composer.addPass(this.ssaoPass);
+            } catch (e) {
+                console.warn('SSAOPass init failed:', e.message);
+                this.ssaoPass = null;
+                this.postProcessing.ssaoEnabled = false;
+            }
+        }
+
+        // Pass 3: Bloom
+        this.bloomPass = null;
+        if (typeof THREE.UnrealBloomPass !== 'undefined') {
+            const bloomScale = this.isMobile ? 0.5 : 1;
+            this.bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(w * bloomScale, h * bloomScale),
+                0.3,  // strength
+                0.4,  // radius
+                0.85  // threshold
+            );
+            this.bloomPass.enabled = this.postProcessing.bloomEnabled;
+            this.composer.addPass(this.bloomPass);
+        }
+
+        // Pass 4: Height Fog + Vignette + Color Grading (custom shader)
+        this.heightFogPass = null;
+        if (typeof THREE.ShaderPass !== 'undefined') {
+            this.heightFogPass = new THREE.ShaderPass(HeightFogVignetteShader);
+            this.heightFogPass.uniforms.tDepth.value = this._depthRenderTarget.depthTexture;
+            this.heightFogPass.uniforms.resolution.value.set(w, h);
+            this.heightFogPass.enabled = this.postProcessing.heightFogEnabled || this.postProcessing.vignetteEnabled;
+            this.composer.addPass(this.heightFogPass);
+        }
+
+        // Disable built-in scene fog when custom height fog is active (avoid double-fogging)
+        if (this.postProcessing.heightFogEnabled && this.scene.fog) {
+            this._originalFog = this.scene.fog;
+            this.scene.fog = null;
+        }
+
+        this.dayFactor = 0.5; // Default until first updateDayNight
+    }
+
+    updatePostProcessingUniforms() {
+        if (!this.composer || !this.postProcessing.enabled) return;
+
+        const camera = this.systems.camera.camera;
+        const dayFactor = this.dayFactor || 0.5;
+
+        // Update render pass camera reference
+        if (this.renderPass) {
+            this.renderPass.camera = camera;
+        }
+
+        // Update SSAO camera
+        if (this.ssaoPass && this.ssaoPass.enabled) {
+            this.ssaoPass.camera = camera;
+        }
+
+        // Height fog + vignette + color grading uniforms
+        if (this.heightFogPass) {
+            const u = this.heightFogPass.uniforms;
+
+            // Camera matrices (every frame)
+            u.fogCameraPosition.value.copy(camera.position);
+            u.cameraNear.value = camera.near;
+            u.cameraFar.value = camera.far;
+            u.inverseProjectionMatrix.value.copy(camera.projectionMatrixInverse);
+            u.inverseViewMatrix.value.copy(camera.matrixWorld);
+
+            // Weather-driven fog parameters (smooth lerp)
+            const weatherFogParams = {
+                clear:    { density: 0.002, baseHeight: 20, falloff: 0.04 },
+                overcast: { density: 0.003, baseHeight: 25, falloff: 0.03 },
+                rain:     { density: 0.004, baseHeight: 15, falloff: 0.025 },
+                storm:    { density: 0.006, baseHeight: 10, falloff: 0.02 },
+                fog:      { density: 0.01,  baseHeight: 40, falloff: 0.008 }
+            };
+            const wp = weatherFogParams[this.currentWeather] || weatherFogParams.clear;
+            const lerpSpeed = 0.02;
+            u.fogDensity.value += (wp.density - u.fogDensity.value) * lerpSpeed;
+            u.fogBaseHeight.value += (wp.baseHeight - u.fogBaseHeight.value) * lerpSpeed;
+            u.fogHeightFalloff.value += (wp.falloff - u.fogHeightFalloff.value) * lerpSpeed;
+
+            // Fog color: read from scene background (matches sky) mixed with gray for weather
+            if (this.scene.background && this.scene.background.isColor) {
+                const weather = this.currentWeather;
+                const grayMix = weather === 'fog' ? 0.7 : (weather === 'rain' || weather === 'storm') ? 0.5 : 0.15;
+                const target = new THREE.Color().lerpColors(this.scene.background, new THREE.Color(0x888899), grayMix);
+                u.fogColor.value.lerp(target, 0.05);
+            }
+
+            // Height fog enabled/disabled
+            if (!this.postProcessing.heightFogEnabled) {
+                u.fogDensity.value = 0;
+            }
+
+            // Day/night color grading
+            if (dayFactor > 0.5) {
+                // Day: warm tint
+                u.colorTint.value.set(1.0, 0.98, 0.95);
+                u.colorSaturation.value += (1.1 - u.colorSaturation.value) * lerpSpeed;
+            } else if (dayFactor > 0.2) {
+                // Dusk/dawn: orange tint
+                u.colorTint.value.set(1.05, 0.92, 0.85);
+                u.colorSaturation.value += (1.2 - u.colorSaturation.value) * lerpSpeed;
+            } else {
+                // Night: cool blue
+                u.colorTint.value.set(0.85, 0.88, 1.0);
+                u.colorSaturation.value += (0.9 - u.colorSaturation.value) * lerpSpeed;
+            }
+
+            // Vignette
+            u.vignetteIntensity.value = this.postProcessing.vignetteEnabled ? 0.3 : 0;
+        }
+
+        // Bloom: weather and time-driven
+        if (this.bloomPass && this.bloomPass.enabled) {
+            const weatherBloom = {
+                clear: 0.3, overcast: 0.25, rain: 0.2, storm: 0.5, fog: 0.15
+            };
+            const targetStrength = weatherBloom[this.currentWeather] || 0.3;
+            this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * 0.02;
+
+            // Lower threshold at night so neon signs glow more
+            const targetThreshold = dayFactor > 0.5 ? 0.85 : 0.75;
+            this.bloomPass.threshold += (targetThreshold - this.bloomPass.threshold) * 0.02;
+        }
+
+        // Suppress during showroom mode
+        if (this._showroomOverride && this.heightFogPass) {
+            this.heightFogPass.uniforms.fogDensity.value = 0;
+            this.heightFogPass.uniforms.vignetteIntensity.value = 0;
+            this.heightFogPass.uniforms.colorSaturation.value = 1.0;
+            this.heightFogPass.uniforms.colorTint.value.set(1, 1, 1);
+            if (this.bloomPass) this.bloomPass.strength = 0;
+        }
     }
 
     updateDayNight(dt) {
@@ -471,12 +787,15 @@ class Game {
 
         // Light intensity based on sun height
         const dayFactor = Math.max(0, Math.min(1, sunHeight * 2 + 0.5));
+        this.dayFactor = dayFactor;
 
-        this.sunLight.intensity = dayFactor * 1.0;
-        this.hemiLight.intensity = 0.2 + dayFactor * 0.4;
-        this.ambientLight.intensity = 0.05 + dayFactor * 0.08;
-        this.fillLight.intensity = dayFactor * 0.15;
-        this.rimLight.intensity = 0.15 + dayFactor * 0.15;
+        if (!this._showroomOverride) {
+            this.sunLight.intensity = dayFactor * 1.0;
+            this.hemiLight.intensity = 0.2 + dayFactor * 0.4;
+            this.ambientLight.intensity = 0.05 + dayFactor * 0.08;
+            this.fillLight.intensity = dayFactor * 0.15;
+            this.rimLight.intensity = 0.15 + dayFactor * 0.15;
+        }
 
         // Sky color: blue during day, dark blue/purple at night
         const dayColor = new THREE.Color(0x87CEEB);
@@ -496,7 +815,7 @@ class Game {
             skyColor = nightColor;
         }
 
-        this.scene.background = skyColor;
+        if (!this._showroomOverride) this.scene.background = skyColor;
 
         // Update sky dome position to follow player
         const pp = this.systems.player.position;
@@ -675,15 +994,17 @@ class Game {
         if (!this.scene.fog || !(this.scene.fog instanceof THREE.FogExp2)) {
             this.scene.fog = new THREE.FogExp2(0xb0c8e0, targetDensity);
         }
-        // Smooth density transition
-        this.scene.fog.density += (targetDensity - this.scene.fog.density) * 0.02;
+        if (!this._showroomOverride) {
+            // Smooth density transition
+            this.scene.fog.density += (targetDensity - this.scene.fog.density) * 0.02;
 
-        // Fog color always matches sky
-        const bg = this.scene.background;
-        if (bg && bg.isColor) {
-            const grayMix = weather === 'fog' ? 0.7 : weather === 'rain' || weather === 'storm' ? 0.5 : 0.15;
-            const fogColor = new THREE.Color().lerpColors(bg, new THREE.Color(0x888899), grayMix);
-            this.scene.fog.color.lerp(fogColor, 0.05);
+            // Fog color always matches sky
+            const bg = this.scene.background;
+            if (bg && bg.isColor) {
+                const grayMix = weather === 'fog' ? 0.7 : weather === 'rain' || weather === 'storm' ? 0.5 : 0.15;
+                const fogColor = new THREE.Color().lerpColors(bg, new THREE.Color(0x888899), grayMix);
+                this.scene.fog.color.lerp(fogColor, 0.05);
+            }
         }
 
         // Weather-based fog color tinting
@@ -779,6 +1100,7 @@ class Game {
         for (let f = 0; f < flashCount; f++) {
             const delay = f * 80 + Math.random() * 40;
             setTimeout(() => {
+                if (this._showroomOverride) return;
                 this.ambientLight.intensity = 4;
                 this.sunLight.intensity = 3;
                 this.sunLight.color.setHex(0xccccff);
@@ -1020,7 +1342,12 @@ class Game {
         } catch (e) {}
 
         if (this.systems.camera && this.systems.camera.camera) {
-            this.renderer.render(this.scene, this.systems.camera.camera);
+            this.updatePostProcessingUniforms();
+            if (this.composer && this.postProcessing.enabled) {
+                this.composer.render(this.deltaTime);
+            } else {
+                this.renderer.render(this.scene, this.systems.camera.camera);
+            }
         }
 
         // Dev tools overlay (always updates)
