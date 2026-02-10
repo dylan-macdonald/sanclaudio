@@ -301,27 +301,56 @@ class Game {
             this.clouds.push(cloud);
         }
 
-        // Moon
+        // Moon with canvas texture
         const moonGeo = new THREE.SphereGeometry(5, 16, 16);
+        const moonCanvas = document.createElement('canvas');
+        moonCanvas.width = 128;
+        moonCanvas.height = 128;
+        const mctx = moonCanvas.getContext('2d');
+        // Base moon color with gradient
+        const moonGrad = mctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        moonGrad.addColorStop(0, '#f0eef8');
+        moonGrad.addColorStop(0.7, '#d8d4e8');
+        moonGrad.addColorStop(1, '#aaa8c0');
+        mctx.fillStyle = moonGrad;
+        mctx.beginPath();
+        mctx.arc(64, 64, 64, 0, Math.PI * 2);
+        mctx.fill();
+        // Crater circles
+        const craters = [
+            { x: 40, y: 35, r: 12 }, { x: 75, y: 50, r: 8 }, { x: 55, y: 70, r: 10 },
+            { x: 30, y: 65, r: 6 }, { x: 80, y: 30, r: 7 }, { x: 60, y: 40, r: 5 },
+            { x: 45, y: 55, r: 4 }, { x: 90, y: 60, r: 5 }
+        ];
+        for (const c of craters) {
+            const cGrad = mctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+            cGrad.addColorStop(0, 'rgba(160,155,175,0.4)');
+            cGrad.addColorStop(0.7, 'rgba(170,165,180,0.2)');
+            cGrad.addColorStop(1, 'rgba(180,175,190,0)');
+            mctx.fillStyle = cGrad;
+            mctx.beginPath();
+            mctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+            mctx.fill();
+            // Crater rim highlight
+            mctx.strokeStyle = 'rgba(220,215,230,0.2)';
+            mctx.lineWidth = 0.5;
+            mctx.beginPath();
+            mctx.arc(c.x - 1, c.y - 1, c.r, Math.PI * 0.8, Math.PI * 1.8);
+            mctx.stroke();
+        }
+        // Surface noise
+        for (let i = 0; i < 300; i++) {
+            mctx.fillStyle = `rgba(200,195,210,${0.03 + Math.random() * 0.05})`;
+            mctx.fillRect(Math.random() * 128, Math.random() * 128, 1, 1);
+        }
+        const moonTexture = new THREE.CanvasTexture(moonCanvas);
         const moonMat = new THREE.MeshBasicMaterial({
-            color: 0xeeeeff,
+            map: moonTexture,
             transparent: true,
             opacity: 0
         });
         this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
         this.scene.add(this.moonMesh);
-
-        // Moon craters (dark spots on surface)
-        const craterGeo = new THREE.CircleGeometry(1.2, 8);
-        const craterMat = new THREE.MeshBasicMaterial({ color: 0xccccdd, transparent: true, opacity: 0.5, side: THREE.FrontSide });
-        for (let i = 0; i < 4; i++) {
-            const crater = new THREE.Mesh(craterGeo, craterMat);
-            const angle = (i / 4) * Math.PI * 2 + 0.3;
-            const r = 1.5 + Math.random() * 2;
-            crater.position.set(Math.cos(angle) * r, Math.sin(angle) * r, 5.05);
-            crater.scale.setScalar(0.3 + Math.random() * 0.5);
-            this.moonMesh.add(crater);
-        }
 
         // Stars - InstancedMesh of small spheres
         const starGeo = new THREE.SphereGeometry(0.3, 4, 4);
@@ -506,9 +535,22 @@ class Game {
             }
         }
 
-        // Update stars visibility
+        // Update stars visibility with twinkle effect
         if (this.stars) {
-            this.stars.material.opacity = dayFactor < 0.3 ? (1 - dayFactor / 0.3) * 0.8 : 0;
+            const baseOpacity = dayFactor < 0.3 ? (1 - dayFactor / 0.3) * 0.8 : 0;
+            // Twinkle: oscillate opacity with per-star phase offsets
+            if (baseOpacity > 0 && this.stars.count > 0) {
+                const t = this.timeOfDay * 10;
+                for (let i = 0; i < this.stars.count; i++) {
+                    const phase = i * 2.37; // Golden ratio-ish offset
+                    const twinkle = 0.6 + 0.4 * Math.sin(t + phase + Math.sin(t * 0.3 + phase * 1.5) * 2);
+                    const brightness = twinkle * baseOpacity;
+                    const starColor = new THREE.Color().setHSL(0.12 + Math.sin(phase) * 0.05, 0.1, brightness);
+                    this.stars.setColorAt(i, starColor);
+                }
+                if (this.stars.instanceColor) this.stars.instanceColor.needsUpdate = true;
+            }
+            this.stars.material.opacity = baseOpacity;
             this.stars.position.set(pp.x, 0, pp.z);
             this.stars.visible = dayFactor < 0.35;
         }

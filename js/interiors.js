@@ -291,12 +291,246 @@ export class InteriorManager {
         this.interiors.garage = interior;
     }
 
+    _generateInteriorTexture(type, surface) {
+        const key = `${type}_${surface}`;
+        if (!this._interiorTextureCache) this._interiorTextureCache = {};
+        if (this._interiorTextureCache[key]) return this._interiorTextureCache[key];
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Base colors per interior type
+        const floorColors = {
+            safehouse: '#8a7050', bank: '#c8bca8', warehouse: '#606058',
+            club: '#1a1a20', garage: '#585858', clothing: '#c8c0b8'
+        };
+        const wallColors = {
+            safehouse: '#c8bca0', bank: '#7a5a3a', warehouse: '#707068',
+            club: '#181820', garage: '#606058', clothing: '#f0ece8'
+        };
+
+        const baseColor = surface === 'floor' ? (floorColors[type] || '#666660') :
+            surface === 'wall' ? (wallColors[type] || '#888880') : '#888880';
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(0, 0, 256, 256);
+
+        if (surface === 'floor') {
+            if (type === 'safehouse') {
+                // Hardwood floor — parallel plank lines
+                ctx.strokeStyle = 'rgba(60,40,20,0.2)';
+                ctx.lineWidth = 1;
+                for (let y = 0; y < 256; y += 20) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(256, y);
+                    ctx.stroke();
+                    // Grain within plank
+                    ctx.strokeStyle = 'rgba(80,55,30,0.1)';
+                    ctx.lineWidth = 0.5;
+                    for (let g = 0; g < 3; g++) {
+                        const gy = y + 3 + Math.random() * 14;
+                        ctx.beginPath();
+                        ctx.moveTo(0, gy);
+                        ctx.bezierCurveTo(64, gy + Math.random() * 2 - 1, 192, gy - Math.random() * 2 + 1, 256, gy);
+                        ctx.stroke();
+                    }
+                    ctx.strokeStyle = 'rgba(60,40,20,0.2)';
+                    ctx.lineWidth = 1;
+                }
+                // Stagger plank ends
+                for (let y = 0; y < 256; y += 20) {
+                    const offset = (Math.floor(y / 20) % 3) * 85;
+                    ctx.beginPath();
+                    ctx.moveTo(offset, y);
+                    ctx.lineTo(offset, y + 20);
+                    ctx.stroke();
+                }
+            } else if (type === 'bank') {
+                // Marble tile with veins
+                const tileSize = 42;
+                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                ctx.lineWidth = 1.5;
+                for (let x = 0; x <= 256; x += tileSize) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+                }
+                for (let y = 0; y <= 256; y += tileSize) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+                }
+                // Marble veins
+                ctx.strokeStyle = 'rgba(160,150,130,0.15)';
+                ctx.lineWidth = 0.8;
+                for (let i = 0; i < 12; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * 256, Math.random() * 256);
+                    ctx.bezierCurveTo(Math.random() * 256, Math.random() * 256, Math.random() * 256, Math.random() * 256, Math.random() * 256, Math.random() * 256);
+                    ctx.stroke();
+                }
+            } else if (type === 'warehouse') {
+                // Concrete with cracks and oil stains
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.lineWidth = 0.8;
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath();
+                    let cx = Math.random() * 256, cy = Math.random() * 256;
+                    ctx.moveTo(cx, cy);
+                    for (let s = 0; s < 4; s++) {
+                        cx += (Math.random() - 0.5) * 60;
+                        cy += (Math.random() - 0.5) * 60;
+                        ctx.lineTo(cx, cy);
+                    }
+                    ctx.stroke();
+                }
+                // Oil stains
+                for (let i = 0; i < 4; i++) {
+                    const ox = Math.random() * 256, oy = Math.random() * 256, or = 15 + Math.random() * 25;
+                    const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, or);
+                    grad.addColorStop(0, 'rgba(30,25,15,0.2)');
+                    grad.addColorStop(1, 'rgba(30,25,15,0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(ox - or, oy - or, or * 2, or * 2);
+                }
+            } else if (type === 'club') {
+                // Dark polished with colored light spots
+                const spotColors = ['rgba(200,40,40,0.06)', 'rgba(40,40,200,0.06)', 'rgba(200,40,200,0.06)'];
+                for (let i = 0; i < 6; i++) {
+                    const sx = Math.random() * 256, sy = Math.random() * 256, sr = 20 + Math.random() * 30;
+                    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+                    grad.addColorStop(0, spotColors[i % spotColors.length]);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+                }
+                // Tile grid
+                ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+                ctx.lineWidth = 0.5;
+                for (let x = 0; x < 256; x += 32) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+                }
+                for (let y = 0; y < 256; y += 32) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+                }
+            } else if (type === 'garage') {
+                // Concrete with grease stains and bay lines
+                for (let i = 0; i < 5; i++) {
+                    const gx = Math.random() * 256, gy = Math.random() * 256, gr = 10 + Math.random() * 20;
+                    ctx.fillStyle = `rgba(30,25,15,${0.1 + Math.random() * 0.1})`;
+                    ctx.beginPath();
+                    ctx.ellipse(gx, gy, gr, gr * 0.7, Math.random() * Math.PI, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // Bay divider lines
+                ctx.strokeStyle = 'rgba(220,200,40,0.2)';
+                ctx.lineWidth = 3;
+                for (let x = 64; x < 256; x += 64) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+                }
+            } else {
+                // Generic tile
+                ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < 256; x += 32) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+                }
+                for (let y = 0; y < 256; y += 32) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+                }
+            }
+        } else if (surface === 'wall') {
+            if (type === 'safehouse') {
+                // Painted drywall with texture grain
+                for (let i = 0; i < 1000; i++) {
+                    ctx.fillStyle = `rgba(${180 + Math.floor(Math.random() * 20)},${170 + Math.floor(Math.random() * 20)},${150 + Math.floor(Math.random() * 20)},0.05)`;
+                    ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+                }
+                // Outlet rectangles
+                ctx.fillStyle = 'rgba(210,205,195,0.3)';
+                ctx.fillRect(200, 180, 10, 14);
+                ctx.fillRect(40, 185, 10, 14);
+                // Light switch
+                ctx.fillRect(120, 150, 8, 12);
+            } else if (type === 'bank') {
+                // Wood paneling (vertical boards)
+                ctx.strokeStyle = 'rgba(40,25,10,0.15)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < 256; x += 20) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+                    // Grain
+                    ctx.strokeStyle = 'rgba(50,30,15,0.08)';
+                    ctx.lineWidth = 0.5;
+                    for (let g = 0; g < 5; g++) {
+                        const gx = x + 2 + Math.random() * 16;
+                        ctx.beginPath();
+                        ctx.moveTo(gx, 0);
+                        ctx.bezierCurveTo(gx + 1, 64, gx - 1, 192, gx, 256);
+                        ctx.stroke();
+                    }
+                    ctx.strokeStyle = 'rgba(40,25,10,0.15)';
+                    ctx.lineWidth = 1;
+                }
+                // Crown molding line at top
+                ctx.strokeStyle = 'rgba(100,80,50,0.2)';
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(256, 10); ctx.stroke();
+            } else if (type === 'warehouse') {
+                // Corrugated metal
+                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                ctx.lineWidth = 1;
+                for (let y = 0; y < 256; y += 6) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+                }
+                // Exposed pipe shadows
+                ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+                ctx.lineWidth = 6;
+                ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(256, 40); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, 180); ctx.lineTo(256, 180); ctx.stroke();
+            } else if (type === 'club') {
+                // Dark paint with neon glow patches
+                const glowColors = ['rgba(200,40,80,0.08)', 'rgba(40,80,200,0.08)', 'rgba(180,40,200,0.08)'];
+                for (let i = 0; i < 4; i++) {
+                    const gx = Math.random() * 256, gy = Math.random() * 256, gr = 30 + Math.random() * 40;
+                    const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+                    grad.addColorStop(0, glowColors[i % glowColors.length]);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+                }
+                // Speaker grille rectangles
+                for (let i = 0; i < 3; i++) {
+                    const sx = 20 + Math.random() * 200, sy = 50 + Math.random() * 150;
+                    ctx.strokeStyle = 'rgba(60,60,70,0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(sx, sy, 20, 30);
+                    // Grille lines
+                    for (let gl = sy + 3; gl < sy + 30; gl += 3) {
+                        ctx.beginPath(); ctx.moveTo(sx + 2, gl); ctx.lineTo(sx + 18, gl); ctx.stroke();
+                    }
+                }
+            } else {
+                // Generic - subtle texture
+                for (let i = 0; i < 500; i++) {
+                    ctx.fillStyle = `rgba(0,0,0,${0.02 + Math.random() * 0.03})`;
+                    ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+                }
+            }
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        if (surface === 'floor') texture.repeat.set(2, 2);
+        texture.needsUpdate = true;
+        this._interiorTextureCache[key] = texture;
+        return texture;
+    }
+
     createInteriorBase(name, width, depth) {
         const group = new THREE.Group();
 
         // Floor
         const floorGeo = new THREE.PlaneGeometry(width, depth);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x555544, roughness: 0.9 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x555544, roughness: 0.9, map: this._generateInteriorTexture(name, 'floor') });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(0, this.interiorY, 0);
@@ -312,7 +546,7 @@ export class InteriorManager {
         group.add(ceil);
 
         // Walls
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x888877, roughness: 0.85 });
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x888877, roughness: 0.85, map: this._generateInteriorTexture(name, 'wall') });
 
         // North wall
         this.createWall(group, 0, this.interiorY, -depth / 2, width, 4, 0.2);

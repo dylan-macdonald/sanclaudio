@@ -666,7 +666,8 @@ export class WantedSystem {
 
         // Fuselage
         const bodyGeo = new THREE.CylinderGeometry(0.8, 1.0, 4, 8);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222244, roughness: 0.3, metalness: 0.7 });
+        const heliTexture = this.game.systems.vehicles._generateVehicleTexture('helicopter', 0x222244);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222244, roughness: 0.4, metalness: 0.6, map: heliTexture });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.rotation.x = Math.PI / 2;
         group.add(body);
@@ -877,8 +878,25 @@ export class WantedSystem {
                     this.game.scene.remove(car.mesh);
                     car.mesh = models.cloneVehicle('police');
                     car.mesh.position.set(x + 3, 0, z + 3);
+                    // Apply police texture
+                    const policeTexture = this.game.systems.vehicles._generateVehicleTexture('police', 0xffffff);
                     car.mesh.traverse((child) => {
-                        if (child.isMesh) child.castShadow = true;
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                        }
+                    });
+                    // Apply police texture to body meshes
+                    car.mesh.traverse((child) => {
+                        if (child.isMesh) {
+                            if (child.name && child.name.startsWith('wheel')) return;
+                            if (child.material.transparent) return;
+                            if (child.material.metalness > 0.8) return;
+                            child.material = child.material.clone();
+                            child.material.map = policeTexture;
+                            child.material.roughness = Math.max(0.3, Math.min(0.5, child.material.roughness));
+                            child.material.metalness = Math.max(0.5, Math.min(0.6, child.material.metalness));
+                            child.material.needsUpdate = true;
+                        }
                     });
                     // Collect wheel references
                     const wheels = [];
@@ -890,12 +908,14 @@ export class WantedSystem {
                     this.game.scene.add(car.mesh);
                 } else {
                     // Fallback: recolor sedan to look like police car
+                    const policeTexture = this.game.systems.vehicles._generateVehicleTexture('police', 0xffffff);
                     car.mesh.traverse((child) => {
                         if (child.isMesh && child.material) {
                             child.material = new THREE.MeshStandardMaterial({
                                 color: 0xffffff,
-                                roughness: 0.3,
-                                metalness: 0.5
+                                roughness: 0.4,
+                                metalness: 0.6,
+                                map: policeTexture
                             });
                         }
                     });

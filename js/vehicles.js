@@ -218,7 +218,8 @@ export class VehicleManager {
             sports: 'sports',
             truck: 'truck',
             motorcycle: 'motorcycle',
-            boat: 'boat'
+            boat: 'boat',
+            helicopter: 'helicopter'
         };
 
         // Try to use .glb model
@@ -239,6 +240,21 @@ export class VehicleManager {
                 }
             });
 
+            // Apply vehicle texture
+            const vehicleTexture = this._generateVehicleTexture(type, color);
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    // Skip wheels, glass, and chrome
+                    if (child.name && child.name.startsWith('wheel')) return;
+                    if (child.material.transparent) return;
+                    if (child.material.metalness > 0.8) return;
+                    child.material.map = vehicleTexture;
+                    child.material.roughness = Math.max(0.3, Math.min(0.5, child.material.roughness));
+                    child.material.metalness = Math.max(0.5, Math.min(0.6, child.material.metalness));
+                    child.material.needsUpdate = true;
+                }
+            });
+
             // Collect wheel references for animation
             const wheels = [];
             model.traverse((child) => {
@@ -256,12 +272,420 @@ export class VehicleManager {
         return this._createFallbackVehicleMesh(type, vType, color);
     }
 
+    _generateVehicleTexture(type, color) {
+        if (type === 'sedan' || type === 'sports') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Base near-white fill
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Metallic shimmer noise patches (3-5% HSL variation)
+            for (let i = 0; i < 40; i++) {
+                const px = Math.random() * 512;
+                const py = Math.random() * 256;
+                const size = 20 + Math.random() * 40;
+                const lightness = 95 + Math.random() * 5; // 95-100%
+                ctx.fillStyle = `hsl(0, 0%, ${lightness}%)`;
+                ctx.fillRect(px, py, size, size * 0.6);
+            }
+
+            // Horizontal reflection band at ~60% height (slightly lighter strip)
+            const reflGrad = ctx.createLinearGradient(0, 140, 0, 170);
+            reflGrad.addColorStop(0, 'rgba(255,255,255,0)');
+            reflGrad.addColorStop(0.4, 'rgba(255,255,255,0.15)');
+            reflGrad.addColorStop(0.6, 'rgba(255,255,255,0.15)');
+            reflGrad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = reflGrad;
+            ctx.fillRect(0, 140, 512, 30);
+
+            // Panel lines: door seams at ~30% and ~50% width
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 1.5;
+            // Door seam 1
+            ctx.beginPath();
+            ctx.moveTo(512 * 0.30, 30);
+            ctx.lineTo(512 * 0.30, 210);
+            ctx.stroke();
+            // Door seam 2
+            ctx.beginPath();
+            ctx.moveTo(512 * 0.50, 30);
+            ctx.lineTo(512 * 0.50, 210);
+            ctx.stroke();
+            // Hood seam (horizontal near top-front)
+            ctx.beginPath();
+            ctx.moveTo(20, 50);
+            ctx.lineTo(492, 50);
+            ctx.stroke();
+            // Trunk seam (horizontal near bottom-rear)
+            ctx.beginPath();
+            ctx.moveTo(20, 206);
+            ctx.lineTo(492, 206);
+            ctx.stroke();
+
+            // Bottom rocker panel grime — gradient darkening bottom 15%
+            const grimeGrad = ctx.createLinearGradient(0, 218, 0, 256);
+            grimeGrad.addColorStop(0, 'rgba(80,70,60,0)');
+            grimeGrad.addColorStop(0.3, 'rgba(80,70,60,0.15)');
+            grimeGrad.addColorStop(1, 'rgba(60,50,40,0.35)');
+            ctx.fillStyle = grimeGrad;
+            ctx.fillRect(0, 218, 512, 38);
+
+            // Wheel well shadows — dark crescents at wheel arch positions
+            ctx.fillStyle = 'rgba(40,35,30,0.3)';
+            // Front wheel well (~20% from left)
+            ctx.beginPath();
+            ctx.arc(512 * 0.20, 240, 30, Math.PI, 0);
+            ctx.fill();
+            // Rear wheel well (~80% from left)
+            ctx.beginPath();
+            ctx.arc(512 * 0.80, 240, 30, Math.PI, 0);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else if (type === 'truck') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Base near-white
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Panel divisions — larger for truck
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 2;
+            // Cab/bed division at ~40% width
+            ctx.beginPath();
+            ctx.moveTo(512 * 0.40, 10);
+            ctx.lineTo(512 * 0.40, 246);
+            ctx.stroke();
+            // Horizontal panel line
+            ctx.beginPath();
+            ctx.moveTo(10, 128);
+            ctx.lineTo(502, 128);
+            ctx.stroke();
+
+            // Rivet dots along panel edges
+            ctx.fillStyle = '#666666';
+            for (let x = 30; x < 500; x += 25) {
+                ctx.beginPath();
+                ctx.arc(x, 15, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x, 241, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            for (let y = 20; y < 250; y += 25) {
+                ctx.beginPath();
+                ctx.arc(512 * 0.40, y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Cargo bed section (right half): wood-grain texture
+            ctx.strokeStyle = '#b08050';
+            ctx.lineWidth = 0.8;
+            for (let y = 10; y < 250; y += 8) {
+                ctx.beginPath();
+                ctx.moveTo(512 * 0.42, y);
+                for (let x = 512 * 0.42; x < 505; x += 5) {
+                    ctx.lineTo(x + 5, y + (Math.sin(x * 0.03 + y * 0.1) * 2));
+                }
+                ctx.stroke();
+            }
+            // Wood knot circles
+            ctx.strokeStyle = '#a07040';
+            ctx.lineWidth = 0.6;
+            const knots = [[340, 60], [420, 150], [470, 90], [360, 200], [450, 220]];
+            for (const [kx, ky] of knots) {
+                ctx.beginPath();
+                ctx.arc(kx, ky, 5 + Math.random() * 4, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(kx, ky, 2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Bottom grime — heavier at 25%
+            const grimeGrad = ctx.createLinearGradient(0, 192, 0, 256);
+            grimeGrad.addColorStop(0, 'rgba(70,60,50,0)');
+            grimeGrad.addColorStop(0.3, 'rgba(70,60,50,0.2)');
+            grimeGrad.addColorStop(1, 'rgba(50,40,30,0.4)');
+            ctx.fillStyle = grimeGrad;
+            ctx.fillRect(0, 192, 512, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else if (type === 'police') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Upper 60% near-white
+            ctx.fillStyle = '#f4f4f4';
+            ctx.fillRect(0, 0, 512, 154);
+            // Lower 40% slightly darker
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fillRect(0, 154, 512, 102);
+
+            // Dividing stripe between upper/lower
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 154);
+            ctx.lineTo(512, 154);
+            ctx.stroke();
+
+            // "SCPD" text centered
+            ctx.fillStyle = '#222222';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('SCPD', 256, 80);
+
+            // Badge circle with star
+            ctx.strokeStyle = '#444444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(130, 80, 18, 0, Math.PI * 2);
+            ctx.stroke();
+            // Star inside badge
+            ctx.fillStyle = '#555555';
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = -Math.PI / 2 + (i * 2 * Math.PI / 5);
+                const outerX = 130 + Math.cos(angle) * 12;
+                const outerY = 80 + Math.sin(angle) * 12;
+                if (i === 0) ctx.moveTo(outerX, outerY);
+                else ctx.lineTo(outerX, outerY);
+                const innerAngle = angle + Math.PI / 5;
+                const innerX = 130 + Math.cos(innerAngle) * 5;
+                const innerY = 80 + Math.sin(innerAngle) * 5;
+                ctx.lineTo(innerX, innerY);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Unit number
+            const unitNum = 'SC-' + String(Math.floor(Math.random() * 900) + 100);
+            ctx.fillStyle = '#333333';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(unitNum, 380, 80);
+
+            // Push bumper chrome band at bottom
+            const chromeBand = ctx.createLinearGradient(0, 236, 0, 256);
+            chromeBand.addColorStop(0, 'rgba(200,200,210,0.3)');
+            chromeBand.addColorStop(0.5, 'rgba(240,240,245,0.5)');
+            chromeBand.addColorStop(1, 'rgba(180,180,190,0.3)');
+            ctx.fillStyle = chromeBand;
+            ctx.fillRect(0, 236, 512, 20);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else if (type === 'motorcycle') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            // Base near-white
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(0, 0, 256, 128);
+
+            // Subtle grain texture — fine dots
+            ctx.fillStyle = 'rgba(120,120,120,0.08)';
+            for (let i = 0; i < 300; i++) {
+                const dx = Math.random() * 256;
+                const dy = Math.random() * 128;
+                ctx.beginPath();
+                ctx.arc(dx, dy, 0.5 + Math.random(), 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Gas tank center pinstripe accent line
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(30, 64);
+            ctx.lineTo(226, 64);
+            ctx.stroke();
+
+            // Thinner parallel accent lines
+            ctx.strokeStyle = 'rgba(100,100,100,0.4)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(40, 58);
+            ctx.lineTo(216, 58);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(40, 70);
+            ctx.lineTo(216, 70);
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else if (type === 'boat') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            // Waterline division: upper 55% lighter, lower 45% darker
+            ctx.fillStyle = '#f6f6f6';
+            ctx.fillRect(0, 0, 256, 70);
+            const waterGrad = ctx.createLinearGradient(0, 70, 0, 128);
+            waterGrad.addColorStop(0, '#eeeeee');
+            waterGrad.addColorStop(1, '#d8d8d8');
+            ctx.fillStyle = waterGrad;
+            ctx.fillRect(0, 70, 256, 58);
+
+            // Waterline stripe
+            ctx.strokeStyle = '#777777';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 70);
+            ctx.lineTo(256, 70);
+            ctx.stroke();
+
+            // Boat name text
+            const names = ['SEA BREEZE', 'WAVE RUNNER', 'ISLAND QUEEN', 'SANTA LUCIA', 'BLUE HORIZON', 'OCEAN STAR'];
+            const boatName = names[Math.floor(Math.random() * names.length)];
+            ctx.fillStyle = '#444444';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(boatName, 128, 98);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else if (type === 'helicopter') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            // Base near-white
+            ctx.fillStyle = '#f4f4f4';
+            ctx.fillRect(0, 0, 256, 128);
+
+            // Panel seam lines
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(85, 5);
+            ctx.lineTo(85, 123);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(170, 5);
+            ctx.lineTo(170, 123);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(5, 64);
+            ctx.lineTo(251, 64);
+            ctx.stroke();
+
+            // Military-style ID marking
+            const heliId = 'SC-' + String(Math.floor(Math.random() * 900) + 100);
+            ctx.fillStyle = '#333333';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(heliId, 128, 32);
+
+            // Caution stripes near edges — diagonal yellow/black hatching
+            ctx.save();
+            const stripeW = 8;
+            // Top edge caution stripe
+            ctx.beginPath();
+            ctx.rect(0, 0, 256, 12);
+            ctx.clip();
+            for (let sx = -12; sx < 270; sx += stripeW * 2) {
+                ctx.fillStyle = 'rgba(200,180,0,0.5)';
+                ctx.beginPath();
+                ctx.moveTo(sx, 0);
+                ctx.lineTo(sx + stripeW, 0);
+                ctx.lineTo(sx + stripeW + 12, 12);
+                ctx.lineTo(sx + 12, 12);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = 'rgba(40,40,40,0.4)';
+                ctx.beginPath();
+                ctx.moveTo(sx + stripeW, 0);
+                ctx.lineTo(sx + stripeW * 2, 0);
+                ctx.lineTo(sx + stripeW * 2 + 12, 12);
+                ctx.lineTo(sx + stripeW + 12, 12);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // Bottom edge caution stripe
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 116, 256, 12);
+            ctx.clip();
+            for (let sx = -12; sx < 270; sx += stripeW * 2) {
+                ctx.fillStyle = 'rgba(200,180,0,0.5)';
+                ctx.beginPath();
+                ctx.moveTo(sx, 116);
+                ctx.lineTo(sx + stripeW, 116);
+                ctx.lineTo(sx + stripeW + 12, 128);
+                ctx.lineTo(sx + 12, 128);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = 'rgba(40,40,40,0.4)';
+                ctx.beginPath();
+                ctx.moveTo(sx + stripeW, 116);
+                ctx.lineTo(sx + stripeW * 2, 116);
+                ctx.lineTo(sx + stripeW * 2 + 12, 128);
+                ctx.lineTo(sx + stripeW + 12, 128);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+
+        } else {
+            // Unknown type — plain near-white texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(0, 0, 64, 64);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+    }
+
     _createFallbackVehicleMesh(type, vType, color) {
         const group = new THREE.Group();
+        const vehicleTexture = this._generateVehicleTexture(type, color);
         const mat = new THREE.MeshStandardMaterial({
             color: color,
-            roughness: 0.2,
-            metalness: 0.75
+            roughness: 0.4,
+            metalness: 0.6,
+            map: vehicleTexture
         });
         const glassMat = new THREE.MeshStandardMaterial({
             color: 0x88aacc, roughness: 0.05, metalness: 0.5,
@@ -638,6 +1062,21 @@ export class VehicleManager {
             // NPC-vehicle collision
             if (Math.abs(vehicle.speed) > 2) {
                 this._checkNPCCollision(vehicle, dt);
+            }
+
+            // Destructible prop collision
+            if (Math.abs(vehicle.speed) > 3 && vehicle.mesh) {
+                const world = this.game.systems.world;
+                if (world && world.checkPropCollision) {
+                    const vx = vehicle.mesh.position.x;
+                    const vz = vehicle.mesh.position.z;
+                    const vr = vehicle.type === 'motorcycle' ? 0.8 : (vehicle.type === 'truck' ? 2.5 : 1.8);
+                    if (world.checkPropCollision(vx, vz, vehicle.speed, vr)) {
+                        // Slow vehicle slightly on impact
+                        vehicle.speed *= 0.9;
+                        vehicle.damage = Math.min(100, (vehicle.damage || 0) + 2);
+                    }
+                }
             }
 
             // Vehicle damage effects
@@ -1969,16 +2408,16 @@ export class VehicleManager {
         vehicle.mesh.rotation.x = pitch;
         vehicle.mesh.rotation.z = roll;
 
-        // Water boundary enforcement — keep boat in water area
+        // Water boundary enforcement — keep boat within ocean area
         const world = this.game.systems.world;
         if (world) {
             const bx = vehicle.mesh.position.x;
             const bz = vehicle.mesh.position.z;
-            // Water is x:0-600, z:0-600. Push back from edges.
-            if (bx < 5) { vehicle.mesh.position.x = 5; vehicle.speed *= 0.5; }
-            if (bx > 595) { vehicle.mesh.position.x = 595; vehicle.speed *= 0.5; }
-            if (bz < 5) { vehicle.mesh.position.z = 5; vehicle.speed *= 0.5; }
-            if (bz > 595) { vehicle.mesh.position.z = 595; vehicle.speed *= 0.5; }
+            const oceanLimit = world.halfMap + 200; // 600 — don't go too far out
+            if (bx < -oceanLimit) { vehicle.mesh.position.x = -oceanLimit; vehicle.speed *= 0.5; }
+            if (bx > oceanLimit) { vehicle.mesh.position.x = oceanLimit; vehicle.speed *= 0.5; }
+            if (bz < -oceanLimit) { vehicle.mesh.position.z = -oceanLimit; vehicle.speed *= 0.5; }
+            if (bz > oceanLimit) { vehicle.mesh.position.z = oceanLimit; vehicle.speed *= 0.5; }
         }
 
         // Wake spray particles when moving
@@ -2115,6 +2554,11 @@ export class VehicleManager {
         // Exit vehicle — only when low enough
         if (input.justPressed('interact') && vehicle._altitude < 3) {
             this.game.systems.player.exitVehicle();
+            // Set player to ground level so they don't drop from altitude
+            const groundY = this.game.systems.physics.getGroundHeight(
+                vehicle.mesh.position.x, vehicle.mesh.position.z
+            );
+            this.game.systems.player.position.y = groundY;
         }
     }
 

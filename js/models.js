@@ -19,6 +19,8 @@ export class ModelManager {
             { name: 'motorcycle', url: 'assets/models/motorcycle.glb' },
             { name: 'boat', url: 'assets/models/boat.glb' },
             { name: 'police', url: 'assets/models/police.glb' },
+            { name: 'helicopter', url: 'assets/models/helicopter.glb' },
+            { name: 'character_female', url: 'assets/models/character_female.glb' },
             // Weapons
             { name: 'weapon_bat', url: 'assets/models/weapon_bat.glb' },
             { name: 'weapon_knife', url: 'assets/models/weapon_knife.glb' },
@@ -65,13 +67,15 @@ export class ModelManager {
         this.loaded = true;
     }
 
-    cloneCharacter() {
-        if (!this.models.character) return null;
-        return THREE.SkeletonUtils.clone(this.models.character);
+    cloneCharacter(gender = 'male') {
+        const key = gender === 'female' ? 'character_female' : 'character';
+        if (!this.models[key]) return null;
+        return THREE.SkeletonUtils.clone(this.models[key]);
     }
 
-    getCharacterAnimations() {
-        return this.animations.character || [];
+    getCharacterAnimations(gender = 'male') {
+        const key = gender === 'female' ? 'character_female' : 'character';
+        return this.animations[key] || [];
     }
 
     cloneVehicle(type) {

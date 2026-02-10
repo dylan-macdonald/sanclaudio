@@ -261,12 +261,21 @@ export class NPCManager {
         // Get district-specific palette, fallback to generic
         const palette = this.districtPalettes[district] || this.districtPalettes['Downtown'];
 
-        // Try to use .glb character model
-        if (models && models.hasModel('character')) {
-            const model = models.cloneCharacter();
+        // Determine gender for model selection
+        const gender = isMale ? 'male' : 'female';
+        const modelKey = isMale ? 'character' : 'character_female';
+
+        // Try to use .glb character model (prefer gender-specific, fallback to male)
+        const hasGenderModel = models && models.hasModel(modelKey);
+        const hasFallbackModel = models && models.hasModel('character');
+        if (hasGenderModel || hasFallbackModel) {
+            const model = hasGenderModel
+                ? models.cloneCharacter(gender)
+                : models.cloneCharacter('male');
 
             // Randomize material colors
-            const skinColors = [0xd4a574, 0xc49060, 0x8d5524, 0xf1c27d];
+            const skinColors = [0xd4a574, 0xc49060, 0x8d5524, 0xf1c27d, 0xe0ac69, 0xb87a50,
+                                0xdeb887, 0xa0522d, 0xcd853f, 0xf5deb3, 0x6b4226, 0xd2691e];
             const shirtColors = palette.shirts;
             const pantsColors = palette.pants;
 
@@ -280,8 +289,6 @@ export class NPCManager {
                     // Clone material so each NPC has unique colors
                     child.material = child.material.clone();
                     // Use vertex colors from the model, tint based on body region
-                    // The character model uses vertex colors to differentiate body parts
-                    // We'll tint the overall material
                     child.material.color.setHex(shirtColor);
                 }
             });
@@ -290,16 +297,26 @@ export class NPCManager {
             const heightScale = 0.9 + Math.random() * 0.2;
             model.scale.setScalar(heightScale);
 
-            // Set up AnimationMixer
-            const clips = models.getCharacterAnimations();
+            // Set up AnimationMixer — use gender-specific anims if available
+            const clips = hasGenderModel
+                ? models.getCharacterAnimations(gender)
+                : models.getCharacterAnimations('male');
             if (clips.length > 0) {
                 const mixer = new THREE.AnimationMixer(model);
                 const actions = {};
 
+                const onceAnims = new Set([
+                    'punch', 'jump', 'carjack', 'enter_vehicle', 'exit_vehicle',
+                    'melee_combo2', 'melee_combo3', 'melee_bat', 'melee_knife',
+                    'fire_pistol', 'fire_rifle', 'fall', 'land_hard',
+                    'death_front', 'death_back', 'pulled_from_car',
+                    'aimed_at_cower', 'aimed_at_comply', 'aim_pistol', 'aim_rifle',
+                    'hands_up', 'sit_bench', 'lean_wall'
+                ]);
                 for (const clip of clips) {
                     const action = mixer.clipAction(clip);
                     actions[clip.name] = action;
-                    if (clip.name === 'punch' || clip.name === 'jump') {
+                    if (onceAnims.has(clip.name)) {
                         action.setLoop(THREE.LoopOnce);
                         action.clampWhenFinished = true;
                     } else {
@@ -316,6 +333,15 @@ export class NPCManager {
                 model.userData.actions = actions;
                 model.userData.currentAction = actions.idle || null;
                 model.userData.useSkeleton = true;
+            }
+
+            // Apply NPC character texture if UVs are available
+            let skinnedMesh;
+            model.traverse(c => { if (c.isSkinnedMesh) skinnedMesh = c; });
+            if (skinnedMesh && skinnedMesh.geometry.getAttribute('uv')) {
+                const npcTexture = this._getNPCTexture(isMale);
+                skinnedMesh.material.map = npcTexture;
+                skinnedMesh.material.needsUpdate = true;
             }
 
             return model;
@@ -559,6 +585,192 @@ export class NPCManager {
         this._updateWorldEvents(dt);
     }
 
+    // --- NPC Character Texture Caching ---
+    _getNPCTexture(isMale) {
+        if (!this._npcTextureCache) this._npcTextureCache = {};
+        const key = isMale ? 'male' : 'female';
+        // Cache 3 variants per gender, pick randomly
+        const variant = Math.floor(Math.random() * 3);
+        const cacheKey = key + variant;
+        if (this._npcTextureCache[cacheKey]) return this._npcTextureCache[cacheKey];
+
+        const texture = this._generateNPCTexture(isMale, variant);
+        this._npcTextureCache[cacheKey] = texture;
+        return texture;
+    }
+
+    _generateNPCTexture(isMale, variant) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Base fill: near-white
+        ctx.fillStyle = '#f8f6f4';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // ── Torso region (0-256 x, 0-170 y) ──
+        // Shirt detail varies by variant
+        ctx.strokeStyle = 'rgba(60,50,40,0.3)';
+        ctx.lineWidth = 1;
+
+        if (variant === 0) {
+            // V-neck collar
+            ctx.beginPath();
+            ctx.moveTo(105, 10);
+            ctx.lineTo(128, 50);
+            ctx.lineTo(151, 10);
+            ctx.stroke();
+            // Hem line
+            ctx.beginPath();
+            ctx.moveTo(50, 155);
+            ctx.lineTo(206, 155);
+            ctx.stroke();
+        } else if (variant === 1) {
+            // Crew neck (round collar line)
+            ctx.beginPath();
+            ctx.arc(128, 15, 30, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+            // Shoulder seams
+            for (const sx of [55, 201]) {
+                ctx.beginPath();
+                ctx.moveTo(sx, 15);
+                ctx.lineTo(sx + (sx < 128 ? 15 : -15), 30);
+                ctx.stroke();
+            }
+        } else {
+            // Button-up with pocket
+            ctx.beginPath();
+            ctx.moveTo(128, 15);
+            ctx.lineTo(128, 155);
+            ctx.stroke();
+            // Buttons
+            ctx.fillStyle = 'rgba(60,50,40,0.3)';
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(128, 30 + i * 25, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.strokeStyle = 'rgba(50,40,30,0.2)';
+            ctx.strokeRect(140, 50, 28, 20);
+        }
+
+        // ── Pants region (0-256 x, 170-340 y) ──
+        // Subtle fabric pattern
+        ctx.strokeStyle = 'rgba(50,45,55,0.1)';
+        ctx.lineWidth = 0.5;
+        for (let i = -170; i < 256; i += 8) {
+            ctx.beginPath();
+            ctx.moveTo(i, 170);
+            ctx.lineTo(i + 170, 340);
+            ctx.stroke();
+        }
+        // Side seams
+        ctx.strokeStyle = 'rgba(50,45,55,0.2)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(60, 175);
+        ctx.lineTo(60, 335);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(196, 175);
+        ctx.lineTo(196, 335);
+        ctx.stroke();
+
+        // ── Face region (256-512 x, 0-170 y) ──
+        const fx = 384, fy = 85;
+
+        // Eyebrows — thinner for female
+        ctx.strokeStyle = 'rgba(40,30,20,0.55)';
+        ctx.lineWidth = isMale ? 2.5 : 1.5;
+        for (const side of [-1, 1]) {
+            ctx.beginPath();
+            ctx.arc(fx + side * 28, fy - 16, 16, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+        }
+
+        // Eyes
+        for (const side of [-1, 1]) {
+            const ex = fx + side * 28, ey = fy;
+            ctx.fillStyle = 'rgba(30,25,20,0.65)';
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 9, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(240,240,240,0.85)';
+            ctx.beginPath();
+            ctx.arc(ex + side * 3, ey - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyelashes for female
+            if (!isMale) {
+                ctx.strokeStyle = 'rgba(30,20,10,0.4)';
+                ctx.lineWidth = 0.8;
+                for (let l = 0; l < 3; l++) {
+                    const lAngle = Math.PI * 1.2 + l * 0.25;
+                    ctx.beginPath();
+                    ctx.moveTo(ex + Math.cos(lAngle) * 9, ey + Math.sin(lAngle) * 6);
+                    ctx.lineTo(ex + Math.cos(lAngle) * 12, ey + Math.sin(lAngle) * 9);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Lips — more color for female
+        ctx.fillStyle = isMale ? 'rgba(160,100,90,0.4)' : 'rgba(200,80,80,0.55)';
+        ctx.beginPath();
+        ctx.ellipse(fx, fy + 28, isMale ? 12 : 13, isMale ? 4 : 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Chin
+        ctx.strokeStyle = 'rgba(60,50,40,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(fx, fy + 48, 22, Math.PI * 0.25, Math.PI * 0.75);
+        ctx.stroke();
+
+        // Male stubble
+        if (isMale && variant !== 2) {
+            ctx.fillStyle = 'rgba(40,35,30,0.06)';
+            for (let i = 0; i < 60; i++) {
+                const sx = fx - 22 + Math.random() * 44;
+                const sy = fy + 20 + Math.random() * 28;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // ── Arms region (256-512 x, 170-340 y) ──
+        ctx.strokeStyle = 'rgba(50,40,30,0.25)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(280, 215);
+        ctx.lineTo(488, 215);
+        ctx.stroke();
+
+        // ── Shoes region (0-256 x, 340-512 y) ──
+        ctx.strokeStyle = 'rgba(40,35,25,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(50, 440);
+        ctx.lineTo(206, 440);
+        ctx.stroke();
+
+        // ── Hair region (256-512 x, 340-512 y) ──
+        ctx.strokeStyle = 'rgba(20,15,10,0.18)';
+        ctx.lineWidth = 0.7;
+        for (let i = 0; i < 20; i++) {
+            const sy = 350 + i * 7;
+            ctx.beginPath();
+            ctx.moveTo(270, sy);
+            ctx.bezierCurveTo(330, sy + Math.sin(i) * 3, 430, sy - Math.sin(i) * 3, 500, sy);
+            ctx.stroke();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+    }
+
     updatePedestrian(npc, dt) {
         if (!npc.mesh) return;
 
@@ -769,16 +981,36 @@ export class NPCManager {
                 }
             }
 
-            // Idle behaviors: phone checking, standing around
-            if (npc.idleBehavior === 'phone' || npc.idleBehavior === 'standing') {
+            // Idle behaviors: phone checking, standing around, sitting
+            if (npc.idleBehavior === 'phone' || npc.idleBehavior === 'standing' || npc.idleBehavior === 'sitting') {
                 npc.idleTimer = (npc.idleTimer || 0) + dt;
                 // Stand idle for 8-15 seconds, then start walking
                 if (npc.idleTimer > 8 + Math.random() * 7) {
                     npc.idleBehavior = 'walking';
                     npc.idleTimer = 0;
+                    npc._currentAnim = null; // Reset so walk anim triggers
                 }
-                // Phone check: subtle head bob
-                if (npc.idleBehavior === 'phone') {
+
+                // GLTF idle behavior animations
+                const npcMixer = npc.mesh.userData.mixer;
+                const npcActions = npc.mesh.userData.actions;
+                if (npcMixer && npcActions) {
+                    const idleAnimMap = {
+                        'phone': 'phone_talk',
+                        'sitting': 'sit_bench',
+                        'leaning': 'lean_wall'
+                    };
+                    const animName = idleAnimMap[npc.idleBehavior];
+                    if (animName && npcActions[animName] && npc._currentAnim !== animName) {
+                        if (npc.mesh.userData.currentAction) npc.mesh.userData.currentAction.fadeOut(0.3);
+                        npcActions[animName].reset().fadeIn(0.3).play();
+                        npc.mesh.userData.currentAction = npcActions[animName];
+                        npc._currentAnim = animName;
+                    }
+                }
+
+                // Phone check: subtle head bob (fallback for non-skeleton models)
+                if (npc.idleBehavior === 'phone' && !npc.mesh.userData.useSkeleton) {
                     npc._phoneBobTime = (npc._phoneBobTime || 0) + dt;
                     const parts = npc.mesh.userData.parts;
                     if (parts && parts.head) {
@@ -1229,6 +1461,18 @@ export class NPCManager {
                 npc._reaction = 'duck';
                 npc._reactionTimer = 2.5 + Math.random();
                 npc._recordingTarget = point.clone();
+                // Play cower animation if available (GLTF skeleton)
+                const gfMixer = npc.mesh.userData.mixer;
+                const gfActions = npc.mesh.userData.actions;
+                if (gfMixer && gfActions) {
+                    const reactAnim = gfActions['aimed_at_cower'] ? 'aimed_at_cower' : null;
+                    if (reactAnim && gfActions[reactAnim]) {
+                        if (npc.mesh.userData.currentAction) npc.mesh.userData.currentAction.fadeOut(0.2);
+                        gfActions[reactAnim].reset().fadeIn(0.2).play();
+                        npc.mesh.userData.currentAction = gfActions[reactAnim];
+                        npc._currentAnim = reactAnim;
+                    }
+                }
                 if (Math.random() < 0.4) {
                     const line = this.duckDialogue[Math.floor(Math.random() * this.duckDialogue.length)];
                     this.showNPCSubtitle(npc, line);
@@ -1312,6 +1556,18 @@ export class NPCManager {
                 npc._reactionTimer = 3 + Math.random() * 2;
                 npc._reactionCooldown = 0;
                 npc._recordingTarget = point.clone();
+                // Play cower animation if available (GLTF skeleton)
+                const exMixer = npc.mesh.userData.mixer;
+                const exActions = npc.mesh.userData.actions;
+                if (exMixer && exActions) {
+                    const reactAnim = exActions['aimed_at_cower'] ? 'aimed_at_cower' : null;
+                    if (reactAnim && exActions[reactAnim]) {
+                        if (npc.mesh.userData.currentAction) npc.mesh.userData.currentAction.fadeOut(0.2);
+                        exActions[reactAnim].reset().fadeIn(0.2).play();
+                        npc.mesh.userData.currentAction = exActions[reactAnim];
+                        npc._currentAnim = reactAnim;
+                    }
+                }
                 if (Math.random() < 0.5) {
                     const line = this.cowerDialogue[Math.floor(Math.random() * this.cowerDialogue.length)];
                     this.showNPCSubtitle(npc, line);
@@ -1363,6 +1619,9 @@ export class NPCManager {
         npc.health -= amount;
         if (npc.health <= 0) {
             npc.alive = false;
+            npc._reaction = null;
+            npc._reactionTimer = 0;
+            npc._recordingTarget = null;
             this.game.stats.totalKills++;
 
             // Trigger ragdoll

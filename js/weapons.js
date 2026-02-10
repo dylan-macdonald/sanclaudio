@@ -468,7 +468,23 @@ export class WeaponManager {
         const comboName = combo ? combo.names[this.comboCount] : null;
         const damage = Math.round(def.damage * multiplier);
 
-        player.playPunchAnimation();
+        // Weapon-specific melee animations
+        const weaponId = weapon.id;
+        if (player.mixer) {
+            if (weaponId === 'bat' && player.actions['melee_bat']) {
+                player._playOneShot('melee_bat', player.animState);
+            } else if (weaponId === 'knife' && player.actions['melee_knife']) {
+                player._playOneShot('melee_knife', player.animState);
+            } else if (this.comboCount === 1 && player.actions['melee_combo2']) {
+                player._playOneShot('melee_combo2', player.animState);
+            } else if (this.comboCount === 2 && player.actions['melee_combo3']) {
+                player._playOneShot('melee_combo3', player.animState);
+            } else {
+                player.playPunchAnimation();
+            }
+        } else {
+            player.playPunchAnimation();
+        }
 
         // Audio — higher pitch for later combo hits
         this.game.systems.audio.playPunch();
@@ -536,6 +552,16 @@ export class WeaponManager {
 
         // Audio
         this.game.systems.audio.playGunshot(weapon.id);
+
+        // Fire animation
+        if (player.mixer) {
+            const isPistolType = ['pistol', 'smg'].includes(weapon.id);
+            const fireAnim = isPistolType ? 'fire_pistol' : 'fire_rifle';
+            const aimAnim = isPistolType ? 'aim_pistol' : 'aim_rifle';
+            if (player.actions[fireAnim]) {
+                player._playOneShot(fireAnim, player.actions[aimAnim] ? aimAnim : player.animState);
+            }
+        }
 
         // NPC reaction to gunfire
         const npcs = this.game.systems.npcs;
@@ -976,9 +1002,12 @@ export class WeaponManager {
 
     removeProjectile(index) {
         const proj = this.projectiles[index];
-        this.game.scene.remove(proj.mesh);
-        if (proj.mesh.geometry) proj.mesh.geometry.dispose();
-        if (proj.mesh.material) proj.mesh.material.dispose();
+        if (!proj) return;
+        if (proj.mesh) {
+            this.game.scene.remove(proj.mesh);
+            if (proj.mesh.geometry) proj.mesh.geometry.dispose();
+            if (proj.mesh.material) proj.mesh.material.dispose();
+        }
         this.projectiles.splice(index, 1);
     }
 
@@ -1165,7 +1194,17 @@ export class WeaponManager {
         const glbName = `weapon_${weaponId}`;
         if (models && models.hasModel(glbName)) {
             const model = models.models[glbName].clone();
-            model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+            const weaponTexture = this._generateWeaponTexture(weaponId);
+            model.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    if (weaponTexture) {
+                        child.material = child.material.clone();
+                        child.material.map = weaponTexture;
+                        child.material.needsUpdate = true;
+                    }
+                }
+            });
             this._weaponModelCache[weaponId] = model;
             return model.clone();
         }
@@ -1544,5 +1583,506 @@ export class WeaponManager {
         group.traverse(child => { if (child.isMesh) child.castShadow = true; });
         this._weaponModelCache[weaponId] = group;
         return group.clone();
+    }
+
+    // ── Canvas Textures for Weapon Models ─────────────────────────────
+
+    _generateWeaponTexture(weaponId) {
+        if (weaponId === 'fists') return null;
+
+        if (!this._weaponTextureCache) this._weaponTextureCache = {};
+        if (this._weaponTextureCache[weaponId]) return this._weaponTextureCache[weaponId];
+
+        let width = 256, height = 128;
+        if (weaponId === 'grenade' || weaponId === 'atomizer') {
+            width = 128; height = 128;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        switch (weaponId) {
+            case 'bat':
+                this._drawBatTexture(ctx, width, height);
+                break;
+            case 'knife':
+                this._drawKnifeTexture(ctx, width, height);
+                break;
+            case 'pistol':
+                this._drawPistolTexture(ctx, width, height);
+                break;
+            case 'smg':
+                this._drawSmgTexture(ctx, width, height);
+                break;
+            case 'shotgun':
+                this._drawShotgunTexture(ctx, width, height);
+                break;
+            case 'rifle':
+                this._drawRifleTexture(ctx, width, height);
+                break;
+            case 'sniper':
+                this._drawSniperTexture(ctx, width, height);
+                break;
+            case 'grenade':
+                this._drawGrenadeTexture(ctx, width, height);
+                break;
+            case 'atomizer':
+                this._drawAtomizerTexture(ctx, width, height);
+                break;
+            default:
+                return null;
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        this._weaponTextureCache[weaponId] = texture;
+        return texture;
+    }
+
+    _drawBatTexture(ctx, width, height) {
+        // Wood base
+        ctx.fillStyle = '#e8d5bb';
+        ctx.fillRect(0, 0, width, height);
+
+        // Wood grain: ~20 parallel wavy lines
+        ctx.strokeStyle = 'rgba(200,168,130,0.5)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 20; i++) {
+            ctx.beginPath();
+            const y = (i / 20) * height;
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(
+                width * 0.25, y + Math.sin(i) * 3,
+                width * 0.75, y - Math.sin(i * 1.3) * 3,
+                width, y
+            );
+            ctx.stroke();
+        }
+
+        // Knot circles (3-4 small ellipses)
+        ctx.strokeStyle = 'rgba(120,80,40,0.4)';
+        ctx.lineWidth = 1;
+        const knots = [
+            { x: width * 0.3, y: height * 0.25, rx: 4, ry: 3 },
+            { x: width * 0.55, y: height * 0.6, rx: 5, ry: 4 },
+            { x: width * 0.7, y: height * 0.35, rx: 3, ry: 3 },
+            { x: width * 0.45, y: height * 0.8, rx: 4, ry: 3 }
+        ];
+        for (const k of knots) {
+            ctx.beginPath();
+            ctx.ellipse(k.x, k.y, k.rx, k.ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            // Inner ring
+            ctx.beginPath();
+            ctx.ellipse(k.x, k.y, k.rx * 0.5, k.ry * 0.5, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Grip cross-hatch at one end (left side = handle end)
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 0.5;
+        const gripEnd = width * 0.15;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, gripEnd, height);
+        ctx.clip();
+        for (let i = -height; i < gripEnd; i += 4) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + height, height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(i + height, 0); ctx.lineTo(i, height); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    _drawKnifeTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Blade: Damascus pattern on right 60% (wavy interleaving lines)
+        const bladeStart = width * 0.4;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(bladeStart, 0, width - bladeStart, height);
+        ctx.clip();
+        for (let i = 0; i < 30; i++) {
+            const y = (i / 30) * height;
+            ctx.strokeStyle = i % 2 === 0 ? 'rgba(180,180,190,0.5)' : 'rgba(140,140,155,0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(bladeStart, y);
+            for (let x = bladeStart; x < width; x += 10) {
+                ctx.lineTo(x + 5, y + Math.sin((x + i * 7) * 0.1) * 2.5);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Handle: wood grain vertical lines on left 35%
+        const handleEnd = width * 0.35;
+        ctx.strokeStyle = 'rgba(100,70,40,0.35)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 15; i++) {
+            const x = (i / 15) * handleEnd;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.bezierCurveTo(
+                x + Math.sin(i) * 2, height * 0.33,
+                x - Math.sin(i * 1.2) * 2, height * 0.66,
+                x, height
+            );
+            ctx.stroke();
+        }
+
+        // Guard: edge highlight line at boundary
+        ctx.strokeStyle = 'rgba(200,200,210,0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.37, 0);
+        ctx.lineTo(width * 0.37, height);
+        ctx.stroke();
+    }
+
+    _drawPistolTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Slide serrations: 8-10 horizontal lines on right third
+        ctx.strokeStyle = 'rgba(60,60,60,0.4)';
+        ctx.lineWidth = 2;
+        const serrStart = width * 0.67;
+        for (let i = 0; i < 10; i++) {
+            const y = 10 + i * (height - 20) / 10;
+            ctx.beginPath();
+            ctx.moveTo(serrStart, y);
+            ctx.lineTo(width - 5, y);
+            ctx.stroke();
+        }
+
+        // Grip cross-hatch (diagonal both ways, 4px spacing) on lower-left area
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 0.5;
+        const gripW = width * 0.45;
+        const gripH = height * 0.6;
+        const gripY = height * 0.35;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(5, gripY, gripW, gripH);
+        ctx.clip();
+        for (let i = -gripH; i < gripW; i += 4) {
+            ctx.beginPath(); ctx.moveTo(i + 5, gripY); ctx.lineTo(i + gripH + 5, gripY + gripH); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(i + gripH + 5, gripY); ctx.lineTo(i + 5, gripY + gripH); ctx.stroke();
+        }
+        ctx.restore();
+
+        // Small circle for manufacturer logo
+        ctx.strokeStyle = 'rgba(80,80,80,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(width * 0.5, height * 0.2, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        // Inner dot
+        ctx.fillStyle = 'rgba(80,80,80,0.2)';
+        ctx.beginPath();
+        ctx.arc(width * 0.5, height * 0.2, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    _drawSmgTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Receiver panel lines: 2 vertical lines at 1/3 and 2/3
+        ctx.strokeStyle = 'rgba(50,50,50,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(width / 3, 5);
+        ctx.lineTo(width / 3, height - 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(width * 2 / 3, 5);
+        ctx.lineTo(width * 2 / 3, height - 5);
+        ctx.stroke();
+
+        // Magazine ribbing: horizontal lines, 3px spacing, bottom quarter
+        ctx.strokeStyle = 'rgba(40,40,40,0.3)';
+        ctx.lineWidth = 1;
+        const ribStart = height * 0.75;
+        for (let y = ribStart; y < height - 2; y += 3) {
+            ctx.beginPath();
+            ctx.moveTo(5, y);
+            ctx.lineTo(width - 5, y);
+            ctx.stroke();
+        }
+
+        // Foregrip texture: fine vertical lines in center-right area
+        ctx.strokeStyle = 'rgba(30,30,30,0.25)';
+        ctx.lineWidth = 0.5;
+        const fgStart = width * 0.5;
+        const fgEnd = width * 0.85;
+        for (let x = fgStart; x < fgEnd; x += 3) {
+            ctx.beginPath();
+            ctx.moveTo(x, height * 0.1);
+            ctx.lineTo(x, height * 0.55);
+            ctx.stroke();
+        }
+    }
+
+    _drawShotgunTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Wood grain on left half (stock/pump area)
+        ctx.strokeStyle = 'rgba(100,70,40,0.3)';
+        ctx.lineWidth = 1;
+        const woodEnd = width * 0.5;
+        for (let i = 0; i < 20; i++) {
+            ctx.beginPath();
+            const y = (i / 20) * height;
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(
+                woodEnd * 0.25, y + Math.sin(i) * 3,
+                woodEnd * 0.75, y - Math.sin(i * 1.3) * 3,
+                woodEnd, y
+            );
+            ctx.stroke();
+        }
+
+        // Receiver engraving: thin curving lines in center
+        ctx.strokeStyle = 'rgba(70,70,80,0.3)';
+        ctx.lineWidth = 0.8;
+        const engStart = width * 0.45;
+        const engEnd = width * 0.7;
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            const cy = height * 0.3 + i * 10;
+            ctx.moveTo(engStart, cy);
+            ctx.bezierCurveTo(
+                engStart + (engEnd - engStart) * 0.3, cy + 4,
+                engStart + (engEnd - engStart) * 0.7, cy - 4,
+                engEnd, cy
+            );
+            ctx.stroke();
+        }
+
+        // Shell port rectangle outline
+        ctx.strokeStyle = 'rgba(50,50,50,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(width * 0.55, height * 0.6, width * 0.12, height * 0.2);
+    }
+
+    _drawRifleTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Handguard ventilation: row of 6 circles in center
+        ctx.strokeStyle = 'rgba(50,50,50,0.4)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 6; i++) {
+            const cx = width * 0.25 + i * (width * 0.1);
+            const cy = height * 0.35;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Magazine ribbing: horizontal lines in lower area
+        ctx.strokeStyle = 'rgba(40,40,40,0.3)';
+        ctx.lineWidth = 1;
+        for (let y = height * 0.65; y < height - 5; y += 3) {
+            ctx.beginPath();
+            ctx.moveTo(width * 0.1, y);
+            ctx.lineTo(width * 0.5, y);
+            ctx.stroke();
+        }
+
+        // Rail marks on top: short evenly spaced lines
+        ctx.strokeStyle = 'rgba(60,60,60,0.35)';
+        ctx.lineWidth = 1;
+        for (let x = width * 0.15; x < width * 0.85; x += 8) {
+            ctx.beginPath();
+            ctx.moveTo(x, 5);
+            ctx.lineTo(x, 14);
+            ctx.stroke();
+        }
+    }
+
+    _drawSniperTexture(ctx, width, height) {
+        // Near-white base
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Wood grain on left third (stock)
+        ctx.strokeStyle = 'rgba(100,70,40,0.3)';
+        ctx.lineWidth = 1;
+        const stockEnd = width * 0.33;
+        for (let i = 0; i < 18; i++) {
+            ctx.beginPath();
+            const y = (i / 18) * height;
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(
+                stockEnd * 0.25, y + Math.sin(i) * 3,
+                stockEnd * 0.75, y - Math.sin(i * 1.3) * 3,
+                stockEnd, y
+            );
+            ctx.stroke();
+        }
+
+        // Scope lens: gradient filled circle in upper-center area
+        const lensCx = width * 0.55;
+        const lensCy = height * 0.3;
+        const lensR = 12;
+        const gradient = ctx.createRadialGradient(lensCx, lensCy, 0, lensCx, lensCy, lensR);
+        gradient.addColorStop(0, 'rgba(100,150,255,0.4)');
+        gradient.addColorStop(0.7, 'rgba(60,100,200,0.25)');
+        gradient.addColorStop(1, 'rgba(40,40,80,0.5)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(lensCx, lensCy, lensR, 0, Math.PI * 2);
+        ctx.fill();
+        // Lens ring
+        ctx.strokeStyle = 'rgba(50,50,60,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(lensCx, lensCy, lensR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Bolt knurling: diagonal crosshatch in center-right area
+        ctx.strokeStyle = 'rgba(50,50,50,0.3)';
+        ctx.lineWidth = 0.5;
+        const knurlX = width * 0.62;
+        const knurlW = width * 0.15;
+        const knurlY = height * 0.5;
+        const knurlH = height * 0.35;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(knurlX, knurlY, knurlW, knurlH);
+        ctx.clip();
+        for (let i = -knurlH; i < knurlW; i += 3) {
+            ctx.beginPath();
+            ctx.moveTo(knurlX + i, knurlY);
+            ctx.lineTo(knurlX + i + knurlH, knurlY + knurlH);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(knurlX + i + knurlH, knurlY);
+            ctx.lineTo(knurlX + i, knurlY + knurlH);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Bipod strut lines on right side
+        ctx.strokeStyle = 'rgba(60,60,60,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.82, height * 0.5);
+        ctx.lineTo(width * 0.88, height * 0.95);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(width * 0.86, height * 0.5);
+        ctx.lineTo(width * 0.92, height * 0.95);
+        ctx.stroke();
+    }
+
+    _drawGrenadeTexture(ctx, width, height) {
+        // Olive drab base tint
+        ctx.fillStyle = '#c8c4a0';
+        ctx.fillRect(0, 0, width, height);
+
+        // Body segments: 4 horizontal dividing lines
+        ctx.strokeStyle = 'rgba(60,55,30,0.5)';
+        ctx.lineWidth = 1.5;
+        for (let i = 1; i <= 4; i++) {
+            const y = (i / 5) * height;
+            ctx.beginPath();
+            ctx.moveTo(3, y);
+            ctx.lineTo(width - 3, y);
+            ctx.stroke();
+        }
+
+        // Paint chips: irregular lighter patches (~5 of them)
+        ctx.fillStyle = 'rgba(210,205,180,0.5)';
+        const chips = [
+            { x: 20, y: 15, w: 12, h: 8 },
+            { x: 70, y: 45, w: 10, h: 14 },
+            { x: 40, y: 80, w: 15, h: 9 },
+            { x: 95, y: 25, w: 11, h: 11 },
+            { x: 55, y: 105, w: 13, h: 7 }
+        ];
+        for (const c of chips) {
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y);
+            ctx.lineTo(c.x + c.w * 0.7, c.y - c.h * 0.3);
+            ctx.lineTo(c.x + c.w, c.y + c.h * 0.4);
+            ctx.lineTo(c.x + c.w * 0.4, c.y + c.h);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Subtle vertical segment lines (grenade body pattern)
+        ctx.strokeStyle = 'rgba(60,55,30,0.25)';
+        ctx.lineWidth = 0.5;
+        for (let i = 1; i <= 5; i++) {
+            const x = (i / 6) * width;
+            ctx.beginPath();
+            ctx.moveTo(x, 5);
+            ctx.lineTo(x, height - 5);
+            ctx.stroke();
+        }
+    }
+
+    _drawAtomizerTexture(ctx, width, height) {
+        // Near-white base with slight purple tint
+        ctx.fillStyle = '#eee8f4';
+        ctx.fillRect(0, 0, width, height);
+
+        // Energy coil pattern: 3 sine wave lines across width
+        const coilColors = ['rgba(100,60,200,0.35)', 'rgba(130,80,255,0.3)', 'rgba(80,40,180,0.35)'];
+        for (let c = 0; c < 3; c++) {
+            ctx.strokeStyle = coilColors[c];
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            const baseY = height * 0.25 + c * (height * 0.2);
+            ctx.moveTo(0, baseY);
+            for (let x = 0; x < width; x += 2) {
+                ctx.lineTo(x, baseY + Math.sin(x * 0.08 + c * 2) * 8);
+            }
+            ctx.stroke();
+        }
+
+        // Panel seams: 2 vertical lines
+        ctx.strokeStyle = 'rgba(60,50,80,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.35, 5);
+        ctx.lineTo(width * 0.35, height - 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(width * 0.65, 5);
+        ctx.lineTo(width * 0.65, height - 5);
+        ctx.stroke();
+
+        // Emitter glow gradient circle on right side
+        const glowCx = width * 0.82;
+        const glowCy = height * 0.5;
+        const glowR = 18;
+        const glowGrad = ctx.createRadialGradient(glowCx, glowCy, 0, glowCx, glowCy, glowR);
+        glowGrad.addColorStop(0, 'rgba(140,100,255,0.5)');
+        glowGrad.addColorStop(0.5, 'rgba(100,60,220,0.25)');
+        glowGrad.addColorStop(1, 'rgba(80,40,180,0)');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(glowCx, glowCy, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        // Outer ring
+        ctx.strokeStyle = 'rgba(100,70,200,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(glowCx, glowCy, glowR * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
     }
 }

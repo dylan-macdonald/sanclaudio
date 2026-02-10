@@ -487,6 +487,133 @@ Mesh objects. With 1272 total geometries and only 20 FPS, reducing draw calls wa
 3. **Stunt ramps**: Merged all ramp geometries into 1 mesh and all stripes into 1 mesh.
    Saves ~18 meshes. Total reduction: ~512 fewer draw calls.
 
+### 26. `removeProjectile` null crash — `weapons.js:977`
+
+**Problem**: `removeProjectile(index)` accessed `proj.mesh` without checking if `proj`
+or `proj.mesh` existed. If called with an out-of-bounds index (e.g. after double-removal
+race condition), it crashed with `TypeError: Cannot read properties of undefined`.
+
+**Fix**: Added `if (!proj) return;` and `if (proj.mesh)` guard around mesh cleanup.
+
+### 27. SF race checkpoint out-of-bounds — `missions.js:1496`
+
+**Problem**: `_updateSFMission()` sf_race case accessed `stage.checkpoints[sf.currentCheckpoint]`
+without bounds check. If `currentCheckpoint` exceeded array length, `cp` was `undefined`
+and `cp.x` crashed.
+
+**Fix**: Added `if (!cp) break;` after checkpoint lookup.
+
+### 28. Side mission cleanup null mesh crash — `missions.js:1998`
+
+**Problem**: `_cleanupSideMission()` called `.geometry.dispose()` and `.material.dispose()`
+on checkpoint/delivery meshes without null guards. If a mesh was already disposed or
+never created, this crashed.
+
+**Fix**: Added `if (!mesh) continue;` for checkpoint loop, and `if (mesh.geometry)`/
+`if (mesh.material)` guards for all dispose calls.
+
+### 29. NPC reaction state persists on death — `npcs.js:1362`
+
+**Problem**: `npcTakeDamage()` set `npc.alive = false` but didn't clear reaction state
+(`_reaction`, `_reactionTimer`, `_recordingTarget`). While dead NPCs are skipped in
+the update loop, stale state could cause issues if the NPC was referenced elsewhere
+before recycling.
+
+**Fix**: Added `npc._reaction = null; npc._reactionTimer = 0; npc._recordingTarget = null;`
+in the death branch of `npcTakeDamage()`.
+
+### 30. Boat boundaries use wrong coordinates — `vehicles.js:1972`
+
+**Problem**: Boat water boundary enforcement used hardcoded `x:0-600, z:0-600` coordinates,
+but the map is centered at origin (-400 to 400). Boats in negative coordinates were
+immediately clamped to x=5/z=5. Water exists on all sides of the island.
+
+**Fix**: Changed to symmetric `±(halfMap + 200)` = ±600, using `world.halfMap` dynamically.
+
+### 31. `isInWater` only detected positive quadrant — `world.js:3438`
+
+**Problem**: `isInWater(x, z)` had a secondary condition `(x >= 0 && x <= 600 && z >= 0 && z <= 600)`
+that restricted water detection to only the positive quadrant. Water at negative coordinates
+(e.g. near The Docks at -200, 200) was never detected. NPCs couldn't detect water to avoid
+walking into it on three sides of the island.
+
+**Fix**: Simplified to `Math.abs(x) > margin || Math.abs(z) > margin` — water is anywhere
+outside the landmass boundary (±380).
+
+### 32. Helicopter exit drops player from altitude — `vehicles.js:2116`
+
+**Problem**: When exiting a helicopter at altitude < 3, the player's position was set to
+the vehicle's position (including its Y altitude). Player would then drop from height 2-3
+and potentially clip through terrain or take unnecessary fall damage.
+
+**Fix**: After `exitVehicle()`, explicitly set `player.position.y` to `getGroundHeight()`
+at the exit location so the player lands on solid ground.
+
+## Art Direction
+
+### Style
+
+**"Stylized low-poly"** — geometric faces with flat shading, chunky proportions with character.
+NOT realistic, NOT Roblox-smooth. Think PS2-era GTA 3/VC/SA meets Untitled Goose Game:
+intentionally low-poly but with **personality, proportion, and polish**.
+
+### Proportions
+
+- Head ~1/6 body height (not 1/4 like Roblox, not 1/8 like realistic)
+- Hands 15% oversized for weapon readability at distance
+- Feet slightly large for visual grounding
+- Shoulders broad, hips narrower (male) / shoulders narrower, hips wider (female)
+- Slightly exaggerated overall — characters should have **presence**
+
+### Colors & Materials
+
+- **Vertex colors** for clothing zones (shirt, pants, shoes, jacket, gloves)
+- **Canvas textures** for face detail (eyes, mouth, brows) — 128×128 per variant
+- **Matte materials** (roughness 0.6–0.8) — no shiny plastic
+- **Metalness 0.02** for skin/cloth, **0.6** for vehicles, **0.7** for weapons
+- 4 skin tones: `0xd4a574`, `0xc49060`, `0x8d5524`, `0xf1c27d`
+- District-specific clothing palettes (see `npcs.js:districtPalettes`)
+
+### Silhouette Rule
+
+Every character and vehicle must read clearly as a dark silhouette at 50m camera distance.
+This means: distinct head shape, visible shoulders, weapon outlines, vehicle profiles that
+differ between types. No "blob" shapes.
+
+### Polygon Budgets
+
+| Asset Type | Triangle Budget | Notes |
+|-----------|----------------|-------|
+| Characters | 2500–4000 tris | With morph targets (fat/muscle) |
+| Vehicles | 2500–5000 tris | Curved profiles via LatheGeometry |
+| Weapons | 500–1500 tris | Already good, minimal changes |
+| Props | 100–500 tris | Instanced where possible |
+
+### Performance Budget
+
+- Total scene: < 600K triangles (modern mobile WebGL floor)
+- Draw calls: < 400 (geometry merging + instancing)
+- PC can handle 5-10x these numbers; mobile is the binding constraint
+
+### Character Models
+
+Two base meshes: **male** (`character.glb`) and **female** (`character_female.glb`).
+Same 16-bone skeleton, same vertex color zones, same animation compatibility.
+
+**Morph targets**: Each mesh includes `fat` (index 0) and `muscle` (index 1) morph targets.
+Controlled by `player.fatLevel` and `player.muscleLevel` (0–1 floats).
+
+**Face textures**: Procedural 128×128 canvas textures applied to head geometry UV.
+Male: square jaw, thick brows, dark circle eyes with white dot highlight.
+Female: softer jaw, thinner brows, lashes, colored lips.
+4–6 face variants per gender for NPC diversity.
+
+### Vehicle Models
+
+All vehicles use **LatheGeometry profiles** and **ExtrudeGeometry cross-sections** for
+curved, recognizable silhouettes while staying low-poly. Types: sedan, sports, truck,
+motorcycle, boat, helicopter, police variant.
+
 ## Known Issues (Not Yet Fixed)
 
 - **Audio untestable in headless**: All 31 audio methods exist but cannot be verified

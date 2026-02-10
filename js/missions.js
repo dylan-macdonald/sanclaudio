@@ -1494,6 +1494,7 @@ export class MissionManager {
             case 'sf_race': {
                 if (!player.inVehicle) break;
                 const cp = stage.checkpoints[sf.currentCheckpoint];
+                if (!cp) break;
                 const dist = Math.sqrt((player.position.x - cp.x) ** 2 + (player.position.z - cp.z) ** 2);
                 if (dist < 8) {
                     if (sf.checkpointMeshes[sf.currentCheckpoint]) {
@@ -2002,22 +2003,23 @@ export class MissionManager {
         // Cleanup race checkpoints
         if (sm.checkpointMeshes) {
             for (const mesh of sm.checkpointMeshes) {
+                if (!mesh) continue;
                 this.game.scene.remove(mesh);
-                mesh.geometry.dispose();
-                mesh.material.dispose();
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) mesh.material.dispose();
             }
         }
 
         // Cleanup delivery markers
         if (sm.pickupMesh) {
             this.game.scene.remove(sm.pickupMesh);
-            sm.pickupMesh.geometry.dispose();
-            sm.pickupMesh.material.dispose();
+            if (sm.pickupMesh.geometry) sm.pickupMesh.geometry.dispose();
+            if (sm.pickupMesh.material) sm.pickupMesh.material.dispose();
         }
         if (sm.dropoffMesh) {
             this.game.scene.remove(sm.dropoffMesh);
-            sm.dropoffMesh.geometry.dispose();
-            sm.dropoffMesh.material.dispose();
+            if (sm.dropoffMesh.geometry) sm.dropoffMesh.geometry.dispose();
+            if (sm.dropoffMesh.material) sm.dropoffMesh.material.dispose();
         }
 
         // Cleanup assassination target marker

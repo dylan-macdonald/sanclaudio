@@ -78,12 +78,11 @@ async function exportToGLB(scene, animations, filename) {
 }
 
 // ============================================================
-// CHARACTER MODEL
+// CHARACTER MODEL — Stylized low-poly with proper proportions
 // ============================================================
-function buildCharacter() {
-    const scene = new THREE.Scene();
 
-    // --- Skeleton ---
+// Shared skeleton builder for male/female characters
+function buildSkeleton() {
     const bones = [];
     const boneNames = [
         'Root',        // 0  - hips
@@ -132,177 +131,74 @@ function buildCharacter() {
         bones.push(bone);
     }
 
-    // Set up hierarchy
     for (let i = 0; i < parentIndices.length; i++) {
         if (parentIndices[i] >= 0) {
             bones[parentIndices[i]].add(bones[i]);
         }
     }
 
-    const skeleton = new THREE.Skeleton(bones);
+    return { bones, boneNames, skeleton: new THREE.Skeleton(bones) };
+}
 
-    // --- Build body geometry ---
-    // Each body part positioned in world space, with skin weights assigned to nearest bone(s)
+// Bone world positions for skinning weight calculation
+const BONE_WORLD_POS = [
+    [0, 0.95, 0],       // Root
+    [0, 1.15, 0],       // Spine
+    [0, 1.35, 0],       // Chest
+    [0, 1.65, 0],       // Head
+    [-0.35, 1.35, 0],   // L_Shoulder
+    [-0.35, 1.05, 0],   // L_Elbow
+    [-0.35, 0.75, 0],   // L_Hand
+    [0.35, 1.35, 0],    // R_Shoulder
+    [0.35, 1.05, 0],    // R_Elbow
+    [0.35, 0.75, 0],    // R_Hand
+    [-0.12, 0.95, 0],   // L_Hip
+    [-0.12, 0.55, 0],   // L_Knee
+    [-0.12, 0.15, 0],   // L_Foot
+    [0.12, 0.95, 0],    // R_Hip
+    [0.12, 0.55, 0],    // R_Knee
+    [0.12, 0.15, 0],    // R_Foot
+];
 
-    const parts = [];
+// Vertex color constants
+const SKIN = 0xd4a574;
+const SHIRT = 0x4466aa;
+const PANTS = 0x333344;
+const SHOE = 0x222222;
+const HAIR = 0x221100;
+const JACKET = 0x556677;
+const SHORTS = 0x445566;
+const GLOVES = 0x334455;
 
-    // Helper: create a box part
-    function addBox(w, h, d, posX, posY, posZ, boneIdx, color) {
-        const geo = new THREE.BoxGeometry(w, h, d);
-        geo.translate(posX, posY, posZ);
-        parts.push({ geo, boneIdx, color });
-    }
+// Helper: create a lathe profile (revolved curve) centered at a Y position
+function createLatheSection(profilePoints, posY, segments = 10) {
+    // profilePoints: array of [radius, height] pairs (bottom to top)
+    const points = profilePoints.map(p => new THREE.Vector2(p[0], p[1]));
+    const geo = new THREE.LatheGeometry(points, segments);
+    geo.translate(0, posY, 0);
+    return geo;
+}
 
-    // Helper: create a cylinder part
-    function addCylinder(rt, rb, h, posX, posY, posZ, boneIdx, color, segments = 6) {
-        const geo = new THREE.CylinderGeometry(rt, rb, h, segments);
-        geo.translate(posX, posY, posZ);
-        parts.push({ geo, boneIdx, color });
-    }
-
-    // Colors
-    const SKIN = 0xd4a574;
-    const SHIRT = 0x4466aa;
-    const PANTS = 0x333344;
-    const SHOE = 0x222222;
-    const HAIR = 0x221100;
-
-    // Head - octagonal prism base with facial features
-    // Build an 8-sided head using a custom BufferGeometry
-    {
-        const headGeo = new THREE.CylinderGeometry(0.18, 0.16, 0.34, 8); // octagonal
-        headGeo.translate(0, 1.7, 0);
-        parts.push({ geo: headGeo, boneIdx: 3, color: SKIN });
-
-        // Brow ridge - angular shelf
-        const browGeo = new THREE.BoxGeometry(0.36, 0.05, 0.12);
-        browGeo.translate(0, 1.84, 0.14);
-        parts.push({ geo: browGeo, boneIdx: 3, color: SKIN });
-
-        // Nose - triangular wedge
-        const noseGeo = new THREE.CylinderGeometry(0, 0.04, 0.1, 4);
-        noseGeo.rotateX(-Math.PI / 2);
-        noseGeo.translate(0, 1.68, 0.2);
-        parts.push({ geo: noseGeo, boneIdx: 3, color: SKIN });
-
-        // Chin - small protruding box
-        const chinGeo = new THREE.BoxGeometry(0.12, 0.06, 0.08);
-        chinGeo.translate(0, 1.52, 0.1);
-        parts.push({ geo: chinGeo, boneIdx: 3, color: SKIN });
-
-        // Eye sockets - indented boxes (darker skin tone)
-        for (const side of [-1, 1]) {
-            const eyeGeo = new THREE.BoxGeometry(0.07, 0.04, 0.04);
-            eyeGeo.translate(side * 0.08, 1.73, 0.17);
-            parts.push({ geo: eyeGeo, boneIdx: 3, color: 0x222222 });
-        }
-
-        // Ears
-        for (const side of [-1, 1]) {
-            const earGeo = new THREE.BoxGeometry(0.04, 0.08, 0.06);
-            earGeo.translate(side * 0.2, 1.7, 0);
-            parts.push({ geo: earGeo, boneIdx: 3, color: SKIN });
-        }
-    }
-
-    // Hair - angular polygon chunks, not a flat slab
-    {
-        // Main hair volume
-        const hairMainGeo = new THREE.CylinderGeometry(0.19, 0.17, 0.08, 8);
-        hairMainGeo.translate(0, 1.9, -0.01);
-        parts.push({ geo: hairMainGeo, boneIdx: 3, color: HAIR });
-
-        // Top tuft - angled box
-        const tuftGeo = new THREE.BoxGeometry(0.24, 0.06, 0.2);
-        tuftGeo.rotateZ(0.1);
-        tuftGeo.translate(0.02, 1.95, 0);
-        parts.push({ geo: tuftGeo, boneIdx: 3, color: HAIR });
-
-        // Back of hair
-        const backHairGeo = new THREE.BoxGeometry(0.3, 0.12, 0.1);
-        backHairGeo.translate(0, 1.84, -0.14);
-        parts.push({ geo: backHairGeo, boneIdx: 3, color: HAIR });
-    }
-
-    // Neck - connects chest to head
-    addCylinder(0.08, 0.1, 0.12, 0, 1.56, 0, 2, SKIN, 6);  // Neck
-
-    // Torso - tapered cylinders for chest/waist, box for hips
-    addCylinder(0.28, 0.22, 0.35, 0, 1.35, 0, 2, SHIRT, 8); // Chest (broad shoulders tapering to waist)
-    addCylinder(0.22, 0.2, 0.20, 0, 1.08, 0, 1, SHIRT, 8);  // Waist/abdomen (slight taper)
-    addBox(0.42, 0.15, 0.26, 0, 0.95, 0, 0, SHIRT);          // Hips (keep as box)
-
-    // Arms
-    // Left arm - tapered cylinders
-    addCylinder(0.07, 0.055, 0.3, -0.36, 1.25, 0, 4, SHIRT, 6);  // L upper arm (wider at shoulder)
-    addCylinder(0.055, 0.04, 0.28, -0.36, 0.95, 0, 5, SKIN, 6);  // L forearm (wider at elbow)
-    // L hand (mitten + thumb nub)
-    addBox(0.08, 0.1, 0.1, -0.36, 0.78, 0, 6, SKIN);
-    addBox(0.04, 0.04, 0.04, -0.30, 0.80, 0, 6, SKIN);           // L thumb nub
-
-    // Right arm - tapered cylinders
-    addCylinder(0.07, 0.055, 0.3, 0.36, 1.25, 0, 7, SHIRT, 6);   // R upper arm (wider at shoulder)
-    addCylinder(0.055, 0.04, 0.28, 0.36, 0.95, 0, 8, SKIN, 6);   // R forearm (wider at elbow)
-    // R hand (mitten + thumb nub)
-    addBox(0.08, 0.1, 0.1, 0.36, 0.78, 0, 9, SKIN);
-    addBox(0.04, 0.04, 0.04, 0.42, 0.80, 0, 9, SKIN);            // R thumb nub
-
-    // Legs
-    // Left leg - tapered cylinders
-    addCylinder(0.08, 0.065, 0.38, -0.12, 0.58, 0, 10, PANTS, 6);  // L thigh (wider at hip)
-    addCylinder(0.065, 0.05, 0.36, -0.12, 0.23, 0, 11, PANTS, 6);  // L shin (wider at knee)
-    // L foot (shoe base + toe cap)
-    addBox(0.14, 0.1, 0.24, -0.12, 0.04, 0.04, 12, SHOE);
-    addBox(0.12, 0.06, 0.06, -0.12, 0.04, 0.19, 12, SHOE);        // L toe cap
-
-    // Right leg - tapered cylinders
-    addCylinder(0.08, 0.065, 0.38, 0.12, 0.58, 0, 13, PANTS, 6);   // R thigh (wider at hip)
-    addCylinder(0.065, 0.05, 0.36, 0.12, 0.23, 0, 14, PANTS, 6);   // R shin (wider at knee)
-    // R foot (shoe base + toe cap)
-    addBox(0.14, 0.1, 0.24, 0.12, 0.04, 0.04, 15, SHOE);
-    addBox(0.12, 0.06, 0.06, 0.12, 0.04, 0.19, 15, SHOE);          // R toe cap
-
-    // --- Merge all parts into one BufferGeometry with skin indices/weights ---
+// Merge parts into skinned geometry with vertex colors and morph targets
+function assembleCharacterMesh(parts, morphSets, bones, skeleton) {
     const mergedGeometries = [];
     const skinIndices = [];
     const skinWeights = [];
-
-    // Bone world positions for weight assignment
-    const boneWorldPositions = [
-        [0, 0.95, 0],       // Root
-        [0, 1.15, 0],       // Spine
-        [0, 1.35, 0],       // Chest
-        [0, 1.65, 0],       // Head
-        [-0.35, 1.35, 0],   // L_Shoulder
-        [-0.35, 1.05, 0],   // L_Elbow
-        [-0.35, 0.75, 0],   // L_Hand
-        [0.35, 1.35, 0],    // R_Shoulder
-        [0.35, 1.05, 0],    // R_Elbow
-        [0.35, 0.75, 0],    // R_Hand
-        [-0.12, 0.95, 0],   // L_Hip
-        [-0.12, 0.55, 0],   // L_Knee
-        [-0.12, 0.15, 0],   // L_Foot
-        [0.12, 0.95, 0],    // R_Hip
-        [0.12, 0.55, 0],    // R_Knee
-        [0.12, 0.15, 0],    // R_Foot
-    ];
 
     for (const part of parts) {
         const geo = part.geo;
         const vertCount = geo.attributes.position.count;
 
-        // Simple rigid skinning: primary bone gets weight 1.0
         for (let v = 0; v < vertCount; v++) {
             const vx = geo.attributes.position.getX(v);
             const vy = geo.attributes.position.getY(v);
             const vz = geo.attributes.position.getZ(v);
 
-            // Find closest bone and second closest
             let minDist = Infinity, secondDist = Infinity;
             let minIdx = part.boneIdx, secondIdx = part.boneIdx;
 
-            for (let b = 0; b < boneWorldPositions.length; b++) {
-                const bp = boneWorldPositions[b];
+            for (let b = 0; b < BONE_WORLD_POS.length; b++) {
+                const bp = BONE_WORLD_POS[b];
                 const d = Math.sqrt((vx - bp[0]) ** 2 + (vy - bp[1]) ** 2 + (vz - bp[2]) ** 2);
                 if (d < minDist) {
                     secondDist = minDist;
@@ -315,7 +211,6 @@ function buildCharacter() {
                 }
             }
 
-            // Near joints: blend between two bones
             const jointThreshold = 0.15;
             if (minDist < jointThreshold && secondDist < jointThreshold * 2 && minIdx !== secondIdx) {
                 const total = minDist + secondDist;
@@ -330,7 +225,7 @@ function buildCharacter() {
             }
         }
 
-        // Color the geometry vertices
+        // Vertex colors
         const colors = new Float32Array(vertCount * 3);
         const c = new THREE.Color(part.color);
         for (let v = 0; v < vertCount; v++) {
@@ -343,108 +238,474 @@ function buildCharacter() {
         mergedGeometries.push(geo);
     }
 
-    // Merge all geometries
     const merged = BufferGeometryUtils.mergeBufferGeometries(mergedGeometries, false);
-
-    // Add skin attributes
     merged.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
     merged.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
 
-    // Create material with vertex colors
+    // UV coordinate assignment based on body region
+    const posAttr = merged.attributes.position;
+    const colorAttr = merged.attributes.color;
+    const skinIdxAttr = merged.getAttribute('skinIndex');
+    const uvs = new Float32Array(posAttr.count * 2);
+
+    // Hair color for detection
+    const hairColor = new THREE.Color(HAIR);
+    const hairEps = 0.05;
+
+    // Bone → region mapping
+    // Regions: torso(0), pants(1), face(2), arms(3), shoes(4), hair(5)
+    const boneToRegion = {
+        0: -1,  // Root — depends on vertex color (shirt=torso, pants=pants)
+        1: 0,   // Spine → torso
+        2: 0,   // Chest → torso
+        3: 2,   // Head → face
+        4: 0,   // L_Shoulder → torso
+        5: 3,   // L_Elbow → arms
+        6: 3,   // L_Hand → arms
+        7: 0,   // R_Shoulder → torso
+        8: 3,   // R_Elbow → arms
+        9: 3,   // R_Hand → arms
+        10: 1,  // L_Hip → pants (most vertices here are pants)
+        11: 1,  // L_Knee → pants
+        12: 4,  // L_Foot → shoes
+        13: 1,  // R_Hip → pants
+        14: 1,  // R_Knee → pants
+        15: 4,  // R_Foot → shoes
+    };
+
+    // Region UV bounds: [minU, minV, maxU, maxV]
+    const regionBounds = [
+        [0, 0, 0.5, 0.33],       // 0: torso
+        [0, 0.33, 0.5, 0.66],    // 1: pants
+        [0.5, 0, 1.0, 0.33],     // 2: face
+        [0.5, 0.33, 1.0, 0.66],  // 3: arms
+        [0, 0.66, 0.5, 1.0],     // 4: shoes
+        [0.5, 0.66, 1.0, 1.0],   // 5: hair
+    ];
+
+    // Collect vertex positions per region to compute bounding boxes
+    const regionVerts = [[], [], [], [], [], []];
+    const vertRegion = new Int8Array(posAttr.count);
+
+    for (let i = 0; i < posAttr.count; i++) {
+        const boneIdx = skinIdxAttr.getX(i);
+        const cr = colorAttr.getX(i);
+        const cg = colorAttr.getY(i);
+        const cb = colorAttr.getZ(i);
+
+        // Check if hair
+        if (Math.abs(cr - hairColor.r) < hairEps &&
+            Math.abs(cg - hairColor.g) < hairEps &&
+            Math.abs(cb - hairColor.b) < hairEps) {
+            vertRegion[i] = 5; // hair
+        } else {
+            let region = boneToRegion[boneIdx];
+            if (region === undefined) region = 0;
+            if (region === -1) {
+                // Root bone — check vertex color to disambiguate
+                const shirtColor = new THREE.Color(SHIRT);
+                if (Math.abs(cr - shirtColor.r) < 0.05 &&
+                    Math.abs(cg - shirtColor.g) < 0.05 &&
+                    Math.abs(cb - shirtColor.b) < 0.05) {
+                    region = 0; // torso
+                } else {
+                    region = 1; // pants
+                }
+            }
+            vertRegion[i] = region;
+        }
+
+        const vx = posAttr.getX(i);
+        const vy = posAttr.getY(i);
+        regionVerts[vertRegion[i]].push({ idx: i, x: vx, y: vy, z: posAttr.getZ(i) });
+    }
+
+    // Assign UVs per region using XY projection
+    for (let r = 0; r < 6; r++) {
+        const verts = regionVerts[r];
+        if (verts.length === 0) continue;
+
+        const bounds = regionBounds[r];
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const v of verts) {
+            if (v.x < minX) minX = v.x;
+            if (v.x > maxX) maxX = v.x;
+            if (v.y < minY) minY = v.y;
+            if (v.y > maxY) maxY = v.y;
+        }
+
+        const rangeX = maxX - minX || 1;
+        const rangeY = maxY - minY || 1;
+        const uMin = bounds[0], vMin = bounds[1];
+        const uRange = bounds[2] - bounds[0];
+        const vRange = bounds[3] - bounds[1];
+
+        // Small padding (5%) to avoid edge bleed
+        const pad = 0.05;
+        const uPad = uRange * pad;
+        const vPad = vRange * pad;
+
+        for (const v of verts) {
+            const nu = ((v.x - minX) / rangeX); // 0-1
+            const nv = ((v.y - minY) / rangeY); // 0-1
+            uvs[v.idx * 2] = uMin + uPad + nu * (uRange - 2 * uPad);
+            uvs[v.idx * 2 + 1] = vMin + vPad + nv * (vRange - 2 * vPad);
+        }
+    }
+
+    merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+    // Morph targets for fat/muscle body types
+    if (morphSets && morphSets.length > 0) {
+        const basePos = merged.attributes.position;
+        merged.morphAttributes.position = [];
+
+        for (const morphParts of morphSets) {
+            // Build morph merged geometry the same way
+            const morphGeos = [];
+            for (let i = 0; i < morphParts.length; i++) {
+                const mp = morphParts[i];
+                const mg = mp.geo.clone();
+                // Apply vertex colors to match base (required for merge compatibility)
+                const vc = parts[i].color;
+                const cc = new THREE.Color(vc);
+                const cols = new Float32Array(mg.attributes.position.count * 3);
+                for (let v = 0; v < mg.attributes.position.count; v++) {
+                    cols[v * 3] = cc.r;
+                    cols[v * 3 + 1] = cc.g;
+                    cols[v * 3 + 2] = cc.b;
+                }
+                mg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+                morphGeos.push(mg);
+            }
+            const morphMerged = BufferGeometryUtils.mergeBufferGeometries(morphGeos, false);
+            const morphPositions = morphMerged.attributes.position;
+            merged.morphAttributes.position.push(morphPositions);
+        }
+        merged.morphTargetsRelative = false;
+    }
+
     const material = new THREE.MeshStandardMaterial({
         vertexColors: true,
-        roughness: 0.6,
-        metalness: 0.02
+        roughness: 0.7,
+        metalness: 0.02,
+        morphTargets: morphSets && morphSets.length > 0,
     });
 
-    // Create SkinnedMesh
     const skinnedMesh = new THREE.SkinnedMesh(merged, material);
     skinnedMesh.name = 'CharacterMesh';
-    skinnedMesh.add(bones[0]); // Add root bone as child
+    skinnedMesh.add(bones[0]);
     skinnedMesh.bind(skeleton);
 
-    scene.add(skinnedMesh);
+    return skinnedMesh;
+}
 
-    // --- Animation Clips ---
+// Build character body parts for a given gender config
+// gender: 'male' or 'female'
+// Returns { baseParts, fatParts, muscleParts } — arrays of { geo, boneIdx, color }
+function buildCharacterParts(gender = 'male') {
+    const isFemale = gender === 'female';
+    const parts = [];
+    const fatParts = [];
+    const muscleParts = [];
+
+    function addPart(geo, boneIdx, color, fatGeo, muscleGeo) {
+        parts.push({ geo, boneIdx, color });
+        fatParts.push({ geo: fatGeo || geo.clone(), boneIdx, color });
+        muscleParts.push({ geo: muscleGeo || geo.clone(), boneIdx, color });
+    }
+
+    // Helper: create geo and optionally inflated/sculpted morph variants
+    function addBox(w, h, d, posX, posY, posZ, boneIdx, color, fatScale, muscleScale) {
+        const geo = new THREE.BoxGeometry(w, h, d);
+        geo.translate(posX, posY, posZ);
+        const fGeo = new THREE.BoxGeometry(w * (fatScale || 1), h * (fatScale ? 1.05 : 1), d * (fatScale || 1));
+        fGeo.translate(posX, posY, posZ);
+        const mGeo = new THREE.BoxGeometry(w * (muscleScale || 1), h, d * (muscleScale || 1));
+        mGeo.translate(posX, posY, posZ);
+        addPart(geo, boneIdx, color, fGeo, mGeo);
+    }
+
+    function addCylinder(rt, rb, h, posX, posY, posZ, boneIdx, color, segments, fatMult, muscleMult) {
+        segments = segments || 8;
+        const geo = new THREE.CylinderGeometry(rt, rb, h, segments);
+        geo.translate(posX, posY, posZ);
+        const fm = fatMult || 1;
+        const mm = muscleMult || 1;
+        const fGeo = new THREE.CylinderGeometry(rt * fm, rb * fm, h * 1.02, segments);
+        fGeo.translate(posX, posY, posZ);
+        const mGeo = new THREE.CylinderGeometry(rt * mm, rb * mm, h, segments);
+        mGeo.translate(posX, posY, posZ);
+        addPart(geo, boneIdx, color, fGeo, mGeo);
+    }
+
+    // Proportions differ by gender
+    const shoulderW = isFemale ? 0.30 : 0.35;
+    const hipW = isFemale ? 0.25 : 0.22;
+    const chestR = isFemale ? 0.24 : 0.28;
+    const waistR = isFemale ? 0.20 : 0.22;
+    const hipBoxW = isFemale ? 0.44 : 0.42;
+    const armX = isFemale ? 0.32 : 0.36;
+
+    // ===== HEAD =====
+    // Lathe-revolved skull shape: chin → jaw → cheek → temple → crown
+    {
+        const headProfile = isFemale
+            ? [[0, -0.17], [0.14, -0.14], [0.16, -0.06], [0.17, 0.02], [0.16, 0.10], [0.14, 0.15], [0.08, 0.18], [0, 0.19]]
+            : [[0, -0.18], [0.15, -0.15], [0.17, -0.06], [0.18, 0.02], [0.17, 0.10], [0.15, 0.15], [0.09, 0.19], [0, 0.20]];
+        const headGeo = createLatheSection(headProfile, 1.70, 10);
+        const fHeadGeo = createLatheSection(headProfile.map(p => [p[0] * 1.08, p[1]]), 1.70, 10);
+        const mHeadGeo = createLatheSection(headProfile.map(p => [p[0] * 1.02, p[1]]), 1.70, 10);
+        addPart(headGeo, 3, SKIN, fHeadGeo, mHeadGeo);
+
+        // Brow ridge
+        const browGeo = new THREE.BoxGeometry(isFemale ? 0.30 : 0.34, isFemale ? 0.035 : 0.05, 0.10);
+        browGeo.translate(0, 1.82, 0.13);
+        addPart(browGeo, 3, SKIN);
+
+        // Nose — wedge pointing forward
+        const noseGeo = new THREE.CylinderGeometry(0, isFemale ? 0.03 : 0.04, isFemale ? 0.08 : 0.10, 4);
+        noseGeo.rotateX(-Math.PI / 2);
+        noseGeo.translate(0, 1.68, isFemale ? 0.18 : 0.20);
+        addPart(noseGeo, 3, SKIN);
+
+        // Jaw/chin — angular box, wider for male
+        const chinGeo = new THREE.BoxGeometry(isFemale ? 0.10 : 0.14, 0.06, 0.08);
+        chinGeo.translate(0, 1.52, 0.08);
+        addPart(chinGeo, 3, SKIN);
+
+        // Eyes — dark inset boxes with white highlight dot
+        for (const side of [-1, 1]) {
+            // Dark eye socket
+            const eyeGeo = new THREE.BoxGeometry(0.065, 0.04, 0.035);
+            eyeGeo.translate(side * 0.07, 1.73, 0.16);
+            addPart(eyeGeo, 3, 0x111111);
+            // White eye highlight
+            const hlGeo = new THREE.BoxGeometry(0.02, 0.02, 0.01);
+            hlGeo.translate(side * 0.06, 1.735, 0.185);
+            addPart(hlGeo, 3, 0xeeeeee);
+        }
+
+        // Ears — small extruded shapes
+        for (const side of [-1, 1]) {
+            const earGeo = new THREE.BoxGeometry(0.04, 0.09, 0.06);
+            earGeo.translate(side * 0.19, 1.70, -0.01);
+            addPart(earGeo, 3, SKIN);
+        }
+
+        // Mouth line
+        const mouthGeo = new THREE.BoxGeometry(isFemale ? 0.08 : 0.10, 0.012, 0.01);
+        mouthGeo.translate(0, 1.58, 0.16);
+        addPart(mouthGeo, 3, isFemale ? 0xcc6666 : 0x995544);
+    }
+
+    // ===== HAIR =====
+    {
+        if (isFemale) {
+            // Longer hair — main volume with back drape
+            const hairMainGeo = new THREE.CylinderGeometry(0.18, 0.16, 0.10, 10);
+            hairMainGeo.translate(0, 1.91, -0.01);
+            addPart(hairMainGeo, 3, HAIR);
+            // Side volume
+            for (const side of [-1, 1]) {
+                const sideGeo = new THREE.BoxGeometry(0.08, 0.22, 0.14);
+                sideGeo.translate(side * 0.16, 1.74, -0.04);
+                addPart(sideGeo, 3, HAIR);
+            }
+            // Back drape
+            const backGeo = new THREE.BoxGeometry(0.28, 0.28, 0.08);
+            backGeo.translate(0, 1.74, -0.14);
+            addPart(backGeo, 3, HAIR);
+        } else {
+            // Short cropped — angular chunks
+            const hairMainGeo = new THREE.CylinderGeometry(0.19, 0.17, 0.08, 10);
+            hairMainGeo.translate(0, 1.91, -0.01);
+            addPart(hairMainGeo, 3, HAIR);
+            // Top tuft
+            const tuftGeo = new THREE.BoxGeometry(0.22, 0.05, 0.18);
+            tuftGeo.rotateZ(0.08);
+            tuftGeo.translate(0.02, 1.96, 0);
+            addPart(tuftGeo, 3, HAIR);
+            // Back
+            const backHairGeo = new THREE.BoxGeometry(0.28, 0.10, 0.08);
+            backHairGeo.translate(0, 1.85, -0.13);
+            addPart(backHairGeo, 3, HAIR);
+        }
+    }
+
+    // ===== NECK =====
+    addCylinder(0.07, 0.09, 0.12, 0, 1.56, 0, 2, SKIN, 8, 1.15, 1.1);
+
+    // ===== TORSO =====
+    // Chest — broad shoulders, tapers to waist
+    addCylinder(chestR, waistR, 0.32, 0, 1.35, 0, 2, SHIRT, 10, 1.25, 1.15);
+
+    // Shoulder caps — rounded for better silhouette
+    for (const side of [-1, 1]) {
+        const capGeo = new THREE.SphereGeometry(isFemale ? 0.065 : 0.08, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+        capGeo.rotateZ(side > 0 ? -Math.PI / 2 : Math.PI / 2);
+        capGeo.translate(side * shoulderW, 1.42, 0);
+        const fCapGeo = capGeo.clone();
+        const mCapGeo = new THREE.SphereGeometry(isFemale ? 0.07 : 0.095, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+        mCapGeo.rotateZ(side > 0 ? -Math.PI / 2 : Math.PI / 2);
+        mCapGeo.translate(side * shoulderW, 1.42, 0);
+        addPart(capGeo, side < 0 ? 4 : 7, SHIRT, fCapGeo, mCapGeo);
+    }
+
+    // Abdomen/waist
+    addCylinder(waistR, hipW * 0.9, 0.18, 0, 1.10, 0, 1, SHIRT, 10, 1.35, 1.0);
+
+    // Hips
+    addBox(hipBoxW, 0.14, 0.24, 0, 0.95, 0, 0, SHIRT, 1.2, 1.0);
+
+    // Female chest detail
+    if (isFemale) {
+        for (const side of [-1, 1]) {
+            const bustGeo = new THREE.SphereGeometry(0.06, 6, 4);
+            bustGeo.translate(side * 0.08, 1.32, 0.12);
+            addPart(bustGeo, 2, SHIRT);
+        }
+    }
+
+    // ===== ARMS =====
+    for (const side of [-1, 1]) {
+        const sIdx = side < 0 ? 4 : 7; // shoulder bone
+        const eIdx = side < 0 ? 5 : 8; // elbow bone
+        const hIdx = side < 0 ? 6 : 9; // hand bone
+        const x = side * armX;
+
+        // Upper arm — tapered, shirt color
+        const uaRT = isFemale ? 0.06 : 0.07;
+        const uaRB = isFemale ? 0.048 : 0.055;
+        addCylinder(uaRT, uaRB, 0.28, x, 1.25, 0, sIdx, SHIRT, 8, 1.2, 1.25);
+
+        // Forearm — skin color
+        const faRT = isFemale ? 0.048 : 0.055;
+        const faRB = isFemale ? 0.035 : 0.04;
+        addCylinder(faRT, faRB, 0.26, x, 0.97, 0, eIdx, SKIN, 8, 1.1, 1.15);
+
+        // Hand — mitten with finger groove (GTA 3 style), 15% oversized
+        const handW = 0.09;
+        const handH = 0.12;
+        const handD = 0.07;
+        const handGeo = new THREE.BoxGeometry(handW, handH, handD);
+        handGeo.translate(x, 0.79, 0);
+        addPart(handGeo, hIdx, SKIN);
+
+        // Finger groove — thin dark line down middle of hand
+        const grooveGeo = new THREE.BoxGeometry(0.005, handH * 0.7, handD * 0.3);
+        grooveGeo.translate(x, 0.77, handD * 0.15);
+        addPart(grooveGeo, hIdx, 0xbb8866);
+
+        // Thumb nub
+        const thumbGeo = new THREE.BoxGeometry(0.035, 0.04, 0.04);
+        thumbGeo.translate(x + side * 0.055, 0.81, 0.02);
+        addPart(thumbGeo, hIdx, SKIN);
+    }
+
+    // ===== LEGS =====
+    for (const side of [-1, 1]) {
+        const hipIdx = side < 0 ? 10 : 13;
+        const kneeIdx = side < 0 ? 11 : 14;
+        const footIdx = side < 0 ? 12 : 15;
+        const lx = side * 0.12;
+
+        // Thigh — wider at hip
+        const thRT = isFemale ? 0.085 : 0.08;
+        const thRB = isFemale ? 0.07 : 0.065;
+        addCylinder(thRT, thRB, 0.36, lx, 0.59, 0, hipIdx, PANTS, 8, 1.25, 1.1);
+
+        // Shin — slight calf bulge (wider near knee, tapers to ankle)
+        const shRT = isFemale ? 0.065 : 0.065;
+        const shRB = isFemale ? 0.045 : 0.05;
+        addCylinder(shRT, shRB, 0.34, lx, 0.25, 0, kneeIdx, PANTS, 8, 1.15, 1.05);
+
+        // Foot — angled shoe with sole thickness, slightly oversized
+        const footGeo = new THREE.BoxGeometry(0.13, 0.08, 0.25);
+        footGeo.translate(lx, 0.04, 0.04);
+        const fFootGeo = new THREE.BoxGeometry(0.15, 0.09, 0.27);
+        fFootGeo.translate(lx, 0.04, 0.04);
+        addPart(footGeo, footIdx, SHOE, fFootGeo, footGeo.clone());
+
+        // Toe cap
+        const toeGeo = new THREE.BoxGeometry(0.11, 0.05, 0.06);
+        toeGeo.translate(lx, 0.035, 0.19);
+        addPart(toeGeo, footIdx, SHOE);
+
+        // Sole — thin dark strip under foot
+        const soleGeo = new THREE.BoxGeometry(0.13, 0.02, 0.26);
+        soleGeo.translate(lx, -0.01, 0.04);
+        addPart(soleGeo, footIdx, 0x111111);
+    }
+
+    return { baseParts: parts, fatParts, muscleParts };
+}
+
+
+// Animation helper functions
+function quatTrack(boneName, times, quats) {
+    return new THREE.QuaternionKeyframeTrack(`${boneName}.quaternion`, times, quats);
+}
+function posTrack(boneName, times, positions) {
+    return new THREE.VectorKeyframeTrack(`${boneName}.position`, times, positions);
+}
+function eq(x, y, z) {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
+    return [q.x, q.y, q.z, q.w];
+}
+const qi = [0, 0, 0, 1];
+
+
+// Build all character animations (shared between male/female)
+function buildCharacterAnimations() {
     const animations = [];
-
-    // Helper: create quaternion keyframe track
-    function quatTrack(boneName, times, quats) {
-        return new THREE.QuaternionKeyframeTrack(
-            `${boneName}.quaternion`,
-            times,
-            quats
-        );
-    }
-
-    // Helper: create position keyframe track
-    function posTrack(boneName, times, positions) {
-        return new THREE.VectorKeyframeTrack(
-            `${boneName}.position`,
-            times,
-            positions
-        );
-    }
-
-    // Helper: euler to quaternion array
-    function eq(x, y, z) {
-        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
-        return [q.x, q.y, q.z, q.w];
-    }
-
-    // Identity quaternion
-    const qi = [0, 0, 0, 1];
 
     // 1. Idle (2s loop)
     animations.push(new THREE.AnimationClip('idle', 2, [
         quatTrack('Spine', [0, 1, 2], [...qi, ...eq(0.01, 0, 0), ...qi]),
         quatTrack('Head', [0, 1, 2], [...qi, ...eq(0, 0.03, 0), ...qi]),
+        // Subtle arm sway
+        quatTrack('L_Shoulder', [0, 1, 2], [...qi, ...eq(0, 0, 0.02), ...qi]),
+        quatTrack('R_Shoulder', [0, 1, 2], [...qi, ...eq(0, 0, -0.02), ...qi]),
     ]));
 
     // 2. Walk (1s loop)
-    const walkLegAngle = 30 * Math.PI / 180;
-    const walkArmAngle = 25 * Math.PI / 180;
+    const wl = 30 * Math.PI / 180, wa = 25 * Math.PI / 180;
     animations.push(new THREE.AnimationClip('walk', 1, [
-        // Legs swing
         quatTrack('L_Hip', [0, 0.25, 0.5, 0.75, 1], [
-            ...eq(walkLegAngle, 0, 0), ...qi, ...eq(-walkLegAngle, 0, 0), ...qi, ...eq(walkLegAngle, 0, 0)
+            ...eq(wl, 0, 0), ...qi, ...eq(-wl, 0, 0), ...qi, ...eq(wl, 0, 0)
         ]),
         quatTrack('R_Hip', [0, 0.25, 0.5, 0.75, 1], [
-            ...eq(-walkLegAngle, 0, 0), ...qi, ...eq(walkLegAngle, 0, 0), ...qi, ...eq(-walkLegAngle, 0, 0)
+            ...eq(-wl, 0, 0), ...qi, ...eq(wl, 0, 0), ...qi, ...eq(-wl, 0, 0)
         ]),
-        // Knee bend
         quatTrack('L_Knee', [0, 0.25, 0.5, 0.75, 1], [
             ...qi, ...eq(0.3, 0, 0), ...qi, ...eq(0.1, 0, 0), ...qi
         ]),
         quatTrack('R_Knee', [0, 0.25, 0.5, 0.75, 1], [
             ...qi, ...eq(0.1, 0, 0), ...qi, ...eq(0.3, 0, 0), ...qi
         ]),
-        // Arms counter-swing
         quatTrack('L_Shoulder', [0, 0.25, 0.5, 0.75, 1], [
-            ...eq(-walkArmAngle, 0, 0), ...qi, ...eq(walkArmAngle, 0, 0), ...qi, ...eq(-walkArmAngle, 0, 0)
+            ...eq(-wa, 0, 0), ...qi, ...eq(wa, 0, 0), ...qi, ...eq(-wa, 0, 0)
         ]),
         quatTrack('R_Shoulder', [0, 0.25, 0.5, 0.75, 1], [
-            ...eq(walkArmAngle, 0, 0), ...qi, ...eq(-walkArmAngle, 0, 0), ...qi, ...eq(walkArmAngle, 0, 0)
+            ...eq(wa, 0, 0), ...qi, ...eq(-wa, 0, 0), ...qi, ...eq(wa, 0, 0)
         ]),
-        // Body bob
         posTrack('Root', [0, 0.25, 0.5, 0.75, 1], [
             0, 0.95, 0, 0, 1.0, 0, 0, 0.95, 0, 0, 1.0, 0, 0, 0.95, 0
         ]),
-        // Torso twist
         quatTrack('Chest', [0, 0.25, 0.5, 0.75, 1], [
             ...eq(0, 0.05, 0), ...qi, ...eq(0, -0.05, 0), ...qi, ...eq(0, 0.05, 0)
         ]),
     ]));
 
     // 3. Run (0.6s loop)
-    const runLegAngle = 45 * Math.PI / 180;
-    const runArmAngle = 40 * Math.PI / 180;
+    const rl = 45 * Math.PI / 180, ra = 40 * Math.PI / 180;
     animations.push(new THREE.AnimationClip('run', 0.6, [
         quatTrack('L_Hip', [0, 0.15, 0.3, 0.45, 0.6], [
-            ...eq(runLegAngle, 0, 0), ...qi, ...eq(-runLegAngle, 0, 0), ...qi, ...eq(runLegAngle, 0, 0)
+            ...eq(rl, 0, 0), ...qi, ...eq(-rl, 0, 0), ...qi, ...eq(rl, 0, 0)
         ]),
         quatTrack('R_Hip', [0, 0.15, 0.3, 0.45, 0.6], [
-            ...eq(-runLegAngle, 0, 0), ...qi, ...eq(runLegAngle, 0, 0), ...qi, ...eq(-runLegAngle, 0, 0)
+            ...eq(-rl, 0, 0), ...qi, ...eq(rl, 0, 0), ...qi, ...eq(-rl, 0, 0)
         ]),
         quatTrack('L_Knee', [0, 0.15, 0.3, 0.45, 0.6], [
             ...qi, ...eq(0.5, 0, 0), ...qi, ...eq(0.2, 0, 0), ...qi
@@ -453,31 +714,27 @@ function buildCharacter() {
             ...qi, ...eq(0.2, 0, 0), ...qi, ...eq(0.5, 0, 0), ...qi
         ]),
         quatTrack('L_Shoulder', [0, 0.15, 0.3, 0.45, 0.6], [
-            ...eq(-runArmAngle, 0, 0), ...qi, ...eq(runArmAngle, 0, 0), ...qi, ...eq(-runArmAngle, 0, 0)
+            ...eq(-ra, 0, 0), ...qi, ...eq(ra, 0, 0), ...qi, ...eq(-ra, 0, 0)
         ]),
         quatTrack('R_Shoulder', [0, 0.15, 0.3, 0.45, 0.6], [
-            ...eq(runArmAngle, 0, 0), ...qi, ...eq(-runArmAngle, 0, 0), ...qi, ...eq(runArmAngle, 0, 0)
+            ...eq(ra, 0, 0), ...qi, ...eq(-ra, 0, 0), ...qi, ...eq(ra, 0, 0)
         ]),
-        // Elbow bend for run (negative X = bend forward)
         quatTrack('L_Elbow', [0, 0.3, 0.6], [...eq(-0.5, 0, 0), ...eq(-0.3, 0, 0), ...eq(-0.5, 0, 0)]),
         quatTrack('R_Elbow', [0, 0.3, 0.6], [...eq(-0.5, 0, 0), ...eq(-0.3, 0, 0), ...eq(-0.5, 0, 0)]),
-        // Forward lean
         quatTrack('Spine', [0, 0.6], [...eq(0.17, 0, 0), ...eq(0.17, 0, 0)]),
-        // Body bob
         posTrack('Root', [0, 0.15, 0.3, 0.45, 0.6], [
             0, 0.95, 0, 0, 1.02, 0, 0, 0.95, 0, 0, 1.02, 0, 0, 0.95, 0
         ]),
     ]));
 
     // 4. Sprint (0.4s loop)
-    const sprintLegAngle = 55 * Math.PI / 180;
-    const sprintArmAngle = 50 * Math.PI / 180;
+    const sl = 55 * Math.PI / 180, sa = 50 * Math.PI / 180;
     animations.push(new THREE.AnimationClip('sprint', 0.4, [
         quatTrack('L_Hip', [0, 0.1, 0.2, 0.3, 0.4], [
-            ...eq(sprintLegAngle, 0, 0), ...qi, ...eq(-sprintLegAngle, 0, 0), ...qi, ...eq(sprintLegAngle, 0, 0)
+            ...eq(sl, 0, 0), ...qi, ...eq(-sl, 0, 0), ...qi, ...eq(sl, 0, 0)
         ]),
         quatTrack('R_Hip', [0, 0.1, 0.2, 0.3, 0.4], [
-            ...eq(-sprintLegAngle, 0, 0), ...qi, ...eq(sprintLegAngle, 0, 0), ...qi, ...eq(-sprintLegAngle, 0, 0)
+            ...eq(-sl, 0, 0), ...qi, ...eq(sl, 0, 0), ...qi, ...eq(-sl, 0, 0)
         ]),
         quatTrack('L_Knee', [0, 0.1, 0.2, 0.3, 0.4], [
             ...qi, ...eq(0.7, 0, 0), ...qi, ...eq(0.3, 0, 0), ...qi
@@ -486,10 +743,10 @@ function buildCharacter() {
             ...qi, ...eq(0.3, 0, 0), ...qi, ...eq(0.7, 0, 0), ...qi
         ]),
         quatTrack('L_Shoulder', [0, 0.1, 0.2, 0.3, 0.4], [
-            ...eq(-sprintArmAngle, 0, 0), ...qi, ...eq(sprintArmAngle, 0, 0), ...qi, ...eq(-sprintArmAngle, 0, 0)
+            ...eq(-sa, 0, 0), ...qi, ...eq(sa, 0, 0), ...qi, ...eq(-sa, 0, 0)
         ]),
         quatTrack('R_Shoulder', [0, 0.1, 0.2, 0.3, 0.4], [
-            ...eq(sprintArmAngle, 0, 0), ...qi, ...eq(-sprintArmAngle, 0, 0), ...qi, ...eq(sprintArmAngle, 0, 0)
+            ...eq(sa, 0, 0), ...qi, ...eq(-sa, 0, 0), ...qi, ...eq(sa, 0, 0)
         ]),
         quatTrack('L_Elbow', [0, 0.2, 0.4], [...eq(-0.7, 0, 0), ...eq(-0.4, 0, 0), ...eq(-0.7, 0, 0)]),
         quatTrack('R_Elbow', [0, 0.2, 0.4], [...eq(-0.7, 0, 0), ...eq(-0.4, 0, 0), ...eq(-0.7, 0, 0)]),
@@ -501,137 +758,115 @@ function buildCharacter() {
 
     // 5. Punch (0.4s, no loop)
     animations.push(new THREE.AnimationClip('punch', 0.4, [
-        // Wind-up: R_Shoulder back
         quatTrack('R_Shoulder', [0, 0.1, 0.25, 0.4], [
             ...qi, ...eq(0.5, 0, -0.3), ...eq(-1.4, 0, 0), ...qi
         ]),
         quatTrack('R_Elbow', [0, 0.1, 0.25, 0.4], [
             ...qi, ...eq(-1.0, 0, 0), ...eq(-0.1, 0, 0), ...qi
         ]),
-        // Torso twist
         quatTrack('Chest', [0, 0.1, 0.25, 0.4], [
             ...qi, ...eq(0, -0.3, 0), ...eq(0, 0.5, 0), ...qi
         ]),
     ]));
 
-    // 6. Jump (0.6s, no loop) — crouch, launch, tuck, land
+    // 6. Jump (0.6s, no loop)
     animations.push(new THREE.AnimationClip('jump', 0.6, [
-        // Crouch → launch → air → land
         posTrack('Root', [0, 0.1, 0.2, 0.4, 0.6], [
             0, 0.95, 0,  0, 0.8, 0,  0, 1.1, 0,  0, 1.05, 0,  0, 0.95, 0
         ]),
-        // Legs tuck up in air
         quatTrack('L_Hip', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.3, 0, 0), ...eq(-0.6, 0, 0), ...eq(-0.3, 0, 0), ...qi
         ]),
         quatTrack('R_Hip', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.3, 0, 0), ...eq(-0.6, 0, 0), ...eq(-0.3, 0, 0), ...qi
         ]),
-        // Knees bend on crouch and in air
         quatTrack('L_Knee', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.8, 0, 0), ...eq(0.5, 0, 0), ...eq(0.3, 0, 0), ...qi
         ]),
         quatTrack('R_Knee', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.8, 0, 0), ...eq(0.5, 0, 0), ...eq(0.3, 0, 0), ...qi
         ]),
-        // Arms go up and out
         quatTrack('L_Shoulder', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.3, 0, 0.3), ...eq(-1.5, 0, 0.5), ...eq(-0.8, 0, 0.3), ...qi
         ]),
         quatTrack('R_Shoulder', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.3, 0, -0.3), ...eq(-1.5, 0, -0.5), ...eq(-0.8, 0, -0.3), ...qi
         ]),
-        // Slight forward lean during jump
         quatTrack('Spine', [0, 0.1, 0.25, 0.45, 0.6], [
             ...qi, ...eq(0.1, 0, 0), ...eq(0.05, 0, 0), ...eq(0.08, 0, 0), ...qi
         ]),
     ]));
 
-    // 7. Carjack (1.2s, no loop) — pull NPC from vehicle
+    // 7. Carjack (1.2s, no loop)
     animations.push(new THREE.AnimationClip('carjack', 1.2, [
-        // Both arms reach forward, then grab and pull, then shove aside
         quatTrack('L_Shoulder', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(-1.2, 0, 0), ...eq(-0.4, 0, 0), ...eq(-0.2, 0, 0.3), ...qi
         ]),
         quatTrack('R_Shoulder', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(-1.2, 0, 0), ...eq(-0.4, 0, 0), ...eq(-1.0, 0, -0.3), ...qi
         ]),
-        // Elbows bend during grab
         quatTrack('L_Elbow', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.2, 0, 0), ...qi
         ]),
         quatTrack('R_Elbow', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.1, 0, 0), ...qi
         ]),
-        // Torso twists during pull and shove
         quatTrack('Chest', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(0.1, 0, 0), ...eq(0, 0.4, 0), ...eq(0, -0.3, 0), ...qi
         ]),
-        // Slight forward lean
         quatTrack('Spine', [0, 0.3, 0.7, 1.0, 1.2], [
             ...qi, ...eq(0.15, 0, 0), ...eq(0.1, 0, 0), ...eq(0.05, 0, 0), ...qi
         ]),
     ]));
 
-    // 8. Enter vehicle (0.8s, no loop) — duck and swing into seat
+    // 8. Enter vehicle (0.8s, no loop)
     animations.push(new THREE.AnimationClip('enter_vehicle', 0.8, [
-        // Root drops as player ducks into vehicle
         posTrack('Root', [0, 0.2, 0.5, 0.7, 0.8], [
             0, 0.95, 0,  0, 0.8, 0,  0, 0.7, 0,  0, 0.7, 0,  0, 0.7, 0
         ]),
-        // Left leg swings over threshold
         quatTrack('L_Hip', [0, 0.2, 0.5, 0.7, 0.8], [
             ...qi, ...eq(0.2, 0, 0), ...eq(-0.3, 0, 0.8), ...eq(-0.5, 0, 0.2), ...eq(-0.5, 0, 0)
         ]),
         quatTrack('L_Knee', [0, 0.2, 0.5, 0.7, 0.8], [
             ...qi, ...eq(0.3, 0, 0), ...eq(0.6, 0, 0), ...eq(0.8, 0, 0), ...eq(0.8, 0, 0)
         ]),
-        // Right leg stays planted then tucks in
         quatTrack('R_Hip', [0, 0.2, 0.5, 0.7, 0.8], [
             ...qi, ...qi, ...eq(-0.2, 0, 0), ...eq(-0.5, 0, 0), ...eq(-0.5, 0, 0)
         ]),
         quatTrack('R_Knee', [0, 0.2, 0.5, 0.7, 0.8], [
             ...qi, ...qi, ...eq(0.3, 0, 0), ...eq(0.8, 0, 0), ...eq(0.8, 0, 0)
         ]),
-        // Spine leans forward slightly as settling in
         quatTrack('Spine', [0, 0.2, 0.5, 0.7, 0.8], [
             ...qi, ...eq(0.1, 0, 0), ...eq(0.15, 0, 0), ...eq(0.1, 0, 0), ...eq(0.05, 0, 0)
         ]),
-        // Left arm reaches for door frame
         quatTrack('L_Shoulder', [0, 0.2, 0.5, 0.8], [
             ...qi, ...eq(-0.5, 0, 0.4), ...eq(-0.3, 0, 0.2), ...qi
         ]),
-        // Right arm reaches for steering wheel
         quatTrack('R_Shoulder', [0, 0.2, 0.5, 0.8], [
             ...qi, ...eq(-0.3, 0, -0.2), ...eq(-0.6, 0, 0), ...eq(-0.5, 0, 0)
         ]),
     ]));
 
-    // 9. Exit vehicle (0.6s, no loop) — lean forward, stand up, step out
+    // 9. Exit vehicle (0.6s, no loop)
     animations.push(new THREE.AnimationClip('exit_vehicle', 0.6, [
-        // Root rises as player stands up from seat
         posTrack('Root', [0, 0.15, 0.35, 0.5, 0.6], [
             0, 0.7, 0,  0, 0.8, 0,  0, 0.95, 0,  0, 0.95, 0,  0, 0.95, 0
         ]),
-        // Lean forward first, then straighten
         quatTrack('Spine', [0, 0.15, 0.35, 0.5, 0.6], [
             ...eq(0.05, 0, 0), ...eq(0.15, 0, 0), ...eq(0.08, 0, 0), ...eq(0.03, 0, 0), ...qi
         ]),
-        // Left leg swings out
         quatTrack('L_Hip', [0, 0.15, 0.35, 0.5, 0.6], [
             ...eq(-0.5, 0, 0), ...eq(-0.3, 0, -0.6), ...eq(0.1, 0, -0.3), ...eq(0.05, 0, 0), ...qi
         ]),
         quatTrack('L_Knee', [0, 0.15, 0.35, 0.5, 0.6], [
             ...eq(0.8, 0, 0), ...eq(0.5, 0, 0), ...eq(0.2, 0, 0), ...eq(0.1, 0, 0), ...qi
         ]),
-        // Right leg follows
         quatTrack('R_Hip', [0, 0.15, 0.35, 0.5, 0.6], [
             ...eq(-0.5, 0, 0), ...eq(-0.5, 0, 0), ...eq(-0.2, 0, 0), ...eq(0, 0, 0), ...qi
         ]),
         quatTrack('R_Knee', [0, 0.15, 0.35, 0.5, 0.6], [
             ...eq(0.8, 0, 0), ...eq(0.8, 0, 0), ...eq(0.4, 0, 0), ...eq(0.1, 0, 0), ...qi
         ]),
-        // Arms push off seat / door frame
         quatTrack('L_Shoulder', [0, 0.15, 0.35, 0.5, 0.6], [
             ...qi, ...eq(-0.4, 0, 0.3), ...eq(-0.2, 0, 0.2), ...eq(-0.1, 0, 0), ...qi
         ]),
@@ -640,12 +875,305 @@ function buildCharacter() {
         ]),
     ]));
 
+    // 10. Crouch idle (1.0s loop)
+    animations.push(new THREE.AnimationClip('crouch_idle', 1.0, [
+        posTrack('Root', [0, 1.0], [0, 0.65, 0, 0, 0.65, 0]),
+        quatTrack('Spine', [0, 0.5, 1.0], [...eq(0.25, 0, 0), ...eq(0.27, 0, 0), ...eq(0.25, 0, 0)]),
+        quatTrack('L_Hip', [0, 1.0], [...eq(-0.8, 0, 0), ...eq(-0.8, 0, 0)]),
+        quatTrack('R_Hip', [0, 1.0], [...eq(-0.8, 0, 0), ...eq(-0.8, 0, 0)]),
+        quatTrack('L_Knee', [0, 1.0], [...eq(1.2, 0, 0), ...eq(1.2, 0, 0)]),
+        quatTrack('R_Knee', [0, 1.0], [...eq(1.2, 0, 0), ...eq(1.2, 0, 0)]),
+    ]));
+
+    // 11. Crouch walk (0.8s loop)
+    const cwl = 20 * Math.PI / 180;
+    animations.push(new THREE.AnimationClip('crouch_walk', 0.8, [
+        posTrack('Root', [0, 0.2, 0.4, 0.6, 0.8], [
+            0, 0.65, 0, 0, 0.68, 0, 0, 0.65, 0, 0, 0.68, 0, 0, 0.65, 0
+        ]),
+        quatTrack('Spine', [0, 0.8], [...eq(0.25, 0, 0), ...eq(0.25, 0, 0)]),
+        quatTrack('L_Hip', [0, 0.2, 0.4, 0.6, 0.8], [
+            ...eq(-0.8 + cwl, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.8 - cwl, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.8 + cwl, 0, 0)
+        ]),
+        quatTrack('R_Hip', [0, 0.2, 0.4, 0.6, 0.8], [
+            ...eq(-0.8 - cwl, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.8 + cwl, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.8 - cwl, 0, 0)
+        ]),
+        quatTrack('L_Knee', [0, 0.8], [...eq(1.2, 0, 0), ...eq(1.2, 0, 0)]),
+        quatTrack('R_Knee', [0, 0.8], [...eq(1.2, 0, 0), ...eq(1.2, 0, 0)]),
+    ]));
+
+    // 12. Aim pistol (0.3s, once→hold)
+    animations.push(new THREE.AnimationClip('aim_pistol', 0.3, [
+        quatTrack('R_Shoulder', [0, 0.3], [...qi, ...eq(-1.4, 0, 0)]),
+        quatTrack('R_Elbow', [0, 0.3], [...qi, ...eq(-0.05, 0, 0)]),
+        quatTrack('L_Shoulder', [0, 0.3], [...qi, ...eq(-0.8, 0, 0.3)]),
+        quatTrack('L_Elbow', [0, 0.3], [...qi, ...eq(-0.6, 0, 0)]),
+        quatTrack('Chest', [0, 0.3], [...qi, ...eq(0, 0.15, 0)]),
+    ]));
+
+    // 13. Aim rifle (0.3s, once→hold)
+    animations.push(new THREE.AnimationClip('aim_rifle', 0.3, [
+        quatTrack('R_Shoulder', [0, 0.3], [...qi, ...eq(-1.3, 0, -0.2)]),
+        quatTrack('R_Elbow', [0, 0.3], [...qi, ...eq(-0.8, 0, 0)]),
+        quatTrack('L_Shoulder', [0, 0.3], [...qi, ...eq(-1.3, 0, 0.3)]),
+        quatTrack('L_Elbow', [0, 0.3], [...qi, ...eq(-0.7, 0, 0)]),
+        quatTrack('Spine', [0, 0.3], [...qi, ...eq(0.05, 0, 0)]),
+    ]));
+
+    // 14. Fire pistol (0.15s, once)
+    animations.push(new THREE.AnimationClip('fire_pistol', 0.15, [
+        quatTrack('R_Shoulder', [0, 0.05, 0.15], [
+            ...eq(-1.4, 0, 0), ...eq(-1.2, 0, 0), ...eq(-1.4, 0, 0)
+        ]),
+        quatTrack('R_Elbow', [0, 0.05, 0.15], [
+            ...eq(-0.05, 0, 0), ...eq(-0.15, 0, 0), ...eq(-0.05, 0, 0)
+        ]),
+    ]));
+
+    // 15. Fire rifle (0.12s, once)
+    animations.push(new THREE.AnimationClip('fire_rifle', 0.12, [
+        quatTrack('R_Shoulder', [0, 0.04, 0.12], [
+            ...eq(-1.3, 0, -0.2), ...eq(-1.15, 0, -0.2), ...eq(-1.3, 0, -0.2)
+        ]),
+        quatTrack('L_Shoulder', [0, 0.04, 0.12], [
+            ...eq(-1.3, 0, 0.3), ...eq(-1.15, 0, 0.3), ...eq(-1.3, 0, 0.3)
+        ]),
+        quatTrack('Spine', [0, 0.04, 0.12], [
+            ...eq(0.05, 0, 0), ...eq(0.02, 0, 0), ...eq(0.05, 0, 0)
+        ]),
+    ]));
+
+    // 16. Melee combo 2 — left hook (0.35s, once)
+    animations.push(new THREE.AnimationClip('melee_combo2', 0.35, [
+        quatTrack('L_Shoulder', [0, 0.1, 0.22, 0.35], [
+            ...qi, ...eq(0.4, 0, 0.3), ...eq(-1.3, 0, 0), ...qi
+        ]),
+        quatTrack('L_Elbow', [0, 0.1, 0.22, 0.35], [
+            ...qi, ...eq(-0.9, 0, 0), ...eq(-0.2, 0, 0), ...qi
+        ]),
+        quatTrack('Chest', [0, 0.1, 0.22, 0.35], [
+            ...qi, ...eq(0, 0.3, 0), ...eq(0, -0.4, 0), ...qi
+        ]),
+    ]));
+
+    // 17. Melee combo 3 — roundhouse kick (0.4s, once)
+    animations.push(new THREE.AnimationClip('melee_combo3', 0.4, [
+        quatTrack('R_Hip', [0, 0.1, 0.25, 0.4], [
+            ...qi, ...eq(-0.3, 0, 0), ...eq(-1.4, 0, -0.5), ...qi
+        ]),
+        quatTrack('R_Knee', [0, 0.1, 0.25, 0.4], [
+            ...qi, ...eq(0.4, 0, 0), ...eq(0.1, 0, 0), ...qi
+        ]),
+        quatTrack('Chest', [0, 0.1, 0.25, 0.4], [
+            ...qi, ...eq(0, -0.4, 0), ...eq(0, -0.8, 0), ...qi
+        ]),
+        quatTrack('Spine', [0, 0.4], [...eq(0.1, 0, 0), ...eq(0.1, 0, 0)]),
+    ]));
+
+    // 18. Melee bat swing (0.5s, once)
+    animations.push(new THREE.AnimationClip('melee_bat', 0.5, [
+        quatTrack('R_Shoulder', [0, 0.15, 0.3, 0.5], [
+            ...qi, ...eq(-2.5, 0, -0.3), ...eq(-0.8, 0, 0.5), ...qi
+        ]),
+        quatTrack('R_Elbow', [0, 0.15, 0.3, 0.5], [
+            ...qi, ...eq(-0.3, 0, 0), ...eq(-0.1, 0, 0), ...qi
+        ]),
+        quatTrack('Chest', [0, 0.15, 0.3, 0.5], [
+            ...qi, ...eq(0, -0.5, 0), ...eq(0, 0.6, 0), ...qi
+        ]),
+    ]));
+
+    // 19. Melee knife slash (0.3s, once)
+    animations.push(new THREE.AnimationClip('melee_knife', 0.3, [
+        quatTrack('R_Shoulder', [0, 0.08, 0.2, 0.3], [
+            ...qi, ...eq(-0.8, 0, -0.4), ...eq(-1.2, 0, 0.3), ...qi
+        ]),
+        quatTrack('R_Elbow', [0, 0.08, 0.2, 0.3], [
+            ...qi, ...eq(-0.4, 0, 0), ...eq(-0.1, 0, 0), ...qi
+        ]),
+        quatTrack('Chest', [0, 0.08, 0.2, 0.3], [
+            ...qi, ...eq(0, -0.2, 0), ...eq(0, 0.3, 0), ...qi
+        ]),
+    ]));
+
+    // 20. Fall (0.5s, once)
+    animations.push(new THREE.AnimationClip('fall', 0.5, [
+        quatTrack('L_Shoulder', [0, 0.2, 0.5], [
+            ...qi, ...eq(-1.8, 0, 0.6), ...eq(-2.0, 0, 0.4)
+        ]),
+        quatTrack('R_Shoulder', [0, 0.2, 0.5], [
+            ...qi, ...eq(-1.8, 0, -0.6), ...eq(-2.0, 0, -0.4)
+        ]),
+        quatTrack('L_Hip', [0, 0.5], [...qi, ...eq(-0.3, 0, 0.2)]),
+        quatTrack('R_Hip', [0, 0.5], [...qi, ...eq(-0.2, 0, -0.15)]),
+        quatTrack('Spine', [0, 0.5], [...qi, ...eq(-0.15, 0, 0)]),
+    ]));
+
+    // 21. Land hard (0.3s, once)
+    animations.push(new THREE.AnimationClip('land_hard', 0.3, [
+        posTrack('Root', [0, 0.1, 0.3], [0, 0.95, 0, 0, 0.7, 0, 0, 0.95, 0]),
+        quatTrack('L_Hip', [0, 0.1, 0.3], [...qi, ...eq(-0.5, 0, 0), ...qi]),
+        quatTrack('R_Hip', [0, 0.1, 0.3], [...qi, ...eq(-0.5, 0, 0), ...qi]),
+        quatTrack('L_Knee', [0, 0.1, 0.3], [...qi, ...eq(0.8, 0, 0), ...qi]),
+        quatTrack('R_Knee', [0, 0.1, 0.3], [...qi, ...eq(0.8, 0, 0), ...qi]),
+        quatTrack('Spine', [0, 0.1, 0.3], [...qi, ...eq(0.2, 0, 0), ...qi]),
+    ]));
+
+    // 22. Hands up / surrender (0.4s, once→hold)
+    animations.push(new THREE.AnimationClip('hands_up', 0.4, [
+        quatTrack('L_Shoulder', [0, 0.4], [...qi, ...eq(-2.8, 0, 0.3)]),
+        quatTrack('R_Shoulder', [0, 0.4], [...qi, ...eq(-2.8, 0, -0.3)]),
+        quatTrack('L_Elbow', [0, 0.4], [...qi, ...eq(-0.3, 0, 0)]),
+        quatTrack('R_Elbow', [0, 0.4], [...qi, ...eq(-0.3, 0, 0)]),
+    ]));
+
+    // 23. Death front (0.8s, once)
+    animations.push(new THREE.AnimationClip('death_front', 0.8, [
+        posTrack('Root', [0, 0.3, 0.6, 0.8], [
+            0, 0.95, 0,  0, 0.7, 0,  0, 0.3, 0,  0, 0.15, 0
+        ]),
+        quatTrack('Spine', [0, 0.3, 0.6, 0.8], [
+            ...qi, ...eq(0.3, 0, 0), ...eq(0.8, 0, 0), ...eq(1.2, 0, 0)
+        ]),
+        quatTrack('L_Hip', [0, 0.8], [...qi, ...eq(-0.3, 0, 0.2)]),
+        quatTrack('R_Hip', [0, 0.8], [...qi, ...eq(-0.2, 0, -0.1)]),
+        quatTrack('L_Shoulder', [0, 0.4, 0.8], [...qi, ...eq(0.5, 0, 0.3), ...eq(0.2, 0, 0.4)]),
+        quatTrack('R_Shoulder', [0, 0.4, 0.8], [...qi, ...eq(0.5, 0, -0.3), ...eq(0.2, 0, -0.4)]),
+    ]));
+
+    // 24. Death back (0.8s, once)
+    animations.push(new THREE.AnimationClip('death_back', 0.8, [
+        posTrack('Root', [0, 0.3, 0.6, 0.8], [
+            0, 0.95, 0,  0, 0.7, 0,  0, 0.3, 0,  0, 0.15, 0
+        ]),
+        quatTrack('Spine', [0, 0.3, 0.6, 0.8], [
+            ...qi, ...eq(-0.2, 0, 0), ...eq(-0.6, 0, 0), ...eq(-1.0, 0, 0)
+        ]),
+        quatTrack('L_Hip', [0, 0.8], [...qi, ...eq(0.3, 0, 0.2)]),
+        quatTrack('R_Hip', [0, 0.8], [...qi, ...eq(0.2, 0, -0.15)]),
+        quatTrack('L_Shoulder', [0, 0.8], [...qi, ...eq(-0.8, 0, 0.5)]),
+        quatTrack('R_Shoulder', [0, 0.8], [...qi, ...eq(-0.8, 0, -0.5)]),
+    ]));
+
+    // 25. Swim surface (1.2s loop) — breaststroke
+    animations.push(new THREE.AnimationClip('swim_surface', 1.2, [
+        quatTrack('Spine', [0, 1.2], [...eq(0.4, 0, 0), ...eq(0.4, 0, 0)]),
+        quatTrack('L_Shoulder', [0, 0.3, 0.6, 0.9, 1.2], [
+            ...eq(-1.5, 0, 0.5), ...eq(-0.5, 0, 0.8), ...eq(0.2, 0, 0.3), ...eq(-0.8, 0, 0.2), ...eq(-1.5, 0, 0.5)
+        ]),
+        quatTrack('R_Shoulder', [0, 0.3, 0.6, 0.9, 1.2], [
+            ...eq(-1.5, 0, -0.5), ...eq(-0.5, 0, -0.8), ...eq(0.2, 0, -0.3), ...eq(-0.8, 0, -0.2), ...eq(-1.5, 0, -0.5)
+        ]),
+        quatTrack('L_Elbow', [0, 0.3, 0.6, 1.2], [
+            ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.2, 0, 0), ...eq(-0.3, 0, 0)
+        ]),
+        quatTrack('R_Elbow', [0, 0.3, 0.6, 1.2], [
+            ...eq(-0.3, 0, 0), ...eq(-0.8, 0, 0), ...eq(-0.2, 0, 0), ...eq(-0.3, 0, 0)
+        ]),
+        quatTrack('L_Hip', [0, 0.6, 1.2], [...eq(-0.2, 0, 0), ...eq(0.3, 0, 0), ...eq(-0.2, 0, 0)]),
+        quatTrack('R_Hip', [0, 0.6, 1.2], [...eq(0.3, 0, 0), ...eq(-0.2, 0, 0), ...eq(0.3, 0, 0)]),
+    ]));
+
+    // 26. Swim underwater (1.0s loop) — crawl stroke
+    animations.push(new THREE.AnimationClip('swim_under', 1.0, [
+        quatTrack('Spine', [0, 1.0], [...eq(1.2, 0, 0), ...eq(1.2, 0, 0)]),
+        quatTrack('L_Shoulder', [0, 0.25, 0.5, 0.75, 1.0], [
+            ...eq(-2.5, 0, 0.3), ...eq(-1.0, 0, 0.5), ...eq(0.3, 0, 0.2), ...eq(-1.5, 0, 0.3), ...eq(-2.5, 0, 0.3)
+        ]),
+        quatTrack('R_Shoulder', [0, 0.25, 0.5, 0.75, 1.0], [
+            ...eq(0.3, 0, -0.2), ...eq(-1.5, 0, -0.3), ...eq(-2.5, 0, -0.3), ...eq(-1.0, 0, -0.5), ...eq(0.3, 0, -0.2)
+        ]),
+        quatTrack('L_Hip', [0, 0.5, 1.0], [...eq(0.2, 0, 0), ...eq(-0.2, 0, 0), ...eq(0.2, 0, 0)]),
+        quatTrack('R_Hip', [0, 0.5, 1.0], [...eq(-0.2, 0, 0), ...eq(0.2, 0, 0), ...eq(-0.2, 0, 0)]),
+    ]));
+
+    // 27. NPC: pulled from car (1.0s, once)
+    animations.push(new THREE.AnimationClip('pulled_from_car', 1.0, [
+        posTrack('Root', [0, 0.3, 0.6, 1.0], [
+            0, 0.7, 0,  0, 0.85, 0,  0, 0.5, 0,  0, 0.95, 0
+        ]),
+        quatTrack('Spine', [0, 0.3, 0.6, 1.0], [
+            ...eq(0.1, 0, 0), ...eq(-0.3, 0, 0), ...eq(0.4, 0, 0.2), ...qi
+        ]),
+        quatTrack('L_Shoulder', [0, 0.3, 0.6, 1.0], [
+            ...qi, ...eq(-1.0, 0, 0.5), ...eq(-0.5, 0, 0.3), ...qi
+        ]),
+        quatTrack('R_Shoulder', [0, 0.3, 0.6, 1.0], [
+            ...qi, ...eq(-1.0, 0, -0.5), ...eq(-0.5, 0, -0.3), ...qi
+        ]),
+    ]));
+
+    // 28. NPC: cower with hands up (0.4s, once→hold)
+    animations.push(new THREE.AnimationClip('aimed_at_cower', 0.4, [
+        quatTrack('L_Shoulder', [0, 0.4], [...qi, ...eq(-2.5, 0, 0.4)]),
+        quatTrack('R_Shoulder', [0, 0.4], [...qi, ...eq(-2.5, 0, -0.4)]),
+        quatTrack('Spine', [0, 0.4], [...qi, ...eq(-0.3, 0, 0)]),
+        quatTrack('L_Knee', [0, 0.4], [...qi, ...eq(0.2, 0, 0)]),
+        quatTrack('R_Knee', [0, 0.4], [...qi, ...eq(0.2, 0, 0)]),
+    ]));
+
+    // 29. NPC: comply — kneel with hands behind head (0.5s, once→hold)
+    animations.push(new THREE.AnimationClip('aimed_at_comply', 0.5, [
+        posTrack('Root', [0, 0.5], [0, 0.95, 0, 0, 0.55, 0]),
+        quatTrack('L_Hip', [0, 0.5], [...qi, ...eq(-1.2, 0, 0)]),
+        quatTrack('R_Hip', [0, 0.5], [...qi, ...eq(-1.2, 0, 0)]),
+        quatTrack('L_Knee', [0, 0.5], [...qi, ...eq(2.0, 0, 0)]),
+        quatTrack('R_Knee', [0, 0.5], [...qi, ...eq(2.0, 0, 0)]),
+        quatTrack('L_Shoulder', [0, 0.5], [...qi, ...eq(-2.8, 0, 0.3)]),
+        quatTrack('R_Shoulder', [0, 0.5], [...qi, ...eq(-2.8, 0, -0.3)]),
+        quatTrack('L_Elbow', [0, 0.5], [...qi, ...eq(-1.5, 0, 0)]),
+        quatTrack('R_Elbow', [0, 0.5], [...qi, ...eq(-1.5, 0, 0)]),
+    ]));
+
+    // 30. NPC: phone talk (2.0s loop)
+    animations.push(new THREE.AnimationClip('phone_talk', 2.0, [
+        quatTrack('R_Shoulder', [0, 2.0], [...eq(-1.8, 0, -0.3), ...eq(-1.8, 0, -0.3)]),
+        quatTrack('R_Elbow', [0, 2.0], [...eq(-2.0, 0, 0), ...eq(-2.0, 0, 0)]),
+        quatTrack('Head', [0, 0.5, 1.0, 1.5, 2.0], [
+            ...qi, ...eq(0.08, 0, 0), ...qi, ...eq(0.05, 0.05, 0), ...qi
+        ]),
+    ]));
+
+    // 31. NPC: sit on bench (0.5s, once→hold)
+    animations.push(new THREE.AnimationClip('sit_bench', 0.5, [
+        posTrack('Root', [0, 0.5], [0, 0.95, 0, 0, 0.55, 0]),
+        quatTrack('L_Hip', [0, 0.5], [...qi, ...eq(-1.4, 0, 0)]),
+        quatTrack('R_Hip', [0, 0.5], [...qi, ...eq(-1.4, 0, 0)]),
+        quatTrack('L_Knee', [0, 0.5], [...qi, ...eq(1.4, 0, 0)]),
+        quatTrack('R_Knee', [0, 0.5], [...qi, ...eq(1.4, 0, 0)]),
+        quatTrack('Spine', [0, 0.5], [...qi, ...eq(-0.1, 0, 0)]),
+    ]));
+
+    // 32. NPC: lean against wall (0.3s, once→hold)
+    animations.push(new THREE.AnimationClip('lean_wall', 0.3, [
+        quatTrack('Spine', [0, 0.3], [...qi, ...eq(-0.15, 0, 0)]),
+        quatTrack('L_Hip', [0, 0.3], [...qi, ...eq(0.2, 0, 0.3)]),
+        quatTrack('L_Knee', [0, 0.3], [...qi, ...eq(0.5, 0, 0)]),
+        quatTrack('R_Shoulder', [0, 0.3], [...qi, ...eq(0.1, 0, -0.2)]),
+    ]));
+
+    return animations;
+}
+
+
+function buildCharacter(gender = 'male') {
+    const scene = new THREE.Scene();
+    const { bones, skeleton } = buildSkeleton();
+
+    const { baseParts, fatParts, muscleParts } = buildCharacterParts(gender);
+    const skinnedMesh = assembleCharacterMesh(
+        baseParts, [fatParts, muscleParts], bones, skeleton
+    );
+
+    scene.add(skinnedMesh);
+
+    const animations = buildCharacterAnimations();
     return { scene, animations };
 }
 
 
 // ============================================================
-// VEHICLE MODELS
+// VEHICLE MODELS — Curved profiles, proper silhouettes
 // ============================================================
 function buildVehicle(type) {
     const scene = new THREE.Scene();
@@ -655,15 +1183,16 @@ function buildVehicle(type) {
     const mat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4, metalness: 0.6 });
     const glassMat = new THREE.MeshStandardMaterial({
         color: 0x88aacc, roughness: 0.1, metalness: 0.3,
-        transparent: true, opacity: 0.7
+        transparent: true, opacity: 0.6
     });
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.1, metalness: 0.9 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.08, metalness: 0.95 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85 });
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.95, metalness: 0.0 });
     const headlightMat = new THREE.MeshStandardMaterial({
-        color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.3
+        color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.4
     });
     const taillightMat = new THREE.MeshStandardMaterial({
-        color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.2
+        color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.3
     });
 
     if (type === 'sedan' || type === 'sports' || type === 'police') {
@@ -672,111 +1201,193 @@ function buildVehicle(type) {
         const w = isSports ? 1.9 : 2.0;
         const h = isSports ? 1.1 : 1.3;
         const l = isSports ? 4.2 : 4.5;
+        const bodyMat = isPolice
+            ? new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.6 })
+            : mat;
+        const policeTrim = isPolice
+            ? new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.6 })
+            : null;
 
-        // Body
-        const bodyH = h * (isSports ? 0.4 : 0.5);
-        const bodyGeo = new THREE.BoxGeometry(w, bodyH, l);
-        const bodyMesh = new THREE.Mesh(bodyGeo, isPolice ?
-            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.6 }) : mat);
-        bodyMesh.position.y = h * 0.3;
+        // Lower body — extruded side profile with curved hood and trunk
+        const bodyShape = new THREE.Shape();
+        const bh = h * 0.45;
+        bodyShape.moveTo(-l/2, 0);
+        bodyShape.lineTo(-l/2, bh * 0.8);  // rear face
+        bodyShape.lineTo(-l*0.3, bh);       // trunk rise
+        bodyShape.lineTo(l*0.1, bh);        // roof rear
+        bodyShape.lineTo(l*0.35, bh * 0.7); // hood slope
+        bodyShape.lineTo(l/2, bh * 0.55);   // front nose
+        bodyShape.lineTo(l/2, 0);            // front bottom
+        bodyShape.lineTo(-l/2, 0);           // close
+        const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+            steps: 1, depth: w, bevelEnabled: false
+        });
+        bodyGeo.translate(0, 0, -w/2);
+        bodyGeo.rotateY(Math.PI / 2);
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        bodyMesh.position.y = h * 0.12;
         bodyMesh.castShadow = true;
         group.add(bodyMesh);
 
-        // Hood slope
-        const hoodGeo = new THREE.BoxGeometry(w * 0.95, bodyH * 0.6, l * 0.25);
-        const hood = new THREE.Mesh(hoodGeo, isPolice ?
-            new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.6 }) : mat);
-        hood.position.set(0, h * 0.45, l * 0.35);
-        hood.rotation.x = -0.15;
-        group.add(hood);
-
-        // Trunk
-        const trunkGeo = new THREE.BoxGeometry(w * 0.9, bodyH * 0.5, l * 0.2);
-        const trunk = new THREE.Mesh(trunkGeo, isPolice ?
-            new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.6 }) : mat);
-        trunk.position.set(0, h * 0.4, -l * 0.38);
-        group.add(trunk);
-
-        // Cabin
-        const cabinGeo = new THREE.BoxGeometry(w * 0.82, h * (isSports ? 0.3 : 0.4), l * 0.4);
-        const cabin = new THREE.Mesh(cabinGeo, glassMat);
-        cabin.position.set(0, h * (isSports ? 0.55 : 0.65), -l * 0.05);
+        // Cabin / greenhouse — glass box with tapered shape
+        const cabW = w * 0.78;
+        const cabH = isSports ? h * 0.28 : h * 0.38;
+        const cabL = l * 0.35;
+        const cabGeo = new THREE.BoxGeometry(cabW, cabH, cabL);
+        const cabin = new THREE.Mesh(cabGeo, glassMat);
+        cabin.position.set(0, h * (isSports ? 0.58 : 0.68), -l * 0.04);
         group.add(cabin);
 
-        // Windshield
-        const wsGeo = new THREE.PlaneGeometry(w * 0.78, h * (isSports ? 0.3 : 0.4));
+        // A-pillars (windshield frame)
+        for (const side of [-1, 1]) {
+            const pillarGeo = new THREE.BoxGeometry(0.06, cabH * 1.05, 0.06);
+            const pillar = new THREE.Mesh(pillarGeo, bodyMat);
+            pillar.position.set(side * cabW/2, cabin.position.y, l * 0.12);
+            pillar.rotation.x = -0.25;
+            group.add(pillar);
+        }
+
+        // Windshield (angled glass plane)
+        const wsGeo = new THREE.PlaneGeometry(cabW - 0.1, cabH * 0.95);
         const ws = new THREE.Mesh(wsGeo, glassMat);
-        ws.position.set(0, h * (isSports ? 0.55 : 0.65), l * 0.15);
-        ws.rotation.x = -0.3;
+        ws.position.set(0, cabin.position.y, l * 0.15);
+        ws.rotation.x = isSports ? -0.35 : -0.28;
         group.add(ws);
 
-        // Bumpers
-        const fbGeo = new THREE.BoxGeometry(w + 0.2, 0.2, 0.15);
+        // Rear window
+        const rwGeo = new THREE.PlaneGeometry(cabW - 0.1, cabH * 0.8);
+        const rw = new THREE.Mesh(rwGeo, glassMat);
+        rw.position.set(0, cabin.position.y, -l * 0.2);
+        rw.rotation.x = 0.25;
+        group.add(rw);
+
+        // Front bumper — rounded
+        const fbGeo = new THREE.BoxGeometry(w + 0.15, 0.18, 0.12);
         const fb = new THREE.Mesh(fbGeo, chromeMat);
-        fb.position.set(0, h * 0.15, l / 2 + 0.05);
+        fb.position.set(0, h * 0.18, l / 2 + 0.02);
         group.add(fb);
 
-        const rbGeo = new THREE.BoxGeometry(w + 0.2, 0.2, 0.15);
+        // Rear bumper
+        const rbGeo = new THREE.BoxGeometry(w + 0.15, 0.18, 0.12);
         const rb = new THREE.Mesh(rbGeo, chromeMat);
-        rb.position.set(0, h * 0.15, -l / 2 - 0.05);
+        rb.position.set(0, h * 0.18, -l / 2 - 0.02);
         group.add(rb);
+
+        // Wheel arches — curved cutouts (half-cylinders)
+        const wheelR = isSports ? 0.22 : 0.25;
+        for (const side of [-1, 1]) {
+            for (const fz of [l * 0.3, -l * 0.3]) {
+                const archGeo = new THREE.CylinderGeometry(wheelR + 0.08, wheelR + 0.08, 0.12, 10, 1, false, 0, Math.PI);
+                archGeo.rotateX(Math.PI / 2);
+                archGeo.rotateY(side > 0 ? 0 : Math.PI);
+                const arch = new THREE.Mesh(archGeo, bodyMat);
+                arch.position.set(side * w/2, wheelR + h * 0.12, fz);
+                group.add(arch);
+            }
+        }
 
         // Side mirrors
         for (const side of [-1, 1]) {
-            const armGeo = new THREE.BoxGeometry(0.3, 0.05, 0.05);
-            const arm = new THREE.Mesh(armGeo, chromeMat);
-            arm.position.set(side * (w / 2 + 0.15), h * 0.55, l * 0.15);
+            const armGeo = new THREE.BoxGeometry(0.25, 0.04, 0.04);
+            const arm = new THREE.Mesh(armGeo, bodyMat);
+            arm.position.set(side * (w / 2 + 0.12), h * 0.58, l * 0.14);
             group.add(arm);
-            const mirGeo = new THREE.BoxGeometry(0.08, 0.1, 0.12);
+            const mirGeo = new THREE.BoxGeometry(0.06, 0.08, 0.1);
             const mir = new THREE.Mesh(mirGeo, chromeMat);
-            mir.position.set(side * (w / 2 + 0.28), h * 0.55, l * 0.15);
+            mir.position.set(side * (w / 2 + 0.24), h * 0.58, l * 0.14);
             group.add(mir);
         }
 
-        // Headlights
-        for (const side of [-0.5, 0.5]) {
-            const hlGeo = new THREE.BoxGeometry(0.2, 0.12, 0.05);
+        // Headlights — inset with lens
+        for (const side of [-1, 1]) {
+            const hlGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.04, 8);
+            hlGeo.rotateX(Math.PI / 2);
             const hl = new THREE.Mesh(hlGeo, headlightMat);
-            hl.position.set(side * w * 0.4, h * 0.3, l / 2 + 0.05);
+            hl.position.set(side * w * 0.35, h * 0.32, l / 2 + 0.04);
             group.add(hl);
         }
 
         // Taillights
-        for (const side of [-0.5, 0.5]) {
-            const tlGeo = new THREE.BoxGeometry(0.2, 0.1, 0.05);
+        for (const side of [-1, 1]) {
+            const tlGeo = new THREE.BoxGeometry(0.22, 0.08, 0.04);
             const tl = new THREE.Mesh(tlGeo, taillightMat);
-            tl.position.set(side * w * 0.4, h * 0.3, -l / 2 - 0.05);
+            tl.position.set(side * w * 0.35, h * 0.32, -l / 2 - 0.04);
             group.add(tl);
         }
 
+        // Door handle lines (thin grooves)
+        for (const side of [-1, 1]) {
+            const handleGeo = new THREE.BoxGeometry(0.01, 0.03, 0.08);
+            const handle = new THREE.Mesh(handleGeo, chromeMat);
+            handle.position.set(side * (w/2 + 0.01), h * 0.42, l * 0.02);
+            group.add(handle);
+        }
+
+        // Grille
+        const grilleGeo = new THREE.BoxGeometry(w * 0.5, h * 0.12, 0.03);
+        const grille = new THREE.Mesh(grilleGeo, darkMat);
+        grille.position.set(0, h * 0.25, l / 2 + 0.04);
+        group.add(grille);
+
+        // License plate area
+        const plateGeo = new THREE.BoxGeometry(0.3, 0.08, 0.01);
+        const plate = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({ color: 0xffffee, roughness: 0.5 }));
+        plate.position.set(0, h * 0.15, -l / 2 - 0.06);
+        group.add(plate);
+
         // Spoiler for sports
         if (isSports) {
-            const spGeo = new THREE.BoxGeometry(w * 0.8, 0.05, 0.3);
+            const spGeo = new THREE.BoxGeometry(w * 0.75, 0.04, 0.25);
             const sp = new THREE.Mesh(spGeo, mat);
-            sp.position.set(0, h * 0.65, -l * 0.42);
+            sp.position.set(0, h * 0.62, -l * 0.42);
             group.add(sp);
             for (const s of [-0.3, 0.3]) {
-                const aGeo = new THREE.BoxGeometry(0.05, 0.15, 0.05);
-                const a = new THREE.Mesh(aGeo, mat);
-                a.position.set(s, h * 0.58, -l * 0.42);
-                group.add(a);
+                const stGeo = new THREE.BoxGeometry(0.04, 0.12, 0.04);
+                const st = new THREE.Mesh(stGeo, mat);
+                st.position.set(s, h * 0.56, -l * 0.42);
+                group.add(st);
+            }
+            // Side vents
+            for (const side of [-1, 1]) {
+                for (let i = 0; i < 3; i++) {
+                    const ventGeo = new THREE.BoxGeometry(0.01, 0.02, 0.15);
+                    const vent = new THREE.Mesh(ventGeo, darkMat);
+                    vent.position.set(side * (w/2 + 0.01), h * 0.35 + i * 0.04, l * 0.15);
+                    group.add(vent);
+                }
             }
         }
 
         // Police light bar
         if (isPolice) {
-            const lbGeo = new THREE.BoxGeometry(w * 0.5, 0.12, 0.3);
-            const lbMat = new THREE.MeshStandardMaterial({
-                color: 0x0044ff, emissive: 0x0022aa, emissiveIntensity: 0.3
-            });
-            const lb = new THREE.Mesh(lbGeo, lbMat);
-            lb.position.set(0, h * 0.87, -l * 0.05);
-            group.add(lb);
+            const lbBase = new THREE.Mesh(
+                new THREE.BoxGeometry(w * 0.45, 0.06, 0.25), darkMat
+            );
+            lbBase.position.set(0, h * 0.88, -l * 0.04);
+            group.add(lbBase);
+            // Red light
+            const redLight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, 0.08, 0.15),
+                new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 })
+            );
+            redLight.position.set(-0.2, h * 0.93, -l * 0.04);
+            group.add(redLight);
+            // Blue light
+            const blueLight = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, 0.08, 0.15),
+                new THREE.MeshStandardMaterial({ color: 0x0044ff, emissive: 0x0022aa, emissiveIntensity: 0.5 })
+            );
+            blueLight.position.set(0.2, h * 0.93, -l * 0.04);
+            group.add(blueLight);
+            // Push bumper
+            const pushGeo = new THREE.BoxGeometry(w * 0.6, 0.25, 0.08);
+            const pushBumper = new THREE.Mesh(pushGeo, darkMat);
+            pushBumper.position.set(0, h * 0.18, l / 2 + 0.12);
+            group.add(pushBumper);
         }
 
-        // Wheels (separate children for rotation)
-        const wheelRadius = isSports ? 0.18 : 0.22;
-        addWheels(group, w, l, wheelRadius, darkMat);
+        // Wheels with hub detail
+        addWheels(group, w, l, wheelR, tireMat, isSports);
 
     } else if (type === 'truck') {
         const w = 2.4, h = 2.2, l = 6;
@@ -942,7 +1553,7 @@ function buildVehicle(type) {
     return { scene, animations: [] };
 }
 
-function addWheels(group, width, length, radius, wheelMat) {
+function addWheels(group, width, length, radius, wheelMat, isSports) {
     const positions = [
         { x: -width / 2, z: length * 0.3, name: 'wheel_FL' },
         { x: width / 2, z: length * 0.3, name: 'wheel_FR' },
@@ -950,13 +1561,43 @@ function addWheels(group, width, length, radius, wheelMat) {
         { x: width / 2, z: -length * 0.3, name: 'wheel_RR' },
     ];
 
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.2, metalness: 0.8 });
+    const tireWidth = isSports ? 0.18 : 0.14;
+
     for (const pos of positions) {
-        const wheelGeo = new THREE.CylinderGeometry(radius, radius, 0.15, 12);
-        wheelGeo.rotateZ(Math.PI / 2);
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.position.set(pos.x, radius, pos.z);
-        wheel.name = pos.name;
-        group.add(wheel);
+        const wheelGroup = new THREE.Group();
+        wheelGroup.name = pos.name;
+
+        // Tire (outer ring)
+        const tireGeo = new THREE.CylinderGeometry(radius, radius, tireWidth, 14);
+        tireGeo.rotateZ(Math.PI / 2);
+        const tire = new THREE.Mesh(tireGeo, wheelMat);
+        wheelGroup.add(tire);
+
+        // Hub cap (smaller disc)
+        const hubGeo = new THREE.CylinderGeometry(radius * 0.6, radius * 0.6, tireWidth + 0.02, 10);
+        hubGeo.rotateZ(Math.PI / 2);
+        const hub = new THREE.Mesh(hubGeo, hubMat);
+        wheelGroup.add(hub);
+
+        // 5 spokes
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const spokeGeo = new THREE.BoxGeometry(0.02, radius * 0.35, 0.025);
+            const spoke = new THREE.Mesh(spokeGeo, hubMat);
+            spoke.position.set(
+                pos.x > 0 ? tireWidth/2 + 0.01 : -tireWidth/2 - 0.01,
+                Math.sin(angle) * radius * 0.35,
+                Math.cos(angle) * radius * 0.35
+            );
+            spoke.rotation.x = angle;
+            // Spokes are children of the group but positioned relative
+            // Just add to the wheelGroup for simplicity
+            wheelGroup.add(spoke);
+        }
+
+        wheelGroup.position.set(pos.x, radius, pos.z);
+        group.add(wheelGroup);
     }
 }
 
@@ -1457,16 +2098,135 @@ function buildWeapon(weaponId) {
 }
 
 // ============================================================
+// HELICOPTER MODEL
+// ============================================================
+function buildHelicopter() {
+    const scene = new THREE.Scene();
+    const group = new THREE.Group();
+    group.name = 'helicopter';
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4, metalness: 0.6 });
+    const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x88aacc, roughness: 0.1, metalness: 0.3,
+        transparent: true, opacity: 0.6
+    });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+
+    // Fuselage — egg shape via lathe
+    const fuselageProfile = [
+        [0, -1.2], [0.5, -1.0], [0.8, -0.6], [0.9, 0], [0.85, 0.4],
+        [0.7, 0.8], [0.4, 1.0], [0, 1.1]
+    ].map(p => new THREE.Vector2(p[0], p[1]));
+    const fuselageGeo = new THREE.LatheGeometry(fuselageProfile, 10);
+    fuselageGeo.rotateX(Math.PI / 2);
+    const fuselage = new THREE.Mesh(fuselageGeo, mat);
+    fuselage.position.y = 1.0;
+    fuselage.castShadow = true;
+    group.add(fuselage);
+
+    // Cockpit bubble — front glass
+    const cockpitGeo = new THREE.SphereGeometry(0.65, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+    cockpitGeo.rotateX(-Math.PI / 4);
+    const cockpit = new THREE.Mesh(cockpitGeo, glassMat);
+    cockpit.position.set(0, 1.15, 0.7);
+    group.add(cockpit);
+
+    // Tail boom — tapered cone
+    const tailGeo = new THREE.CylinderGeometry(0.15, 0.35, 2.5, 8);
+    tailGeo.rotateX(Math.PI / 2);
+    const tail = new THREE.Mesh(tailGeo, mat);
+    tail.position.set(0, 1.1, -2.2);
+    group.add(tail);
+
+    // Tail fin — vertical
+    const finGeo = new THREE.BoxGeometry(0.05, 0.6, 0.4);
+    const fin = new THREE.Mesh(finGeo, mat);
+    fin.position.set(0, 1.5, -3.2);
+    group.add(fin);
+
+    // Horizontal stabilizer
+    const hStabGeo = new THREE.BoxGeometry(1.0, 0.05, 0.3);
+    const hStab = new THREE.Mesh(hStabGeo, mat);
+    hStab.position.set(0, 1.2, -3.1);
+    group.add(hStab);
+
+    // Main rotor — proper blade shapes
+    const rotorHub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8),
+        darkMat
+    );
+    rotorHub.position.set(0, 2.0, 0);
+    rotorHub.name = 'rotor_hub';
+    group.add(rotorHub);
+
+    for (let i = 0; i < 4; i++) {
+        const bladeGeo = new THREE.BoxGeometry(3.5, 0.02, 0.15);
+        bladeGeo.translate(1.75, 0, 0);
+        const blade = new THREE.Mesh(bladeGeo, darkMat);
+        blade.position.set(0, 2.05, 0);
+        blade.rotation.y = (Math.PI / 2) * i;
+        blade.name = `rotor_blade_${i}`;
+        group.add(blade);
+    }
+
+    // Tail rotor
+    const tailRotorHub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.08, 6), darkMat
+    );
+    tailRotorHub.position.set(0.2, 1.5, -3.35);
+    tailRotorHub.rotation.z = Math.PI / 2;
+    group.add(tailRotorHub);
+
+    for (let i = 0; i < 2; i++) {
+        const tBladeGeo = new THREE.BoxGeometry(0.5, 0.02, 0.08);
+        tBladeGeo.translate(0.25, 0, 0);
+        const tBlade = new THREE.Mesh(tBladeGeo, darkMat);
+        tBlade.position.set(0.2, 1.5, -3.35);
+        tBlade.rotation.x = Math.PI / 2 * i;
+        tBlade.rotation.z = Math.PI / 2;
+        group.add(tBlade);
+    }
+
+    // Skids — tube frame
+    for (const side of [-1, 1]) {
+        // Skid rail
+        const skidGeo = new THREE.CylinderGeometry(0.03, 0.03, 2.5, 6);
+        skidGeo.rotateX(Math.PI / 2);
+        const skid = new THREE.Mesh(skidGeo, darkMat);
+        skid.position.set(side * 0.7, 0, 0);
+        group.add(skid);
+
+        // Struts connecting to fuselage
+        for (const zOff of [-0.5, 0.5]) {
+            const strutGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4);
+            const strut = new THREE.Mesh(strutGeo, darkMat);
+            strut.position.set(side * 0.5, 0.5, zOff);
+            strut.rotation.z = side * 0.3;
+            group.add(strut);
+        }
+    }
+
+    scene.add(group);
+    return { scene, animations: [] };
+}
+
+
+// ============================================================
 // MAIN
 // ============================================================
 async function main() {
-    console.log('San Claudio Model Generator');
-    console.log('==========================\n');
+    console.log('San Claudio Model Generator — Visual Revamp');
+    console.log('============================================\n');
 
-    // Character
-    console.log('Building character model...');
-    const charData = buildCharacter();
+    // Male character
+    console.log('Building male character model...');
+    const charData = buildCharacter('male');
     await exportToGLB(charData.scene, charData.animations, 'character.glb');
+
+    // Female character
+    console.log('Building female character model...');
+    const femData = buildCharacter('female');
+    await exportToGLB(femData.scene, femData.animations, 'character_female.glb');
 
     // Vehicles
     const vehicleTypes = ['sedan', 'sports', 'truck', 'motorcycle', 'boat', 'police'];
@@ -1475,6 +2235,11 @@ async function main() {
         const vData = buildVehicle(type);
         await exportToGLB(vData.scene, vData.animations, `${type}.glb`);
     }
+
+    // Helicopter (separate builder)
+    console.log('Building helicopter model...');
+    const heliData = buildHelicopter();
+    await exportToGLB(heliData.scene, heliData.animations, 'helicopter.glb');
 
     // Weapons
     const weaponTypes = ['bat', 'knife', 'pistol', 'smg', 'shotgun', 'rifle', 'sniper', 'grenade', 'atomizer'];

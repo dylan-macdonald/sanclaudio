@@ -73,26 +73,48 @@ export class Player {
         this.swimSpeed = 3;
         this.swimSprintSpeed = 5;
 
+        // Body shape morph targets (GTA SA style)
+        this.fatLevel = 0;      // 0-1, affects morph target 0
+        this.muscleLevel = 0;   // 0-1, affects morph target 1
+
         // Custom appearance (clothing shop)
         this.appearance = {
             shirtColor: 0x4466aa,
             pantsColor: 0x333344,
+            shoesColor: 0x222222,
             hasHat: false,
-            hasSunglasses: false
+            hasSunglasses: false,
+            hasBandana: false,
+            hasChain: false,
+            hasBackpack: false,
+            hasWatch: false,
+            hasJacket: false,
+            hasShorts: false,
+            hasGloves: false
         };
         this._hatMesh = null;
         this._sunglassesMesh = null;
+        this._bandanaMesh = null;
+        this._chainMesh = null;
+        this._backpackMesh = null;
+        this._watchMesh = null;
 
-        // Outfits
+        // Outfits — expanded to 14 with jacket/shorts variants
         this.outfits = [
             { name: 'Default', shirt: 0x4466aa, pants: 0x333344, shoes: 0x222222 },
             { name: 'Street', shirt: 0xcc2222, pants: 0x222222, shoes: 0x111111 },
             { name: 'Business', shirt: 0xeeeeee, pants: 0x222233, shoes: 0x332211 },
             { name: 'Casual', shirt: 0x44aa44, pants: 0x556644, shoes: 0x553322 },
             { name: 'Night Out', shirt: 0x111111, pants: 0x111111, shoes: 0x111111 },
-            { name: 'Beach', shirt: 0xff8844, pants: 0x4488cc, shoes: 0xddccaa },
+            { name: 'Beach', shirt: 0xff8844, pants: 0x4488cc, shoes: 0xddccaa, shorts: true },
             { name: 'Gangster', shirt: 0xffffff, pants: 0x999999, shoes: 0x000000 },
-            { name: 'Military', shirt: 0x445533, pants: 0x445533, shoes: 0x222211 }
+            { name: 'Military', shirt: 0x445533, pants: 0x445533, shoes: 0x222211, jacket: true, gloves: true },
+            { name: 'Track Suit', shirt: 0x2244aa, pants: 0x2244aa, shoes: 0xeeeeee, jacket: true },
+            { name: 'Lumberjack', shirt: 0xcc4422, pants: 0x556644, shoes: 0x553322, jacket: true },
+            { name: 'Mechanic', shirt: 0x666677, pants: 0x333344, shoes: 0x222222, gloves: true },
+            { name: 'Lifeguard', shirt: 0xff3333, pants: 0xff3333, shoes: 0xddccaa, shorts: true },
+            { name: 'Biker', shirt: 0x222222, pants: 0x111111, shoes: 0x111111, jacket: true, gloves: true },
+            { name: 'Tourist', shirt: 0x44bbdd, pants: 0xccaa88, shoes: 0x998866, shorts: true }
         ];
         this.currentOutfit = 0;
         this.wardrobeOpen = false;
@@ -147,12 +169,20 @@ export class Player {
             if (clips.length > 0) {
                 this.mixer = new THREE.AnimationMixer(this.model);
 
+                const onceAnims = new Set([
+                    'punch', 'jump', 'carjack', 'enter_vehicle', 'exit_vehicle',
+                    'melee_combo2', 'melee_combo3', 'melee_bat', 'melee_knife',
+                    'fire_pistol', 'fire_rifle', 'fall', 'land_hard',
+                    'death_front', 'death_back', 'pulled_from_car',
+                    'aimed_at_cower', 'aimed_at_comply', 'aim_pistol', 'aim_rifle',
+                    'hands_up', 'sit_bench', 'lean_wall'
+                ]);
                 for (const clip of clips) {
                     const action = this.mixer.clipAction(clip);
                     this.actions[clip.name] = action;
 
                     // Set loop mode
-                    if (clip.name === 'punch' || clip.name === 'jump') {
+                    if (onceAnims.has(clip.name)) {
                         action.setLoop(THREE.LoopOnce);
                         action.clampWhenFinished = true;
                     } else {
@@ -418,6 +448,13 @@ export class Player {
             this._isJumping = false;
         }
 
+        // Track pre-land velocity for landing animation
+        if (!this.isOnGround) {
+            this._preLandVelocityY = this.velocity.y;
+        }
+
+        const wasOnGround = this.isOnGround;
+
         // Apply velocity with physics
         const physics = this.game.systems.physics;
         if (physics && physics.ready && this.physicsBody && this.physicsCollider) {
@@ -440,6 +477,14 @@ export class Player {
             this.isOnGround = physics.isCharacterGrounded();
             if (this.isOnGround && this.velocity.y < 0) {
                 this.velocity.y = 0;
+            }
+
+            // Landing detection
+            if (!wasOnGround && this.isOnGround && this.mixer) {
+                const landVelocity = Math.abs(this._preLandVelocityY || 0);
+                if (landVelocity > 10) {
+                    this._playOneShot('land_hard', this.animState);
+                }
             }
         } else {
             // Fallback: old AABB collision system
@@ -468,6 +513,14 @@ export class Player {
                 this.position.y = groundY;
                 this.velocity.y = 0;
                 this.isOnGround = true;
+
+                // Landing detection
+                if (!wasOnGround && this.mixer) {
+                    const landVelocity = Math.abs(this._preLandVelocityY || 0);
+                    if (landVelocity > 10) {
+                        this._playOneShot('land_hard', this.animState);
+                    }
+                }
             } else {
                 this.position.y = newY;
                 this.isOnGround = false;
@@ -501,7 +554,9 @@ export class Player {
 
         // Crouch visual
         if (this.isCrouching) {
-            this.model.scale.y = 0.7;
+            if (!(this.mixer && this.actions['crouch_idle'])) {
+                this.model.scale.y = 0.7;
+            }
             this.model.position.y -= 0.3;
         } else {
             this.model.scale.y = 1;
@@ -649,9 +704,23 @@ export class Player {
 
         // Determine target animation state
         let targetState = 'idle';
-        if (speed > 7) targetState = 'sprint';
-        else if (speed > 4) targetState = 'run';
-        else if (speed > 0.5) targetState = 'walk';
+
+        // Priority animation states (override speed-based)
+        if (this.isSwimming) {
+            targetState = 'swim_surface';
+        } else if (!this.isOnGround && this.velocity.y < -5 && !this._isJumping) {
+            targetState = 'fall';
+        } else if (this.isCrouching) {
+            targetState = speed > 0.5 ? 'crouch_walk' : 'crouch_idle';
+        } else {
+            // Normal speed-based states
+            if (speed > 7) targetState = 'sprint';
+            else if (speed > 4) targetState = 'run';
+            else if (speed > 0.5) targetState = 'walk';
+        }
+
+        // Update morph targets for fat/muscle body shape
+        this._updateMorphTargets();
 
         // If we have a mixer (skeleton animations)
         if (this.mixer) {
@@ -686,6 +755,29 @@ export class Player {
 
         nextAction.reset().fadeIn(duration).play();
         this.currentAction = nextAction;
+    }
+
+    _playOneShot(clipName, returnToState) {
+        const action = this.actions[clipName];
+        if (!action) return;
+
+        if (this.currentAction) {
+            this.currentAction.fadeOut(0.15);
+        }
+
+        action.reset().setLoop(THREE.LoopOnce, 1).fadeIn(0.15).play();
+        action.clampWhenFinished = true;
+        this.currentAction = action;
+        this._oneShotReturn = returnToState || this.animState;
+
+        const onFinished = () => {
+            this.mixer.removeEventListener('finished', onFinished);
+            if (this._oneShotReturn) {
+                this._crossfadeTo(this._oneShotReturn, 0.2);
+                this._oneShotReturn = null;
+            }
+        };
+        this.mixer.addEventListener('finished', onFinished);
     }
 
     _updateFallbackAnimation(dt, speed) {
@@ -1054,6 +1146,9 @@ export class Player {
             this._vehicleTransitionTimer = 0.5;
             this._vehicleTransitionStart = this.position.clone();
             this._vehicleTransitionTarget = vehicle.mesh.position.clone();
+            if (this.mixer && this.actions['enter_vehicle']) {
+                this._playOneShot('enter_vehicle', 'drive');
+            }
             this.inVehicle = true;
             this.currentVehicle = vehicle;
             vehicle.occupied = true;
@@ -1064,6 +1159,10 @@ export class Player {
 
     exitVehicle() {
         if (!this.currentVehicle) return;
+
+        if (this.mixer && this.actions['exit_vehicle']) {
+            this._playOneShot('exit_vehicle', 'idle');
+        }
 
         const vPos = this.currentVehicle.mesh.position;
         const angle = this.currentVehicle.mesh.rotation.y;
@@ -1309,6 +1408,9 @@ export class Player {
         // Sync outfit colors into appearance object for save/load
         this.appearance.shirtColor = outfit.shirt;
         this.appearance.pantsColor = outfit.pants;
+        this.appearance.hasJacket = !!outfit.jacket;
+        this.appearance.hasShorts = !!outfit.shorts;
+        this.appearance.hasGloves = !!outfit.gloves;
 
         // Update fallback model parts (if using fallback model)
         if (this.parts.torso) {
@@ -1381,6 +1483,77 @@ export class Player {
             if (this._sunglassesMesh) this._sunglassesMesh.visible = false;
         }
 
+        // Bandana: flat cylinder wrapped around forehead
+        if (a.hasBandana) {
+            if (!this._bandanaMesh) {
+                const bandGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.06, 10);
+                const bandMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.8 });
+                this._bandanaMesh = new THREE.Mesh(bandGeo, bandMat);
+                this._bandanaMesh.position.set(0, 1.85, 0);
+                this.model.add(this._bandanaMesh);
+            }
+            this._bandanaMesh.visible = true;
+        } else {
+            if (this._bandanaMesh) this._bandanaMesh.visible = false;
+        }
+
+        // Chain necklace: small torus around neck
+        if (a.hasChain) {
+            if (!this._chainMesh) {
+                const chainGeo = new THREE.TorusGeometry(0.12, 0.012, 6, 16);
+                const chainMat = new THREE.MeshStandardMaterial({ color: 0xddcc44, roughness: 0.2, metalness: 0.9 });
+                this._chainMesh = new THREE.Mesh(chainGeo, chainMat);
+                this._chainMesh.position.set(0, 1.50, 0.06);
+                this._chainMesh.rotation.x = Math.PI / 2;
+                this.model.add(this._chainMesh);
+            }
+            this._chainMesh.visible = true;
+        } else {
+            if (this._chainMesh) this._chainMesh.visible = false;
+        }
+
+        // Backpack: box on back
+        if (a.hasBackpack) {
+            if (!this._backpackMesh) {
+                const bpGroup = new THREE.Group();
+                const bpBody = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.25, 0.30, 0.12),
+                    new THREE.MeshStandardMaterial({ color: 0x445533, roughness: 0.8 })
+                );
+                bpGroup.add(bpBody);
+                // Straps
+                for (const side of [-1, 1]) {
+                    const strap = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.03, 0.28, 0.04),
+                        new THREE.MeshStandardMaterial({ color: 0x333322, roughness: 0.8 })
+                    );
+                    strap.position.set(side * 0.08, 0, 0.08);
+                    bpGroup.add(strap);
+                }
+                bpGroup.position.set(0, 1.28, -0.20);
+                this._backpackMesh = bpGroup;
+                this.model.add(this._backpackMesh);
+            }
+            this._backpackMesh.visible = true;
+        } else {
+            if (this._backpackMesh) this._backpackMesh.visible = false;
+        }
+
+        // Watch: small cylinder on left wrist
+        if (a.hasWatch) {
+            if (!this._watchMesh) {
+                const watchGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.015, 8);
+                const watchMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.2, metalness: 0.8 });
+                this._watchMesh = new THREE.Mesh(watchGeo, watchMat);
+                this._watchMesh.position.set(-0.36, 0.82, 0);
+                this._watchMesh.rotation.x = Math.PI / 2;
+                this.model.add(this._watchMesh);
+            }
+            this._watchMesh.visible = true;
+        } else {
+            if (this._watchMesh) this._watchMesh.visible = false;
+        }
+
         // Also apply to GLTF model vertex colors
         this._applyAppearanceToGLTF();
     }
@@ -1413,13 +1586,21 @@ export class Player {
         const shoeG = ((SHOE >> 8) & 0xff) / 255;
         const shoeB = (SHOE & 0xff) / 255;
 
-        // Foot bone names for identifying shoe vertices vs other dark vertices
+        // Bone groups for clothing zones
         const footBones = new Set();
+        const handBones = new Set();
+        const kneeBones = new Set(); // shin = lower leg
+        const SKIN_COLOR = 0xd4a574;
+        const skinR = ((SKIN_COLOR >> 16) & 0xff) / 255;
+        const skinG = ((SKIN_COLOR >> 8) & 0xff) / 255;
+        const skinB = (SKIN_COLOR & 0xff) / 255;
         mesh.skeleton.bones.forEach((bone, idx) => {
             if (bone.name === 'L_Foot' || bone.name === 'R_Foot') footBones.add(idx);
+            if (bone.name === 'L_Hand' || bone.name === 'R_Hand') handBones.add(idx);
+            if (bone.name === 'L_Knee' || bone.name === 'R_Knee') kneeBones.add(idx);
         });
 
-        this._glbVertexMap = { shirt: [], pants: [], shoe: [] };
+        this._glbVertexMap = { shirt: [], pants: [], shoe: [], hand: [], shin: [] };
         const eps = 0.02; // Color match tolerance
 
         for (let i = 0; i < colorAttr.count; i++) {
@@ -1432,8 +1613,14 @@ export class Player {
                 this._glbVertexMap.shirt.push(i);
             } else if (Math.abs(r - pantsR) < eps && Math.abs(g - pantsG) < eps && Math.abs(b - pantsB) < eps) {
                 this._glbVertexMap.pants.push(i);
+                // Also track shin (lower leg) for shorts
+                if (kneeBones.has(boneIdx)) {
+                    this._glbVertexMap.shin.push(i);
+                }
             } else if (Math.abs(r - shoeR) < eps && Math.abs(g - shoeG) < eps && Math.abs(b - shoeB) < eps && footBones.has(boneIdx)) {
                 this._glbVertexMap.shoe.push(i);
+            } else if (Math.abs(r - skinR) < eps && Math.abs(g - skinG) < eps && Math.abs(b - skinB) < eps && handBones.has(boneIdx)) {
+                this._glbVertexMap.hand.push(i);
             }
         }
     }
@@ -1461,6 +1648,34 @@ export class Player {
         const pb = (a.pantsColor & 0xff) / 255;
         for (const idx of this._glbVertexMap.pants) {
             colorAttr.setXYZ(idx, pr, pg, pb);
+        }
+
+        // Apply shoes color
+        const shoeColor = a.shoesColor || 0x222222;
+        const shr = ((shoeColor >> 16) & 0xff) / 255;
+        const shg = ((shoeColor >> 8) & 0xff) / 255;
+        const shb = (shoeColor & 0xff) / 255;
+        for (const idx of this._glbVertexMap.shoe) {
+            colorAttr.setXYZ(idx, shr, shg, shb);
+        }
+
+        // Shorts: recolor shin (lower leg) to skin color when wearing shorts
+        if (a.hasShorts && this._glbVertexMap.shin.length > 0) {
+            const skinColor = 0xd4a574;
+            const skr = ((skinColor >> 16) & 0xff) / 255;
+            const skg = ((skinColor >> 8) & 0xff) / 255;
+            const skb = (skinColor & 0xff) / 255;
+            for (const idx of this._glbVertexMap.shin) {
+                colorAttr.setXYZ(idx, skr, skg, skb);
+            }
+        }
+
+        // Gloves: recolor hand vertices to a dark version of shirt color
+        if (a.hasGloves && this._glbVertexMap.hand.length > 0) {
+            const gloveColor = new THREE.Color(a.shirtColor).multiplyScalar(0.4);
+            for (const idx of this._glbVertexMap.hand) {
+                colorAttr.setXYZ(idx, gloveColor.r, gloveColor.g, gloveColor.b);
+            }
         }
 
         colorAttr.needsUpdate = true;
@@ -1507,6 +1722,323 @@ export class Player {
         } else {
             if (this._sunglassesMesh) this._sunglassesMesh.visible = false;
         }
+
+        // Apply character texture atlas if UVs exist
+        this._applyCharacterTexture();
+    }
+
+    // --- Character Texture Atlas ---
+    _generateCharacterTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Base fill: near-white so vertex colors show through when multiplied
+        ctx.fillStyle = '#f8f6f4';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // ── Torso region (0-256 x, 0-170 y) ──
+        // Collar V-line
+        ctx.strokeStyle = 'rgba(60,50,40,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(108, 10);
+        ctx.lineTo(128, 45);
+        ctx.lineTo(148, 10);
+        ctx.stroke();
+
+        // Button placket center line
+        ctx.strokeStyle = 'rgba(60,50,40,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(128, 45);
+        ctx.lineTo(128, 160);
+        ctx.stroke();
+
+        // Button dots
+        ctx.fillStyle = 'rgba(60,50,40,0.35)';
+        for (let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.arc(128, 60 + i * 25, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Two chest pockets
+        for (const px of [80, 160]) {
+            ctx.strokeStyle = 'rgba(50,40,30,0.25)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px, 55, 30, 22);
+            // Pocket flap line
+            ctx.beginPath();
+            ctx.moveTo(px, 55);
+            ctx.lineTo(px + 30, 55);
+            ctx.stroke();
+        }
+
+        // Shoulder seam lines
+        ctx.strokeStyle = 'rgba(60,50,40,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, 18);
+        ctx.lineTo(60, 25);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(216, 18);
+        ctx.lineTo(196, 25);
+        ctx.stroke();
+
+        // Hem line at bottom
+        ctx.strokeStyle = 'rgba(50,40,30,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(50, 158);
+        ctx.lineTo(206, 158);
+        ctx.stroke();
+
+        // ── Pants region (0-256 x, 170-340 y) ──
+        // Subtle denim weave (diagonal crosshatch)
+        ctx.strokeStyle = 'rgba(50,45,60,0.12)';
+        ctx.lineWidth = 0.5;
+        for (let i = -170; i < 256; i += 6) {
+            ctx.beginPath();
+            ctx.moveTo(i, 170);
+            ctx.lineTo(i + 170, 340);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(i + 170, 170);
+            ctx.lineTo(i, 340);
+            ctx.stroke();
+        }
+
+        // Fly line
+        ctx.strokeStyle = 'rgba(50,45,60,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(128, 172);
+        ctx.lineTo(128, 225);
+        ctx.stroke();
+
+        // Side seam lines
+        for (const sx of [60, 196]) {
+            ctx.strokeStyle = 'rgba(50,45,60,0.2)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(sx, 172);
+            ctx.lineTo(sx, 338);
+            ctx.stroke();
+        }
+
+        // Knee crease marks
+        for (const kx of [90, 165]) {
+            ctx.strokeStyle = 'rgba(50,45,60,0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(kx - 15, 275);
+            ctx.quadraticCurveTo(kx, 270, kx + 15, 275);
+            ctx.stroke();
+        }
+
+        // Belt line at top
+        ctx.strokeStyle = 'rgba(50,40,30,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(50, 174);
+        ctx.lineTo(206, 174);
+        ctx.stroke();
+
+        // Belt buckle rectangle
+        ctx.strokeStyle = 'rgba(80,70,50,0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(118, 172, 20, 8);
+
+        // ── Face region (256-512 x, 0-170 y) ──
+        const fx = 384, fy = 85; // Face center
+
+        // Eyebrow arcs
+        ctx.strokeStyle = 'rgba(40,30,20,0.6)';
+        ctx.lineWidth = 2.5;
+        for (const side of [-1, 1]) {
+            ctx.beginPath();
+            ctx.arc(fx + side * 30, fy - 18, 18, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.stroke();
+        }
+
+        // Eye detail (dark circles with white highlight)
+        for (const side of [-1, 1]) {
+            const ex = fx + side * 30, ey = fy;
+            ctx.fillStyle = 'rgba(30,25,20,0.7)';
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 10, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // White highlight
+            ctx.fillStyle = 'rgba(240,240,240,0.9)';
+            ctx.beginPath();
+            ctx.arc(ex + side * 3, ey - 2, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Nose shadow
+        ctx.strokeStyle = 'rgba(60,50,40,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(fx - 4, fy + 8);
+        ctx.quadraticCurveTo(fx, fy + 22, fx + 4, fy + 8);
+        ctx.stroke();
+
+        // Lip color band
+        ctx.fillStyle = 'rgba(180,100,90,0.5)';
+        ctx.beginPath();
+        ctx.ellipse(fx, fy + 30, 14, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle cheek contour
+        for (const side of [-1, 1]) {
+            ctx.strokeStyle = 'rgba(60,50,40,0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(fx + side * 45, fy + 10, 20, Math.PI * 0.3, Math.PI * 0.7);
+            ctx.stroke();
+        }
+
+        // Chin line
+        ctx.strokeStyle = 'rgba(60,50,40,0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(fx, fy + 50, 25, Math.PI * 0.2, Math.PI * 0.8);
+        ctx.stroke();
+
+        // Five o'clock shadow (subtle stipple)
+        ctx.fillStyle = 'rgba(40,35,30,0.08)';
+        for (let i = 0; i < 80; i++) {
+            const sx = fx - 25 + Math.random() * 50;
+            const sy = fy + 22 + Math.random() * 30;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 0.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // ── Arms/Hands region (256-512 x, 170-340 y) ──
+        const ax = 384, ay = 255;
+
+        // Sleeve end lines
+        ctx.strokeStyle = 'rgba(50,40,30,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(280, 210);
+        ctx.lineTo(488, 210);
+        ctx.stroke();
+
+        // Forearm vein hints
+        ctx.strokeStyle = 'rgba(80,100,120,0.12)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(340, 230);
+        ctx.quadraticCurveTo(355, 260, 345, 300);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(425, 230);
+        ctx.quadraticCurveTo(415, 260, 420, 300);
+        ctx.stroke();
+
+        // Knuckle crease marks
+        for (let k = 0; k < 4; k++) {
+            ctx.strokeStyle = 'rgba(50,40,30,0.25)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            const kx = 350 + k * 20;
+            ctx.moveTo(kx, 310);
+            ctx.lineTo(kx + 8, 313);
+            ctx.stroke();
+        }
+
+        // Wristband line
+        ctx.strokeStyle = 'rgba(50,40,30,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(310, 300);
+        ctx.lineTo(460, 300);
+        ctx.stroke();
+
+        // ── Shoes region (0-256 x, 340-512 y) ──
+        // Toe cap stitching
+        ctx.strokeStyle = 'rgba(40,35,25,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(128, 400, 40, Math.PI * 1.2, Math.PI * 1.8);
+        ctx.stroke();
+
+        // Sole edge line
+        ctx.strokeStyle = 'rgba(30,25,15,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(50, 440);
+        ctx.lineTo(206, 440);
+        ctx.stroke();
+
+        // Lace pattern (small dots)
+        ctx.fillStyle = 'rgba(40,35,25,0.3)';
+        for (let i = 0; i < 6; i++) {
+            for (const side of [-1, 1]) {
+                ctx.beginPath();
+                ctx.arc(128 + side * 10, 365 + i * 10, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Heel counter line
+        ctx.strokeStyle = 'rgba(40,35,25,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(128, 470, 30, Math.PI * 1.1, Math.PI * 1.9);
+        ctx.stroke();
+
+        // ── Hair region (256-512 x, 340-512 y) ──
+        // Parallel strand lines
+        ctx.strokeStyle = 'rgba(20,15,10,0.2)';
+        ctx.lineWidth = 0.8;
+        for (let i = 0; i < 25; i++) {
+            const sy = 350 + i * 6;
+            ctx.beginPath();
+            ctx.moveTo(270, sy);
+            ctx.bezierCurveTo(
+                330, sy + Math.sin(i * 0.7) * 4,
+                430, sy - Math.sin(i * 0.9) * 3,
+                500, sy
+            );
+            ctx.stroke();
+        }
+
+        // Scalp gradient (darker at roots near top)
+        const scalpGrad = ctx.createLinearGradient(256, 340, 256, 400);
+        scalpGrad.addColorStop(0, 'rgba(30,20,10,0.15)');
+        scalpGrad.addColorStop(1, 'rgba(30,20,10,0)');
+        ctx.fillStyle = scalpGrad;
+        ctx.fillRect(256, 340, 256, 60);
+
+        // Part line
+        ctx.strokeStyle = 'rgba(30,20,10,0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(370, 345);
+        ctx.lineTo(380, 500);
+        ctx.stroke();
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+    }
+
+    _applyCharacterTexture() {
+        if (!this._glbMesh) return;
+        if (!this._glbMesh.geometry.getAttribute('uv')) return; // No UVs = skip
+
+        if (!this._characterTexture) {
+            this._characterTexture = this._generateCharacterTexture();
+        }
+
+        this._glbMesh.material.map = this._characterTexture;
+        this._glbMesh.material.needsUpdate = true;
     }
 
     _drawWardrobeUI() {
@@ -1571,6 +2103,11 @@ export class Player {
     die() {
         if (this.isDead) return; // Prevent double-death
         this.isDead = true;
+
+        // Play death animation briefly before ragdoll
+        if (this.mixer && this.actions['death_front']) {
+            this._crossfadeTo('death_front', 0.1);
+        }
 
         this.game.systems.ragdoll.triggerPlayerRagdoll(this);
 
@@ -1696,6 +2233,28 @@ export class Player {
         return this._rightHandBone || null;
     }
 
+    _updateMorphTargets() {
+        if (!this.model) return;
+        this.model.traverse((child) => {
+            if ((child.isMesh || child.isSkinnedMesh) && child.morphTargetInfluences) {
+                // Morph target 0 = fat, 1 = muscle
+                if (child.morphTargetInfluences.length >= 1) {
+                    child.morphTargetInfluences[0] = this.fatLevel;
+                }
+                if (child.morphTargetInfluences.length >= 2) {
+                    child.morphTargetInfluences[1] = this.muscleLevel;
+                }
+            }
+        });
+
+        // Gameplay effects from body shape
+        // Fat > 0.5: -10% run speed, -15% stamina drain multiplier
+        // Muscle > 0.5: +20% melee damage (handled in weapons.js), +10% max health
+        this.walkSpeed = 5 * (1 - this.fatLevel * 0.1);
+        this.sprintSpeed = 9 * (1 - this.fatLevel * 0.1);
+        this.maxHealth = 100 + this.muscleLevel * 10;
+    }
+
     _updateHeldWeapon() {
         const weapon = this.getCurrentWeapon();
         const hand = this._getRightHand();
@@ -1728,11 +2287,25 @@ export class Player {
         const model = weapons.createWeaponModel(weaponId);
         if (!model || model.children.length === 0) return;
 
-        // Position relative to hand bone
+        // Per-weapon position/rotation offsets for correct hand alignment
+        const offsets = {
+            bat:     { pos: [0, 0.15, 0.05], rot: [0, 0, 0], scale: 3 },
+            knife:   { pos: [0, 0.02, 0.04], rot: [0, 0, 0], scale: 3 },
+            pistol:  { pos: [0, 0, 0.06], rot: [0, 0, 0], scale: 3 },
+            smg:     { pos: [0, 0, 0.08], rot: [0, 0, 0], scale: 3 },
+            shotgun: { pos: [0.02, 0, 0.12], rot: [0, 0, 0], scale: 2.8 },
+            rifle:   { pos: [0.02, 0, 0.14], rot: [0, 0, 0], scale: 2.8 },
+            sniper:  { pos: [0.02, 0, 0.16], rot: [0, 0, 0], scale: 2.5 },
+            grenade: { pos: [0, 0, 0.02], rot: [0, 0, 0], scale: 3 },
+            atomizer:{ pos: [0, 0, 0.08], rot: [0, 0, 0], scale: 2.8 }
+        };
+        const o = offsets[weaponId] || { pos: [0, 0, 0.05], rot: [0, 0, 0], scale: 3 };
+
         if (this._rightHandBone) {
-            // GLTF skeleton — scale up weapon for visibility, extend forward from hand
-            model.scale.set(3, 3, 3);
-            model.position.set(0, 0, 0.05);
+            // GLTF skeleton — per-weapon scale and offset
+            model.scale.set(o.scale, o.scale, o.scale);
+            model.position.set(o.pos[0], o.pos[1], o.pos[2]);
+            model.rotation.set(o.rot[0], o.rot[1], o.rot[2]);
         } else {
             // Fallback box model — weapon extends forward from hand
             model.position.set(0, 0, 0.04);

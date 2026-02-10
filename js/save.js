@@ -33,8 +33,16 @@ export class SaveManager {
                     appearance: {
                         shirtColor: player.appearance.shirtColor,
                         pantsColor: player.appearance.pantsColor,
+                        shoesColor: player.appearance.shoesColor,
                         hasHat: player.appearance.hasHat,
-                        hasSunglasses: player.appearance.hasSunglasses
+                        hasSunglasses: player.appearance.hasSunglasses,
+                        hasBandana: player.appearance.hasBandana,
+                        hasChain: player.appearance.hasChain,
+                        hasBackpack: player.appearance.hasBackpack,
+                        hasWatch: player.appearance.hasWatch,
+                        hasJacket: player.appearance.hasJacket,
+                        hasShorts: player.appearance.hasShorts,
+                        hasGloves: player.appearance.hasGloves
                     }
                 },
                 missions: {

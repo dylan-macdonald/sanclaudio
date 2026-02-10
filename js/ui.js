@@ -1233,50 +1233,56 @@ export class UIManager {
 
         const shirtHex = '#' + a.shirtColor.toString(16).padStart(6, '0');
         const pantsHex = '#' + a.pantsColor.toString(16).padStart(6, '0');
+        const shoesHex = '#' + (a.shoesColor || 0x222222).toString(16).padStart(6, '0');
+
+        const toggleBtn = (id, label, price, isOn) => `
+            <div style="margin-bottom:8px;">
+                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+                    ${label} — $${price}
+                    <button id="${id}" style="padding:4px 16px;background:${isOn ? '#ff44cc' : '#333'};color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-family:Rajdhani,sans-serif;">
+                        ${isOn ? 'ON' : 'OFF'}
+                    </button>
+                </label>
+            </div>`;
+
+        const colorPicker = (id, label, price, hex) => `
+            <div style="margin-bottom:8px;">
+                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+                    ${label} — $${price}
+                    <input type="color" id="${id}" value="${hex}"
+                        style="width:50px;height:28px;border:1px solid #555;background:#222;cursor:pointer;">
+                </label>
+            </div>`;
 
         const html = `
-            <div style="color:#ff44cc;font-size:18px;text-align:center;margin-bottom:14px;border-bottom:1px solid rgba(255,68,204,0.3);padding-bottom:10px;">
+            <div style="color:#ff44cc;font-size:18px;text-align:center;margin-bottom:10px;border-bottom:1px solid rgba(255,68,204,0.3);padding-bottom:8px;">
                 ${storeName || 'CLOTHING STORE'}
             </div>
-            <div style="color:#aaa;font-size:12px;text-align:center;margin-bottom:16px;">
+            <div style="color:#aaa;font-size:12px;text-align:center;margin-bottom:12px;">
                 Cash: <span style="color:#4c4">$${player.cash.toLocaleString()}</span>
             </div>
 
-            <div style="margin-bottom:14px;">
-                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
-                    Shirt Color — $100
-                    <input type="color" id="cs-shirt-color" value="${shirtHex}"
-                        style="width:50px;height:28px;border:1px solid #555;background:#222;cursor:pointer;">
-                </label>
-            </div>
+            <div style="color:#999;font-size:11px;text-transform:uppercase;margin-bottom:6px;letter-spacing:1px;">Clothing</div>
+            ${colorPicker('cs-shirt-color', 'Shirt Color', 100, shirtHex)}
+            ${colorPicker('cs-pants-color', 'Pants Color', 100, pantsHex)}
+            ${colorPicker('cs-shoes-color', 'Shoes Color', 100, shoesHex)}
 
-            <div style="margin-bottom:14px;">
-                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
-                    Pants Color — $100
-                    <input type="color" id="cs-pants-color" value="${pantsHex}"
-                        style="width:50px;height:28px;border:1px solid #555;background:#222;cursor:pointer;">
-                </label>
-            </div>
+            <div style="color:#999;font-size:11px;text-transform:uppercase;margin:10px 0 6px;letter-spacing:1px;">Headwear</div>
+            ${toggleBtn('cs-hat-btn', 'Hat', 200, a.hasHat)}
+            ${toggleBtn('cs-sunglasses-btn', 'Sunglasses', 500, a.hasSunglasses)}
+            ${toggleBtn('cs-bandana-btn', 'Bandana', 300, a.hasBandana)}
 
-            <div style="margin-bottom:14px;">
-                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
-                    Hat — $200
-                    <button id="cs-hat-btn" style="padding:4px 16px;background:${a.hasHat ? '#ff44cc' : '#333'};color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-family:Rajdhani,sans-serif;">
-                        ${a.hasHat ? 'ON' : 'OFF'}
-                    </button>
-                </label>
-            </div>
+            <div style="color:#999;font-size:11px;text-transform:uppercase;margin:10px 0 6px;letter-spacing:1px;">Outerwear</div>
+            ${toggleBtn('cs-jacket-btn', 'Jacket', 300, a.hasJacket)}
+            ${toggleBtn('cs-shorts-btn', 'Shorts', 150, a.hasShorts)}
+            ${toggleBtn('cs-gloves-btn', 'Gloves', 250, a.hasGloves)}
 
-            <div style="margin-bottom:18px;">
-                <label style="color:#ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
-                    Sunglasses — $500
-                    <button id="cs-sunglasses-btn" style="padding:4px 16px;background:${a.hasSunglasses ? '#ff44cc' : '#333'};color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-family:Rajdhani,sans-serif;">
-                        ${a.hasSunglasses ? 'ON' : 'OFF'}
-                    </button>
-                </label>
-            </div>
+            <div style="color:#999;font-size:11px;text-transform:uppercase;margin:10px 0 6px;letter-spacing:1px;">Accessories</div>
+            ${toggleBtn('cs-chain-btn', 'Gold Chain', 400, a.hasChain)}
+            ${toggleBtn('cs-backpack-btn', 'Backpack', 350, a.hasBackpack)}
+            ${toggleBtn('cs-watch-btn', 'Watch', 500, a.hasWatch)}
 
-            <div style="display:flex;gap:10px;justify-content:center;">
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
                 <button id="cs-buy-btn" style="padding:8px 24px;background:#ff44cc;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:Rajdhani,sans-serif;font-size:14px;font-weight:bold;">
                     BUY CHANGES
                 </button>
@@ -1284,48 +1290,66 @@ export class UIManager {
                     CLOSE
                 </button>
             </div>
-            <div id="cs-message" style="color:#ff4444;font-size:12px;text-align:center;margin-top:10px;min-height:16px;"></div>
+            <div id="cs-message" style="color:#ff4444;font-size:12px;text-align:center;margin-top:8px;min-height:16px;"></div>
         `;
 
         this._clothingShopEl.innerHTML = html;
 
         // Wire up events
-        const closeBtn = document.getElementById('cs-close-btn');
-        closeBtn.addEventListener('click', () => this.closeClothingShop());
+        document.getElementById('cs-close-btn').addEventListener('click', () => this.closeClothingShop());
 
-        const hatBtn = document.getElementById('cs-hat-btn');
-        hatBtn.addEventListener('click', () => {
-            this._csHatPending = !this._csHatPending;
-            hatBtn.textContent = this._csHatPending ? 'ON' : 'OFF';
-            hatBtn.style.background = this._csHatPending ? '#ff44cc' : '#333';
-        });
-
-        const sunBtn = document.getElementById('cs-sunglasses-btn');
-        sunBtn.addEventListener('click', () => {
-            this._csSunglassesPending = !this._csSunglassesPending;
-            sunBtn.textContent = this._csSunglassesPending ? 'ON' : 'OFF';
-            sunBtn.style.background = this._csSunglassesPending ? '#ff44cc' : '#333';
-        });
+        // Toggle button helpers
+        const toggles = [
+            { id: 'cs-hat-btn', key: '_csHatPending' },
+            { id: 'cs-sunglasses-btn', key: '_csSunglassesPending' },
+            { id: 'cs-bandana-btn', key: '_csBandanaPending' },
+            { id: 'cs-jacket-btn', key: '_csJacketPending' },
+            { id: 'cs-shorts-btn', key: '_csShortsPending' },
+            { id: 'cs-gloves-btn', key: '_csGlovesPending' },
+            { id: 'cs-chain-btn', key: '_csChainPending' },
+            { id: 'cs-backpack-btn', key: '_csBackpackPending' },
+            { id: 'cs-watch-btn', key: '_csWatchPending' }
+        ];
+        for (const t of toggles) {
+            const btn = document.getElementById(t.id);
+            btn.addEventListener('click', () => {
+                this[t.key] = !this[t.key];
+                btn.textContent = this[t.key] ? 'ON' : 'OFF';
+                btn.style.background = this[t.key] ? '#ff44cc' : '#333';
+            });
+        }
 
         // Store pending state from current appearance
         this._csHatPending = a.hasHat;
         this._csSunglassesPending = a.hasSunglasses;
+        this._csBandanaPending = a.hasBandana;
+        this._csJacketPending = !!a.hasJacket;
+        this._csShortsPending = !!a.hasShorts;
+        this._csGlovesPending = !!a.hasGloves;
+        this._csChainPending = a.hasChain;
+        this._csBackpackPending = a.hasBackpack;
+        this._csWatchPending = a.hasWatch;
 
-        const buyBtn = document.getElementById('cs-buy-btn');
-        buyBtn.addEventListener('click', () => {
+        document.getElementById('cs-buy-btn').addEventListener('click', () => {
             const msgEl = document.getElementById('cs-message');
-            const shirtInput = document.getElementById('cs-shirt-color');
-            const pantsInput = document.getElementById('cs-pants-color');
-
-            const newShirt = parseInt(shirtInput.value.replace('#', ''), 16);
-            const newPants = parseInt(pantsInput.value.replace('#', ''), 16);
+            const newShirt = parseInt(document.getElementById('cs-shirt-color').value.replace('#', ''), 16);
+            const newPants = parseInt(document.getElementById('cs-pants-color').value.replace('#', ''), 16);
+            const newShoes = parseInt(document.getElementById('cs-shoes-color').value.replace('#', ''), 16);
 
             // Calculate cost
             let cost = 0;
             if (newShirt !== a.shirtColor) cost += 100;
             if (newPants !== a.pantsColor) cost += 100;
+            if (newShoes !== (a.shoesColor || 0x222222)) cost += 100;
             if (this._csHatPending !== a.hasHat) cost += 200;
             if (this._csSunglassesPending !== a.hasSunglasses) cost += 500;
+            if (this._csBandanaPending !== a.hasBandana) cost += 300;
+            if (this._csJacketPending !== !!a.hasJacket) cost += 300;
+            if (this._csShortsPending !== !!a.hasShorts) cost += 150;
+            if (this._csGlovesPending !== !!a.hasGloves) cost += 250;
+            if (this._csChainPending !== a.hasChain) cost += 400;
+            if (this._csBackpackPending !== a.hasBackpack) cost += 350;
+            if (this._csWatchPending !== a.hasWatch) cost += 500;
 
             if (cost === 0) {
                 msgEl.style.color = '#aaa';
@@ -1343,8 +1367,16 @@ export class UIManager {
             player.cash -= cost;
             a.shirtColor = newShirt;
             a.pantsColor = newPants;
+            a.shoesColor = newShoes;
             a.hasHat = this._csHatPending;
             a.hasSunglasses = this._csSunglassesPending;
+            a.hasBandana = this._csBandanaPending;
+            a.hasJacket = this._csJacketPending;
+            a.hasShorts = this._csShortsPending;
+            a.hasGloves = this._csGlovesPending;
+            a.hasChain = this._csChainPending;
+            a.hasBackpack = this._csBackpackPending;
+            a.hasWatch = this._csWatchPending;
             player.applyAppearance();
 
             msgEl.style.color = '#44ff44';
