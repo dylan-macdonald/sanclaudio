@@ -85,7 +85,7 @@ export class PhysicsManager {
 
         // Build heightfield data: Rapier heightfield is nrows x ncols
         // Heights are row-major, indexed [row * ncols + col]
-        const res = 80; // 80x80 grid over the map
+        const res = 160; // 160x160 grid over the map
         const nrows = res + 1;
         const ncols = res + 1;
         const heights = new Float32Array(nrows * ncols);
@@ -95,9 +95,9 @@ export class PhysicsManager {
 
         for (let row = 0; row < nrows; row++) {
             for (let col = 0; col < ncols; col++) {
-                // Map row/col to world X/Z
-                const x = -halfMap + col * cellW;
-                const z = -halfMap + row * cellH;
+                // Rapier heightfield: row index → X axis, col index → Z axis
+                const x = -halfMap + row * cellW;
+                const z = -halfMap + col * cellH;
                 heights[row * ncols + col] = getHeightFn(x, z);
             }
         }
@@ -121,14 +121,14 @@ export class PhysicsManager {
     // Uses world raycast with predicate to hit only the ground heightfield.
     getGroundHeight(x, z) {
         if (!this.ready) return 0;
-        const ray = new RAPIER.Ray({ x, y: 50, z }, { x: 0, y: -1, z: 0 });
+        const ray = new RAPIER.Ray({ x, y: 200, z }, { x: 0, y: -1, z: 0 });
         const groundHandle = this._groundCollider ? this._groundCollider.handle : -1;
-        const hit = this.world.castRay(ray, 100, true, undefined, undefined, undefined, undefined,
+        const hit = this.world.castRay(ray, 400, true, undefined, undefined, undefined, undefined,
             (collider) => collider.handle === groundHandle
         );
         if (hit) {
             const t = hit.timeOfImpact !== undefined ? hit.timeOfImpact : hit.toi;
-            if (t >= 0) return 50 - t;
+            if (t >= 0) return 200 - t;
         }
         // Fallback to world terrain function
         if (this.game.systems.world) {

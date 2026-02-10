@@ -1,5 +1,5 @@
 // San Claudio - Camera System
-// Third-person spring-arm follow camera
+// Third-person spring-arm follow camera + dev free-fly camera
 
 export class CameraController {
     constructor(game) {
@@ -41,6 +41,18 @@ export class CameraController {
         this.shakeIntensity = 0;
         this.shakeDecay = 8; // How fast shake fades
 
+        // ─── Dev Camera ─────────────────────────────────────────
+        this.devCamActive = false;
+        this.devCamPos = new THREE.Vector3(0, 50, 0);
+        this.devCamYaw = 0;
+        this.devCamPitch = -0.5; // Looking down
+        this.devCamSpeed = 50; // Units per second
+        this.devCamSpeedMin = 5;
+        this.devCamSpeedMax = 500;
+
+        // Camera presets (up to 10 slots)
+        this.presets = {};
+
         this.camera.position.copy(this.currentPos);
         this.camera.lookAt(new THREE.Vector3(0, 1.5, 0));
     }
@@ -49,8 +61,107 @@ export class CameraController {
         this.shakeIntensity = Math.min(this.shakeIntensity + intensity, 2.0);
     }
 
+    // ─── Dev Camera Toggle ──────────────────────────────────────
+    toggleDevCam() {
+        this.devCamActive = !this.devCamActive;
+        if (this.devCamActive) {
+            // Initialize dev cam at current camera position
+            this.devCamPos.copy(this.camera.position);
+            this.devCamYaw = this.yaw;
+            this.devCamPitch = this.pitch;
+        }
+        return this.devCamActive;
+    }
+
+    // ─── Dev Camera Update ──────────────────────────────────────
+    updateDevCam(dt) {
+        const input = this.game.systems.input;
+        const keys = input.keys;
+
+        // Mouse look (yaw/pitch)
+        this.devCamYaw -= input.lookX * dt * 2;
+        this.devCamPitch += input.lookY * dt * 2;
+        this.devCamPitch = Math.max(-1.5, Math.min(1.5, this.devCamPitch));
+
+        // Speed adjustment via scroll (handled by devtools scroll listener)
+
+        // Movement direction vectors
+        const forward = new THREE.Vector3(
+            -Math.sin(this.devCamYaw) * Math.cos(this.devCamPitch),
+            -Math.sin(this.devCamPitch),
+            -Math.cos(this.devCamYaw) * Math.cos(this.devCamPitch)
+        ).normalize();
+
+        const right = new THREE.Vector3(
+            -Math.cos(this.devCamYaw),
+            0,
+            Math.sin(this.devCamYaw)
+        ).normalize();
+
+        const up = new THREE.Vector3(0, 1, 0);
+
+        // Speed multiplier: shift = fast, ctrl = slow
+        let speed = this.devCamSpeed;
+        if (keys['ShiftLeft'] || keys['ShiftRight']) speed *= 3;
+        if (keys['ControlLeft'] || keys['ControlRight']) speed *= 0.2;
+
+        const move = speed * dt;
+
+        // WASD + QE movement
+        if (keys['KeyW']) this.devCamPos.addScaledVector(forward, move);
+        if (keys['KeyS']) this.devCamPos.addScaledVector(forward, -move);
+        if (keys['KeyA']) this.devCamPos.addScaledVector(right, -move);
+        if (keys['KeyD']) this.devCamPos.addScaledVector(right, move);
+        if (keys['KeyQ'] || keys['Space']) this.devCamPos.addScaledVector(up, move);
+        if (keys['KeyE'] || keys['KeyC']) this.devCamPos.addScaledVector(up, -move);
+
+        // Apply position and look direction
+        this.camera.position.copy(this.devCamPos);
+        const lookTarget = this.devCamPos.clone().add(forward);
+        this.camera.lookAt(lookTarget);
+        this.camera.updateProjectionMatrix();
+    }
+
+    // ─── Camera Presets ─────────────────────────────────────────
+    savePreset(slot) {
+        this.presets[slot] = {
+            pos: this.camera.position.clone(),
+            yaw: this.devCamActive ? this.devCamYaw : this.yaw,
+            pitch: this.devCamActive ? this.devCamPitch : this.pitch,
+            devCam: this.devCamActive,
+            speed: this.devCamSpeed
+        };
+        return this.presets[slot];
+    }
+
+    loadPreset(slot) {
+        const p = this.presets[slot];
+        if (!p) return null;
+
+        if (p.devCam && !this.devCamActive) this.toggleDevCam();
+        if (!p.devCam && this.devCamActive) this.toggleDevCam();
+
+        if (this.devCamActive) {
+            this.devCamPos.copy(p.pos);
+            this.devCamYaw = p.yaw;
+            this.devCamPitch = p.pitch;
+            this.devCamSpeed = p.speed;
+        } else {
+            this.currentPos.copy(p.pos);
+            this.yaw = p.yaw;
+            this.pitch = p.pitch;
+        }
+        return p;
+    }
+
     update(dt) {
         if (!dt) return;
+
+        // Dev camera mode — bypass all game camera logic
+        if (this.devCamActive) {
+            this.updateDevCam(dt);
+            return;
+        }
 
         const input = this.game.systems.input;
         const player = this.game.systems.player;
@@ -93,8 +204,9 @@ export class CameraController {
             playerPos.z + offset.z
         );
 
-        // Camera floor clamp - never below y=1.5
-        this.targetPos.y = Math.max(1.5, this.targetPos.y);
+        // Camera floor clamp - terrain-relative
+        const terrainY = this.game.systems.world ? this.game.systems.world.getTerrainHeight(playerPos.x, playerPos.z) : 0;
+        this.targetPos.y = Math.max(terrainY + 1.0, this.targetPos.y);
 
         // Building collision - raycast from player to camera, pull closer if blocked
         const lookTarget = new THREE.Vector3(
@@ -121,7 +233,7 @@ export class CameraController {
                         lookTarget.y + camDir.y * safeT,
                         lookTarget.z + camDir.z * safeT
                     );
-                    this.targetPos.y = Math.max(1.5, this.targetPos.y);
+                    this.targetPos.y = Math.max(terrainY + 1.0, this.targetPos.y);
                 }
             }
         } else {
@@ -142,7 +254,7 @@ export class CameraController {
                             lookTarget.y + camDir.y * safeT,
                             lookTarget.z + camDir.z * safeT
                         );
-                        this.targetPos.y = Math.max(1.5, this.targetPos.y);
+                        this.targetPos.y = Math.max(terrainY + 1.0, this.targetPos.y);
                         break;
                     }
                 }
@@ -151,7 +263,7 @@ export class CameraController {
 
         // Spring interpolation
         this.currentPos.lerp(this.targetPos, Math.min(1, this.smoothSpeed * dt));
-        this.currentPos.y = Math.max(1.5, this.currentPos.y);
+        this.currentPos.y = Math.max(terrainY + 1.0, this.currentPos.y);
         this.camera.position.copy(this.currentPos);
 
         // Screen shake

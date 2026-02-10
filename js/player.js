@@ -299,7 +299,7 @@ export class Player {
         }
 
         // Kill plane — respawn if fallen below map (works in any state)
-        if (this.position.y < -50) {
+        if (this.position.y < -20) {
             if (this.inVehicle) {
                 this.exitVehicle();
             }

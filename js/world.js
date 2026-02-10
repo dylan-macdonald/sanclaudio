@@ -700,7 +700,7 @@ export class World {
 
     createGround() {
         // Subdivided ground plane for terrain elevation
-        const segs = 80; // 80x80 = 6400 verts, ~10m resolution on 800x800 map
+        const segs = 160; // 160x160 = 25600 verts, ~5m resolution on 800x800 map
         const geo = new THREE.PlaneGeometry(this.mapSize, this.mapSize, segs, segs);
         geo.rotateX(-Math.PI / 2);
 
@@ -5127,23 +5127,75 @@ export class World {
     }
 
     getTerrainHeight(x, z) {
+        // Smooth hermite interpolation (0 at edge, 1 at center)
+        const smoothstep = (d, r) => {
+            if (d >= r) return 0;
+            const t = 1 - d / r;
+            return t * t * (3 - 2 * t);
+        };
+
         let height = 0;
-        // Hillside: gradual hill rising toward NW corner (max 12 units)
+
+        // --- District elevation zones (overlapping radial influences) ---
+        // All heights at 1.5x scale for dramatic elevation
+
+        // Hillside (NW): dramatic peak at 165, radius 280
         const hillDist = Math.sqrt((x + 275) * (x + 275) + (z + 275) * (z + 275));
-        if (hillDist < 300) {
-            height += Math.max(0, 12 * (1 - hillDist / 300));
-        }
-        // Downtown center: slight 3-unit rise
+        height += 165 * smoothstep(hillDist, 280);
+
+        // Downtown (center): elevated plateau at 27, radius 150
         const dtDist = Math.sqrt(x * x + z * z);
-        if (dtDist < 150) {
-            height += 3 * (1 - dtDist / 150) * 0.5;
+        height += 27 * smoothstep(dtDist, 150);
+
+        // North Shore (N edge): ridge at 52, centered z=-300, radius 180
+        const nsDist = Math.sqrt(x * x + (z + 300) * (z + 300));
+        height += 52 * smoothstep(nsDist, 180);
+
+        // The Strip (NE): moderate hills at 38, radius 160
+        const stripDist = Math.sqrt((x - 275) * (x - 275) + (z + 275) * (z + 275));
+        height += 38 * smoothstep(stripDist, 160);
+
+        // West End (W): moderate slope 38, radius 180
+        const weDist = Math.sqrt((x + 275) * (x + 275) + z * z);
+        height += 38 * smoothstep(weDist, 180);
+
+        // Eastgate (E): gentle hills 22, radius 160
+        const egDist = Math.sqrt((x - 275) * (x - 275) + z * z);
+        height += 22 * smoothstep(egDist, 160);
+
+        // The Docks (SW): low waterfront 9, radius 160
+        const dkDist = Math.sqrt((x + 275) * (x + 275) + (z - 275) * (z - 275));
+        height += 9 * smoothstep(dkDist, 160);
+
+        // Industrial Park (SE): low flat 12, radius 160
+        const indDist = Math.sqrt((x - 275) * (x - 275) + (z - 275) * (z - 275));
+        height += 12 * smoothstep(indDist, 160);
+
+        // Portside (S): low port 12, radius 150
+        const psDist = Math.sqrt(x * x + (z - 275) * (z - 275));
+        height += 12 * smoothstep(psDist, 150);
+
+        // --- Coastal falloff: slope to 0 at map edges ---
+        const halfMap = 400;
+        const coastMargin = 60; // start dropping 60 units from edge
+        const edgeDistX = halfMap - Math.abs(x);
+        const edgeDistZ = halfMap - Math.abs(z);
+        const edgeDist = Math.min(edgeDistX, edgeDistZ);
+        if (edgeDist < coastMargin) {
+            const coastFactor = Math.max(0, edgeDist / coastMargin);
+            // Smooth coastal curve
+            height *= coastFactor * coastFactor * (3 - 2 * coastFactor);
         }
-        // North Shore: gentle coastal slope
-        if (z < -200) {
-            const factor = Math.min(1, (-200 - z) / 200);
-            height += factor * 4;
-        }
-        return height;
+
+        // --- Deterministic noise for micro variation (2-4 units) ---
+        const nx = x * 0.03;
+        const nz = z * 0.03;
+        const noise1 = Math.sin(nx * 1.7 + nz * 2.3) * Math.cos(nz * 1.3 - nx * 0.7);
+        const noise2 = Math.sin(nx * 3.1 + 1.7) * Math.cos(nz * 2.7 + 0.9) * 0.5;
+        height += (noise1 + noise2) * 3.75;
+
+        // Never go below 0 (water level)
+        return Math.max(0, height);
     }
 
     isOnRoad(pos) {

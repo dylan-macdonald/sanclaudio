@@ -140,7 +140,8 @@ export class VehicleManager {
         for (const sp of spawnPoints) {
             const v = this.spawnVehicle(sp.x, sp.z, sp.type, sp.onWater);
             if (v && sp.onHelipad) {
-                v.mesh.position.y = 0; // Ground level helipad
+                const heliGroundY = this.game.systems.physics.getGroundHeight(sp.x, sp.z) || 0;
+                v.mesh.position.y = heliGroundY;
             }
             if (v && sp.isTaxi) {
                 v._isTaxi = true;
@@ -2305,7 +2306,8 @@ export class VehicleManager {
             const padGeo = new THREE.CylinderGeometry(5, 5, 0.2, 16);
             const padMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.9 });
             const pad = new THREE.Mesh(padGeo, padMat);
-            pad.position.set(pos.x, 0.1, pos.z);
+            const padGroundY = this.game.systems.physics.getGroundHeight(pos.x, pos.z) || 0;
+            pad.position.set(pos.x, padGroundY + 0.1, pos.z);
             pad.receiveShadow = true;
             this.game.scene.add(pad);
 
@@ -2332,7 +2334,7 @@ export class VehicleManager {
                 map: hTex, transparent: true, depthWrite: false
             }));
             hMesh.rotation.x = -Math.PI / 2;
-            hMesh.position.set(pos.x, 0.22, pos.z);
+            hMesh.position.set(pos.x, padGroundY + 0.22, pos.z);
             this.game.scene.add(hMesh);
         }
     }
