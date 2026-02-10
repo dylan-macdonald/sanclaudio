@@ -725,36 +725,59 @@ class Game {
                 u.fogDensity.value = 0;
             }
 
-            // Day/night color grading
-            if (dayFactor > 0.5) {
-                // Day: warm tint
-                u.colorTint.value.set(1.0, 0.98, 0.95);
-                u.colorSaturation.value += (1.1 - u.colorSaturation.value) * lerpSpeed;
-            } else if (dayFactor > 0.2) {
-                // Dusk/dawn: orange tint
-                u.colorTint.value.set(1.05, 0.92, 0.85);
-                u.colorSaturation.value += (1.2 - u.colorSaturation.value) * lerpSpeed;
+            // Day/night color grading — smooth interpolation across 4 zones
+            // Day (dayFactor 0.7+): warm golden
+            // Golden hour (0.3-0.7): blend day→dusk
+            // Dusk/dawn (0.1-0.3): deep orange
+            // Night (0-0.1): cool blue
+            let targetTintR, targetTintG, targetTintB, targetSat;
+            if (dayFactor > 0.7) {
+                targetTintR = 1.04; targetTintG = 0.97; targetTintB = 0.91;
+                targetSat = 1.12;
+            } else if (dayFactor > 0.3) {
+                // Smooth blend between day warmth and dusk orange
+                const t = (dayFactor - 0.3) / 0.4;
+                targetTintR = 1.12 + (1.04 - 1.12) * t;
+                targetTintG = 0.86 + (0.97 - 0.86) * t;
+                targetTintB = 0.74 + (0.91 - 0.74) * t;
+                targetSat = 1.25 + (1.12 - 1.25) * t;
+            } else if (dayFactor > 0.1) {
+                // Smooth blend between dusk and night
+                const t = (dayFactor - 0.1) / 0.2;
+                targetTintR = 0.82 + (1.12 - 0.82) * t;
+                targetTintG = 0.86 + (0.86 - 0.86) * t;
+                targetTintB = 1.06 + (0.74 - 1.06) * t;
+                targetSat = 0.85 + (1.25 - 0.85) * t;
             } else {
-                // Night: cool blue
-                u.colorTint.value.set(0.85, 0.88, 1.0);
-                u.colorSaturation.value += (0.9 - u.colorSaturation.value) * lerpSpeed;
+                targetTintR = 0.82; targetTintG = 0.86; targetTintB = 1.06;
+                targetSat = 0.85;
             }
+            const tintLerp = 0.04;
+            const cv = u.colorTint.value;
+            cv.x += (targetTintR - cv.x) * tintLerp;
+            cv.y += (targetTintG - cv.y) * tintLerp;
+            cv.z += (targetTintB - cv.z) * tintLerp;
+            u.colorSaturation.value += (targetSat - u.colorSaturation.value) * tintLerp;
 
             // Vignette
             u.vignetteIntensity.value = this.postProcessing.vignetteEnabled ? 0.3 : 0;
         }
 
-        // Bloom: weather and time-driven
+        // Bloom: weather, time, and golden-hour driven
         if (this.bloomPass && this.bloomPass.enabled) {
             const weatherBloom = {
-                clear: 0.3, overcast: 0.25, rain: 0.2, storm: 0.5, fog: 0.15
+                clear: 0.35, overcast: 0.3, rain: 0.25, storm: 0.55, fog: 0.2
             };
-            const targetStrength = weatherBloom[this.currentWeather] || 0.3;
-            this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * 0.02;
+            let targetStrength = weatherBloom[this.currentWeather] || 0.35;
+            // Golden hour bloom boost — warm glow at dusk/dawn
+            if (dayFactor > 0.2 && dayFactor < 0.6) {
+                targetStrength += 0.15;
+            }
+            this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * 0.03;
 
-            // Lower threshold at night so neon signs glow more
-            const targetThreshold = dayFactor > 0.5 ? 0.85 : 0.75;
-            this.bloomPass.threshold += (targetThreshold - this.bloomPass.threshold) * 0.02;
+            // Lower threshold at night and golden hour for more glow
+            const targetThreshold = dayFactor > 0.6 ? 0.82 : dayFactor > 0.2 ? 0.7 : 0.65;
+            this.bloomPass.threshold += (targetThreshold - this.bloomPass.threshold) * 0.03;
         }
 
         // Suppress during showroom mode
